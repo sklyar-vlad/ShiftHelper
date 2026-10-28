@@ -1,0 +1,47 @@
+http:
+  routers:
+    frontend:
+      rule: 'Host(`{{ env "APP_DOMAIN" }}`)'
+      priority: 1
+      service: frontend
+    api:
+      rule: 'Host(`{{ env "APP_DOMAIN" }}`) && (PathPrefix(`/api/`) || Path(`/healthz`) || Path(`/readyz`) || Path(`/metrics`))'
+      priority: 10
+      service: backend
+    documentation:
+      rule: 'Host(`{{ env "APP_DOMAIN" }}`) && Path(`/api/v1/docs`)'
+      priority: 20
+      service: frontend
+    swagger:
+      rule: 'Host(`{{ env "APP_DOMAIN" }}`) && PathPrefix(`/docs/`)'
+      priority: 20
+      middlewares:
+        - docs-prefix
+      service: swagger
+    openapi:
+      rule: 'Host(`{{ env "APP_DOMAIN" }}`) && Path(`/api/v1/openapi.yaml`)'
+      priority: 20
+      middlewares:
+        - openapi-path
+      service: swagger
+  middlewares:
+    docs-prefix:
+      stripPrefix:
+        prefixes:
+          - /docs
+    openapi-path:
+      replacePath:
+        path: /openapi.yaml
+  services:
+    frontend:
+      loadBalancer:
+        servers:
+          - url: http://frontend:80
+    backend:
+      loadBalancer:
+        servers:
+          - url: 'http://backend:{{ env "HTTP_PORT" }}'
+    swagger:
+      loadBalancer:
+        servers:
+          - url: http://swagger:8080

@@ -1,0 +1,171 @@
+name: shifthelper
+
+x-postgres-client: &postgres-client
+  POSTGRES_URL: ${POSTGRES_URL:-postgres://?sslmode=disable}
+  PGHOST: postgres
+  PGPORT: "5432"
+  PGDATABASE: ${POSTGRES_DB:-shifthelper}
+  PGUSER: ${POSTGRES_USER:-shifthelper}
+  PGPASSWORD: ${POSTGRES_PASSWORD:?Run task env to prepare infra/.env}
+
+services:
+  traefik:
+    image: traefik:v3.7.15
+    command:
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.transport.respondingtimeouts.readtimeout=900s
+      - --ping=true
+      - --log.format=json
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-shifthelper.localhost}
+      HTTP_PORT: ${HTTP_PORT:-8081}
+    ports:
+      - "${TRAEFIK_HTTP_PORT:-80}:80"
+    volumes:
+      - ./traefik:/etc/traefik/dynamic:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        printf '%s' "$$METRICS_TOKEN" > /tmp/metrics-token &&
+        exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml
+        --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=7d
+        --storage.tsdb.retention.size=512MB --web.listen-address=:9090
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    mem_limit: 256m
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shifthelper}
+      POSTGRES_USER: ${POSTGRES_USER:-shifthelper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run task env to prepare infra/.env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  goose:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+      target: goose
+    environment:
+      <<: *postgres-client
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: ${POSTGRES_URL:-postgres://?sslmode=disable}
+      GOOSE_MIGRATION_DIR: /migrations
+    volumes:
+      - ../backend/migrations:/migrations:ro
+    command: ["up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.frontend
+    environment:
+      HTTP_PORT: ${HTTP_PORT:-8081}
+    depends_on:
+      backend:
+        condition: service_healthy
+      swagger:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    environment:
+      <<: *postgres-client
+      HTTP_PORT: ${HTTP_PORT:-8081}
+      REDIS_URL: ${REDIS_URL-redis://redis:6379/0}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    depends_on:
+      goose:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$${HTTP_PORT}/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    entrypoint: ["/worker"]
+    environment:
+      <<: *postgres-client
+    depends_on:
+      goose:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    stop_grace_period: 15s
+    profiles: [worker]
+    restart: unless-stopped
+
+  swagger:
+    build:
+      context: ..
+      dockerfile: swagger/Dockerfile
+    environment:
+      HTTP_PORT: ${HTTP_PORT:-8081}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  postgres_data:
