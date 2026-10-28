@@ -1,17 +1,48 @@
 openapi: 3.0.3
 info:
   title: ShiftHelper API
-  version: 0.1.0
-  description: Стартовый контракт. Предметные endpoints добавляются по мере согласования и реализации задач.
+  version: 0.2.0
+  description: 'Контракт MVP для последующей реализации backend и frontend; наличие операции здесь не означает,
+    что она уже реализована.
+
+    Пользователь имеет одну неизменяемую роль customer или worker. Оплата фиксирована за всё задание, напрямую между
+    сторонами; платформа деньги не проводит.
+
+    Нет черновиков, редактирования заданий, платежей, чата, споров, оценок, восстановления пароля или подтверждения
+    email.
+
+    Все даты — RFC 3339 (ISO 8601 с обязательным Z или смещением часового пояса); ответы используют UTC.
+
+    Суммы — целые копейки RUB. Текстовые поля обрезаются по краям до проверки длины, пароль не изменяется.
+
+    Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100.
+
+    Пустая страница возвращает items: [] и total: 0 либо общее число записей при выходе за последнюю страницу. Между
+    запросами страницы могут изменяться.
+
+    Ошибки имеют envelope error с code, message и необязательным fields. Неизвестные поля тела и параметры, неверные
+    UUID, даты, JSON и фильтры дают 400.
+
+    Для закрытых ресурсов доступ проверяется до состояния: отсутствие прав на скрытые данные даёт 404; неверная
+    роль или действие над видимым чужим ресурсом — 403; конфликт состояния — 409.
+
+    Изменения статусов атомарны. Повторное действие даёт 409 и не меняет время переходов. Сервер определяет текущего
+    пользователя по сессии.'
 servers:
-  - url: /
+- url: /
 tags:
-  - name: System
+- name: System
+- name: Auth
+- name: Users
+- name: Gigs
+- name: Applications
+- name: Personal
 paths:
   /api/v1/status:
     get:
       operationId: getStatus
-      tags: [System]
+      tags:
+      - System
       summary: Информация о сервисе
       responses:
         '200':
@@ -23,7 +54,8 @@ paths:
   /healthz:
     get:
       operationId: getHealth
-      tags: [System]
+      tags:
+      - System
       summary: Проверка HTTP-процесса
       responses:
         '200':
@@ -35,7 +67,8 @@ paths:
   /readyz:
     get:
       operationId: getReadiness
-      tags: [System]
+      tags:
+      - System
       summary: Готовность API и PostgreSQL
       responses:
         '200':
@@ -50,11 +83,566 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthStatus'
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      tags:
+      - Auth
+      summary: Регистрация
+      description: Выдаёт новую сессию и текущий профиль. Регистрирует пользователя с одной ролью и сразу авторизует.
+      security: []
+      responses:
+        '201':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+          headers:
+            Set-Cookie:
+              description: shifthelper_session=<opaque>; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800; Secure
+                при HTTPS. Заменяет прежнюю сессию браузера.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      tags:
+      - Auth
+      summary: Вход
+      description: Выдаёт новую сессию и текущий профиль. Неверные учётные данные дают 401; ранее выданная cookie
+        текущего браузера заменяется с отзывом старой сессии.
+      security: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+          headers:
+            Set-Cookie:
+              description: shifthelper_session=<opaque>; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800; Secure
+                при HTTPS. Заменяет прежнюю сессию браузера.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      tags:
+      - Auth
+      summary: Выход
+      description: Отзывает текущую сессию и удаляет cookie. При отсутствующей/истёкшей сессии также 204.
+      security:
+      - {}
+      - sessionCookie: []
+      responses:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '204':
+          description: Успешно; тело отсутствует.
+          headers:
+            Set-Cookie:
+              description: shifthelper_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure при HTTPS.
+              schema:
+                type: string
+  /api/v1/me:
+    get:
+      operationId: getCurrentUser
+      tags:
+      - Users
+      summary: Текущий пользователь
+      description: 'Email доступен только владельцу. completedGigsCount считается по completed: собственные публикации
+        для customer, назначенные работы для worker.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: updateProfile
+      tags:
+      - Users
+      summary: Изменить свой профиль
+      description: Оба поля обязательны. Пустой bio очищает описание. Email и роль не редактируются.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+  /api/v1/users/{userId}:
+    get:
+      operationId: getPublicUser
+      tags:
+      - Users
+      summary: Публичный профиль
+      description: Только безопасные поля; без email, пароля и сессий.
+      security: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /api/v1/gigs:
+    get:
+      operationId: listGigs
+      tags:
+      - Gigs
+      summary: Каталог открытых подработок
+      description: Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города
+        без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно.
+        total — число после фильтрации.
+      security: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GigPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - name: q
+        in: query
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 150
+      - name: city
+        in: query
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 100
+    post:
+      operationId: createGig
+      tags:
+      - Gigs
+      summary: Опубликовать подработку
+      description: Только customer. Автор определяется из сессии; создаётся open. startsAt > время сервера, endsAt
+        > startsAt.
+      security:
+      - sessionCookie: []
+      responses:
+        '201':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGigRequest'
+  /api/v1/gigs/{gigId}:
+    get:
+      operationId: getGig
+      tags:
+      - Gigs
+      summary: Подробности задания
+      description: Открытое задание доступно всем. Любое другое состояние доступно владельцу, выбранному исполнителю
+        и авторам откликов на это задание (включая rejected/withdrawn) для личной истории; прочим 404. Для гостя
+        ответ не содержит личных данных; myApplication=null. Чужие отклики не возвращаются. Если передана просроченная
+        cookie, публичное чтение выполняется как гость.
+      security:
+      - {}
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+  /api/v1/gigs/{gigId}/cancel:
+    post:
+      operationId: cancelGig
+      tags:
+      - Gigs
+      summary: Отменить задание
+      description: 'Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected.
+        Конкурентный выбор и отмена: успешно только одно действие.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+  /api/v1/gigs/{gigId}/submit:
+    post:
+      operationId: submitGig
+      tags:
+      - Gigs
+      summary: Сдать работу
+      description: Только выбранный worker, in_progress → awaiting_confirmation; submittedAt устанавливается сервером.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+  /api/v1/gigs/{gigId}/confirm:
+    post:
+      operationId: confirmGig
+      tags:
+      - Gigs
+      summary: Подтвердить выполнение
+      description: Только владелец-customer, awaiting_confirmation → completed; completedAt устанавливается сервером.
+        Подтверждение не означает проведения оплаты.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+  /api/v1/gigs/{gigId}/applications:
+    post:
+      operationId: createApplication
+      tags:
+      - Applications
+      summary: Откликнуться
+      description: Только worker и только на open. Один отклик на пару (gig, worker) за всё время; после withdrawn
+        или rejected повторный отклик также даёт 409 ALREADY_APPLIED. Отсутствующий comment сохраняется пустой строкой.
+        Тело {} допустимо. Создание и выбор/отмена защищены от гонок.
+      security:
+      - sessionCookie: []
+      responses:
+        '201':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApplicationRequest'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+    get:
+      operationId: listGigApplications
+      tags:
+      - Applications
+      summary: Отклики на своё задание
+      description: Только customer-владелец. Все состояния откликов; необязательный фильтр status. Включает публичный
+        профиль исполнителя. Чужие отклики скрываются ответом 404.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ApplicationStatus'
+  /api/v1/gigs/{gigId}/applications/{applicationId}/select:
+    post:
+      operationId: selectApplication
+      tags:
+      - Applications
+      summary: Выбрать одного исполнителя
+      description: 'Только customer-владелец и pending отклик этого задания. Атомарно: open → in_progress, отклик
+        → selected, остальные pending → rejected, selectedWorker устанавливается. Несовпадение gigId/applicationId
+        — 404. Два выбора либо выбор и отмена: один успех, другой 409 STATE_CONFLICT.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - $ref: '#/components/parameters/ApplicationId'
+  /api/v1/gigs/{gigId}/applications/{applicationId}/withdraw:
+    post:
+      operationId: withdrawApplication
+      tags:
+      - Applications
+      summary: Отозвать свой отклик
+      description: Только worker-автор, pending → withdrawn пока задание open. Нельзя отозвать selected. Чужой отклик
+        или несовпадение gigId/applicationId — 404. Повторный отзыв — 409.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - $ref: '#/components/parameters/ApplicationId'
+  /api/v1/me/gigs:
+    get:
+      operationId: listMyGigs
+      tags:
+      - Personal
+      summary: Мои публикации или назначенные работы
+      description: 'customer видит свои публикации; worker — задания, где он selectedWorker. active: open/in_progress/awaiting_confirmation;
+        history: completed/cancelled; all: все. Включает выбранного исполнителя и число pending откликов. Пользователь
+        определяется по сессии.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GigPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Scope'
+  /api/v1/me/applications:
+    get:
+      operationId: listMyApplications
+      tags:
+      - Personal
+      summary: Мои отклики
+      description: 'Только worker. Все собственные отклики с карточкой связанного задания. active: pending или selected
+        при незавершённом задании; history: rejected/withdrawn либо задание completed/cancelled; all: все. Пользователь
+        определяется по сессии.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyApplicationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Scope'
 components:
   schemas:
     ServiceStatus:
       type: object
-      required: [service, version, status]
+      required:
+      - service
+      - version
+      - status
       properties:
         service:
           type: string
@@ -64,11 +652,699 @@ components:
           example: 0.1.0
         status:
           type: string
-          enum: [ok]
+          enum:
+          - ok
     HealthStatus:
       type: object
-      required: [status]
+      required:
+      - status
       properties:
         status:
           type: string
-          enum: [ok, ready, not_ready]
+          enum:
+          - ok
+          - ready
+          - not_ready
+    Role:
+      type: string
+      enum:
+      - customer
+      - worker
+      description: customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.
+    GigStatus:
+      type: string
+      enum:
+      - open
+      - in_progress
+      - awaiting_confirmation
+      - completed
+      - cancelled
+      description: Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation;
+        подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.
+    ApplicationStatus:
+      type: string
+      enum:
+      - pending
+      - selected
+      - rejected
+      - withdrawn
+      description: Создание → pending; отзыв автором → withdrawn; выбор владельцем → selected, остальные pending
+        → rejected. Отмена задания также переводит pending в rejected. Терминальные состояния не меняются.
+    PublicUser:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - bio
+      - role
+      - completedGigsCount
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        bio:
+          type: string
+          minLength: 0
+          maxLength: 1000
+        role:
+          $ref: '#/components/schemas/Role'
+        completedGigsCount:
+          type: integer
+          minimum: 0
+    CurrentUser:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - bio
+      - role
+      - completedGigsCount
+      - email
+      - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        bio:
+          type: string
+          minLength: 0
+          maxLength: 1000
+        role:
+          $ref: '#/components/schemas/Role'
+        completedGigsCount:
+          type: integer
+          minimum: 0
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        createdAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - email
+      - password
+      - role
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: После удаления пробелов по краям приводится к нижнему регистру; уникален без учёта регистра.
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          writeOnly: true
+          description: Не обрезается и не нормализуется; не возвращается в ответах и не логируется.
+        role:
+          $ref: '#/components/schemas/Role'
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: После удаления пробелов по краям приводится к нижнему регистру; уникален без учёта регистра.
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          writeOnly: true
+          description: Не обрезается и не нормализуется; не возвращается в ответах и не логируется.
+    UpdateProfileRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - bio
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        bio:
+          type: string
+          minLength: 0
+          maxLength: 1000
+    CreateGigRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - title
+      - description
+      - requirements
+      - city
+      - address
+      - startsAt
+      - endsAt
+      - amountKopecks
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        requirements:
+          type: string
+          minLength: 0
+          maxLength: 2000
+          description: Обязательное поле; пустая строка означает отсутствие дополнительных требований.
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        address:
+          type: string
+          minLength: 1
+          maxLength: 300
+        startsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          description: Строго позже текущего времени сервера при публикации.
+        endsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          description: Строго позже startsAt.
+        amountKopecks:
+          type: integer
+          minimum: 1
+          maximum: 10000000000
+          description: Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).
+    GigSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - title
+      - city
+      - startsAt
+      - endsAt
+      - amountKopecks
+      - status
+      - customer
+      - selectedWorker
+      - pendingApplicationsCount
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        startsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+        endsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+        amountKopecks:
+          type: integer
+          minimum: 1
+          maximum: 10000000000
+        status:
+          $ref: '#/components/schemas/GigStatus'
+        customer:
+          $ref: '#/components/schemas/PublicUser'
+        selectedWorker:
+          type: object
+          additionalProperties: false
+          required:
+          - id
+          - name
+          - bio
+          - role
+          - completedGigsCount
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+              minLength: 1
+              maxLength: 100
+            bio:
+              type: string
+              minLength: 0
+              maxLength: 1000
+            role:
+              $ref: '#/components/schemas/Role'
+            completedGigsCount:
+              type: integer
+              minimum: 0
+          nullable: true
+          description: null до выбора исполнителя.
+        pendingApplicationsCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+    Application:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - gigId
+      - worker
+      - comment
+      - status
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        gigId:
+          type: string
+          format: uuid
+        worker:
+          $ref: '#/components/schemas/PublicUser'
+        comment:
+          type: string
+          minLength: 0
+          maxLength: 1000
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+        createdAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+    Gig:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - title
+      - city
+      - startsAt
+      - endsAt
+      - amountKopecks
+      - status
+      - customer
+      - selectedWorker
+      - pendingApplicationsCount
+      - createdAt
+      - updatedAt
+      - description
+      - requirements
+      - address
+      - submittedAt
+      - completedAt
+      - cancelledAt
+      - myApplication
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        startsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+        endsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+        amountKopecks:
+          type: integer
+          minimum: 1
+          maximum: 10000000000
+        status:
+          $ref: '#/components/schemas/GigStatus'
+        customer:
+          $ref: '#/components/schemas/PublicUser'
+        selectedWorker:
+          type: object
+          additionalProperties: false
+          required:
+          - id
+          - name
+          - bio
+          - role
+          - completedGigsCount
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+              minLength: 1
+              maxLength: 100
+            bio:
+              type: string
+              minLength: 0
+              maxLength: 1000
+            role:
+              $ref: '#/components/schemas/Role'
+            completedGigsCount:
+              type: integer
+              minimum: 0
+          nullable: true
+          description: null до выбора исполнителя.
+        pendingApplicationsCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        requirements:
+          type: string
+          minLength: 0
+          maxLength: 2000
+        address:
+          type: string
+          minLength: 1
+          maxLength: 300
+        submittedAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          nullable: true
+        cancelledAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          nullable: true
+        myApplication:
+          type: object
+          additionalProperties: false
+          required:
+          - id
+          - gigId
+          - worker
+          - comment
+          - status
+          - createdAt
+          - updatedAt
+          properties:
+            id:
+              type: string
+              format: uuid
+            gigId:
+              type: string
+              format: uuid
+            worker:
+              $ref: '#/components/schemas/PublicUser'
+            comment:
+              type: string
+              minLength: 0
+              maxLength: 1000
+            status:
+              $ref: '#/components/schemas/ApplicationStatus'
+            createdAt:
+              type: string
+              format: date-time
+              pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+            updatedAt:
+              type: string
+              format: date-time
+              pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          nullable: true
+          description: Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.
+    CreateApplicationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        comment:
+          type: string
+          minLength: 0
+          maxLength: 1000
+          default: ''
+    ErrorCode:
+      type: string
+      enum:
+      - VALIDATION_ERROR
+      - UNAUTHORIZED
+      - INVALID_CREDENTIALS
+      - FORBIDDEN
+      - NOT_FOUND
+      - EMAIL_TAKEN
+      - ALREADY_APPLIED
+      - STATE_CONFLICT
+      - INTERNAL_ERROR
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+          - code
+          - message
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+              minLength: 1
+              maxLength: 1000
+            fields:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+              description: Ошибки по именам полей запроса, например email или startsAt; только для VALIDATION_ERROR.
+    GigPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GigSummary'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+    ApplicationPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Application'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+    MyApplication:
+      type: object
+      additionalProperties: false
+      required:
+      - application
+      - gig
+      properties:
+        application:
+          $ref: '#/components/schemas/Application'
+        gig:
+          $ref: '#/components/schemas/GigSummary'
+    MyApplicationPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MyApplication'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: shifthelper_session
+      description: 'Непрозрачный случайный идентификатор серверной сессии. Cookie: HttpOnly, SameSite=Lax, Path=/,
+        без Domain; Secure обязателен при HTTPS. Срок 7 суток без продления. При входе/регистрации выдаётся новая
+        сессия; выход отзывает текущую и удаляет cookie. Токен не передаётся в JSON и не хранится в localStorage.
+        API и сайт работают на одном origin. Для изменяющих запросов сервер отклоняет чужой Origin (или Referer
+        при отсутствии Origin); при отсутствии обоих — 403. Это касается и входа/регистрации/выхода.'
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    GigId:
+      name: gigId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ApplicationId:
+      name: applicationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Scope:
+      name: scope
+      in: query
+      schema:
+        type: string
+        enum:
+        - all
+        - active
+        - history
+        default: all
+  responses:
+    BadRequest:
+      description: VALIDATION_ERROR — некорректный ввод.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: UNAUTHORIZED — сессия отсутствует или истекла; INVALID_CREDENTIALS — неверный email или пароль
+        (одинаковый ответ для обоих случаев).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: FORBIDDEN — неверная роль, чужое действие или непрошедшая проверка Origin.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: NOT_FOUND — ресурс не существует или скрыт от текущего пользователя.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: EMAIL_TAKEN, ALREADY_APPLIED или STATE_CONFLICT — дубликат либо недопустимый переход состояния.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: INTERNAL_ERROR — внутренняя ошибка без технических деталей.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
