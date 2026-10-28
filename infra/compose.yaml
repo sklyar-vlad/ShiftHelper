@@ -124,6 +124,7 @@ services:
       dockerfile: infra/Dockerfile.backend
     environment:
       <<: *postgres-client
+      APP_ORIGIN: ${APP_ORIGIN:-http://${APP_DOMAIN:-shifthelper.localhost}}
       HTTP_PORT: ${HTTP_PORT:-8081}
       REDIS_URL: ${REDIS_URL-redis://redis:6379/0}
       METRICS_TOKEN: ${METRICS_TOKEN:-}

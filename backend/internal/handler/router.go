@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sklyar-vlad/ShiftHelper/backend/internal/auth"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/metrics"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/status"
 	"go.uber.org/zap"
@@ -16,7 +17,7 @@ import (
 
 var requestIDPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
 
-func NewRouter(logger *zap.Logger, pool *pgxpool.Pool, metricsToken string) *gin.Engine {
+func NewRouter(logger *zap.Logger, pool *pgxpool.Pool, metricsToken, appOrigin string) *gin.Engine {
 	router := gin.New()
 	router.HandleMethodNotAllowed = true
 	router.Use(func(c *gin.Context) {
@@ -33,6 +34,7 @@ func NewRouter(logger *zap.Logger, pool *pgxpool.Pool, metricsToken string) *gin
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "Внутренняя ошибка сервера."}})
 	}))
 	status.NewHandler(status.NewService(status.NewRepository(pool))).Register(router)
+	auth.NewHandler(pool, appOrigin).Register(router)
 	router.GET("/metrics", gin.WrapH(metrics.Handler(metricsToken)))
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "NOT_FOUND", "message": "Ресурс не найден."}})
