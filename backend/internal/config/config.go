@@ -17,6 +17,7 @@ type Database struct {
 	ConnectTimeout time.Duration
 }
 type Server struct {
+	AppOrigin         string
 	Port              string
 	ReadTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
@@ -26,6 +27,10 @@ type Server struct {
 }
 
 func NewConfig() Config {
+	origin := os.Getenv("APP_ORIGIN")
+	if origin == "" {
+		origin = "http://shifthelper.localhost"
+	}
 	port := os.Getenv("HTTP_PORT")
 	if port == "" {
 		port = "8081"
@@ -33,6 +38,6 @@ func NewConfig() Config {
 	return Config{
 		Database: Database{URL: os.Getenv("POSTGRES_URL"), MaxConnections: 10, ConnectTimeout: 5 * time.Second},
 		Redis:    Redis{URL: os.Getenv("REDIS_URL")},
-		Server:   Server{Port: port, ReadTimeout: 30 * time.Second, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: time.Minute, ShutdownTimeout: 5 * time.Second},
+		Server:   Server{AppOrigin: origin, Port: port, ReadTimeout: 30 * time.Second, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: time.Minute, ShutdownTimeout: 5 * time.Second},
 	}
 }

@@ -1,4 +1,7 @@
 services:
+  backend:
+    environment:
+      APP_ORIGIN: https://${VPS_DOMAIN:?Set VPS_DOMAIN in infra/.env}
   traefik:
     command:
       - --providers.file.directory=/etc/traefik/dynamic

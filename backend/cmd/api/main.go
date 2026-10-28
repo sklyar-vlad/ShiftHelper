@@ -70,7 +70,7 @@ func run(logger *zap.Logger) error {
 		return errors.New("usage: /server [migrate up|down|status|version]")
 	}
 	gin.SetMode(gin.ReleaseMode)
-	router := handler.NewRouter(logger, pool, os.Getenv("METRICS_TOKEN"))
+	router := handler.NewRouter(logger, pool, os.Getenv("METRICS_TOKEN"), cfg.Server.AppOrigin)
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Server.Port),
