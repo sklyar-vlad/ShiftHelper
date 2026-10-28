@@ -1,0 +1,25 @@
+services:
+  traefik:
+    command:
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.asdefault=true
+      - --entrypoints.websecure.transport.respondingtimeouts.readtimeout=900s
+      - --entrypoints.websecure.http.tls.certresolver=letsencrypt
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --ping=true
+      - --log.format=json
+    environment:
+      APP_DOMAIN: ${VPS_DOMAIN:?Set VPS_DOMAIN in infra/.env}
+    ports:
+      - "${TRAEFIK_HTTPS_PORT:-443}:443"
+    volumes:
+      - traefik_acme:/letsencrypt
+
+volumes:
+  traefik_acme:

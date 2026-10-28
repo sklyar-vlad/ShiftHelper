@@ -1,0 +1,125 @@
+version: '3'
+
+tasks:
+  backend:run:
+    dir: backend
+    cmds:
+      - go run ./cmd/api
+
+  env:
+    silent: true
+    cmds:
+      - |
+        sh <<'SH'
+        set -eu
+        umask 077
+        if [ ! -f infra/.env ]; then
+          if [ -f .env ]; then
+            mv .env infra/.env
+          else
+            cp infra/.env.example infra/.env
+          fi
+        fi
+        ensure_env() {
+          auth_key="$1"
+          auth_value="${2:-}"
+          if grep -Eq "^${auth_key}=.+$" infra/.env; then
+            return
+          fi
+          if [ -z "$auth_value" ]; then
+            auth_value=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
+          fi
+          sed -i "/^${auth_key}=/d" infra/.env
+          printf '\n%s=%s\n' "$auth_key" "$auth_value" >> infra/.env
+        }
+        ensure_env POSTGRES_PASSWORD
+        ensure_env METRICS_TOKEN
+        chmod 600 infra/.env
+        printf 'infra/.env готов. Настройки подготовлены.\n'
+        SH
+
+  up:
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml -p shifthelper up -d --build --wait --wait-timeout 180
+
+  vps-up:
+    aliases: [up:vps]
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml -f infra/compose.vps.yaml -p shifthelper up -d --build --wait --wait-timeout 180
+
+  down:
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml down
+
+  lint:
+    cmds:
+      - cd backend && golangci-lint run --config=../.golangci.yml ./...
+      - npm --prefix frontend run lint
+
+  fmt:
+    cmds:
+      - cd backend && golangci-lint fmt --config=../.golangci.yml ./...
+      - npm --prefix frontend run format
+
+  swagger:up:
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml up -d --build swagger
+
+  swagger:down:
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml stop swagger
+
+  migrate:up:
+    desc: Применить новые миграции Goose
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml up -d --wait postgres
+      - docker compose --env-file infra/.env -f infra/compose.yaml run --rm --build --no-deps -T goose up
+
+  migrate:down:
+    desc: Откатить одну миграцию Goose
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml stop frontend swagger backend worker
+      - docker compose --env-file infra/.env -f infra/compose.yaml up -d --wait postgres
+      - docker compose --env-file infra/.env -f infra/compose.yaml run --rm --build --no-deps -T goose down
+
+  migrate:status:
+    desc: Показать состояние миграций Goose
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml up -d --wait postgres
+      - docker compose --env-file infra/.env -f infra/compose.yaml run --rm --build --no-deps -T goose status
+
+  migrate:version:
+    desc: Показать версию схемы Goose
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml up -d --wait postgres
+      - docker compose --env-file infra/.env -f infra/compose.yaml run --rm --build --no-deps -T goose version
+
+  test:
+    cmds:
+      - cmd: go test ./...
+        dir: backend
+      - npm --prefix frontend run test:ci
+
+  build:
+    cmds:
+      - cmd: go build ./cmd/api ./cmd/worker
+        dir: backend
+      - npm --prefix frontend run build
+
+  api:
+    cmds:
+      - npm --prefix frontend run api
+
+  vps-down:
+    deps: [env]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml -f infra/compose.vps.yaml down

@@ -1,0 +1,74 @@
+openapi: 3.0.3
+info:
+  title: ShiftHelper API
+  version: 0.1.0
+  description: Стартовый контракт. Предметные endpoints добавляются по мере согласования и реализации задач.
+servers:
+  - url: /
+tags:
+  - name: System
+paths:
+  /api/v1/status:
+    get:
+      operationId: getStatus
+      tags: [System]
+      summary: Информация о сервисе
+      responses:
+        '200':
+          description: Сервис работает
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatus'
+  /healthz:
+    get:
+      operationId: getHealth
+      tags: [System]
+      summary: Проверка HTTP-процесса
+      responses:
+        '200':
+          description: Процесс работает
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+  /readyz:
+    get:
+      operationId: getReadiness
+      tags: [System]
+      summary: Готовность API и PostgreSQL
+      responses:
+        '200':
+          description: Сервис готов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: PostgreSQL недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+components:
+  schemas:
+    ServiceStatus:
+      type: object
+      required: [service, version, status]
+      properties:
+        service:
+          type: string
+          example: ShiftHelper
+        version:
+          type: string
+          example: 0.1.0
+        status:
+          type: string
+          enum: [ok]
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, ready, not_ready]
