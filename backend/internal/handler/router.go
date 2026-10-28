@@ -39,7 +39,7 @@ func NewRouter(logger *zap.Logger, pool *pgxpool.Pool, metricsToken, appOrigin s
 	authHandler := auth.NewHandler(pool, appOrigin)
 	api := authHandler.Register(router)
 	users.NewHandler(pool).Register(api, authHandler.RequireUser())
-	gigs.NewHandler(pool).Register(api, authHandler.RequireUser())
+	gigs.NewHandler(pool).Register(api, authHandler.RequireUser(), authHandler.OptionalUser())
 	router.GET("/metrics", gin.WrapH(metrics.Handler(metricsToken)))
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "NOT_FOUND", "message": "Ресурс не найден."}})

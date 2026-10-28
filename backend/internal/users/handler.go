@@ -26,6 +26,7 @@ type Handler struct{ pool *pgxpool.Pool }
 func NewHandler(pool *pgxpool.Pool) *Handler { return &Handler{pool: pool} }
 
 func (h *Handler) Register(api *gin.RouterGroup, requireUser gin.HandlerFunc) {
+	api = api.Group("", httpapi.ValidateQuery())
 	api.PATCH("/me", requireUser, h.update)
 	api.GET("/users/:userId", h.public)
 }

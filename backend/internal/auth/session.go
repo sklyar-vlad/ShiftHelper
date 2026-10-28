@@ -18,10 +18,6 @@ const sessionMaxAge = 7 * 24 * 60 * 60
 
 func (h *Handler) checkOrigin(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
-	if c.Request.URL.RawQuery != "" {
-		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Неизвестные параметры запроса.")
-		return
-	}
 	if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead || c.Request.Method == http.MethodOptions {
 		return
 	}
@@ -86,11 +82,21 @@ func UserFromContext(c *gin.Context) *User {
 }
 
 func (h *Handler) RequireUser() gin.HandlerFunc {
+	return h.authenticate(true)
+}
+
+func (h *Handler) OptionalUser() gin.HandlerFunc {
+	return h.authenticate(false)
+}
+
+func (h *Handler) authenticate(required bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
 		token, err := c.Cookie(cookieName)
 		if err != nil || token == "" {
-			httpapi.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "Войдите в аккаунт.")
+			if required {
+				httpapi.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "Войдите в аккаунт.")
+			}
 			return
 		}
 		hash := sha256.Sum256([]byte(token))
@@ -98,7 +104,9 @@ func (h *Handler) RequireUser() gin.HandlerFunc {
             FROM users u JOIN sessions s ON s.user_id = u.id
             WHERE s.token_hash = $1 AND s.expires_at > now()`, hash[:]))
 		if errors.Is(err, pgx.ErrNoRows) {
-			httpapi.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "Сессия истекла. Войдите снова.")
+			if required {
+				httpapi.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "Сессия истекла. Войдите снова.")
+			}
 			return
 		}
 		if err != nil {

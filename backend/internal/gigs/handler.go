@@ -26,13 +26,10 @@ type Application struct {
 	UpdatedAt time.Time        `json:"updatedAt"`
 }
 
-type Gig struct {
+type GigSummary struct {
 	ID                       string            `json:"id"`
 	Title                    string            `json:"title"`
-	Description              string            `json:"description"`
-	Requirements             string            `json:"requirements"`
 	City                     string            `json:"city"`
-	Address                  string            `json:"address"`
 	StartsAt                 time.Time         `json:"startsAt"`
 	EndsAt                   time.Time         `json:"endsAt"`
 	AmountKopecks            int64             `json:"amountKopecks"`
@@ -42,19 +39,29 @@ type Gig struct {
 	PendingApplicationsCount int64             `json:"pendingApplicationsCount"`
 	CreatedAt                time.Time         `json:"createdAt"`
 	UpdatedAt                time.Time         `json:"updatedAt"`
-	SubmittedAt              *time.Time        `json:"submittedAt"`
-	CompletedAt              *time.Time        `json:"completedAt"`
-	CancelledAt              *time.Time        `json:"cancelledAt"`
-	MyApplication            *Application      `json:"myApplication"`
+}
+
+type Gig struct {
+	GigSummary
+	Description   string       `json:"description"`
+	Requirements  string       `json:"requirements"`
+	Address       string       `json:"address"`
+	SubmittedAt   *time.Time   `json:"submittedAt"`
+	CompletedAt   *time.Time   `json:"completedAt"`
+	CancelledAt   *time.Time   `json:"cancelledAt"`
+	MyApplication *Application `json:"myApplication"`
 }
 
 type Handler struct{ pool *pgxpool.Pool }
 
 func NewHandler(pool *pgxpool.Pool) *Handler { return &Handler{pool: pool} }
 
-func (h *Handler) Register(api *gin.RouterGroup, requireUser gin.HandlerFunc) {
-	api.POST("/gigs", requireUser, auth.RequireRole("customer"), h.create)
-	api.POST("/gigs/:gigId/cancel", requireUser, auth.RequireRole("customer"), h.cancel)
+func (h *Handler) Register(api *gin.RouterGroup, requireUser, optionalUser gin.HandlerFunc) {
+	api.GET("/gigs", httpapi.ValidateQuery("page", "pageSize", "q", "city"), h.list)
+	api.GET("/gigs/:gigId", httpapi.ValidateQuery(), optionalUser, h.get)
+	write := api.Group("", httpapi.ValidateQuery())
+	write.POST("/gigs", requireUser, auth.RequireRole("customer"), h.create)
+	write.POST("/gigs/:gigId/cancel", requireUser, auth.RequireRole("customer"), h.cancel)
 }
 
 var datePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$`)
