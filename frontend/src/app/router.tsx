@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { HomePage } from "@/pages/home/HomePage";
 import { AppLayout } from "@/widgets/layout/AppLayout";
 import { AccountPage } from "@/pages/account/AccountPage";
+import { AuthPage } from "@/pages/auth/AuthPage";
 import { RequireUser } from "@/shared/ui/RequireUser";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 
@@ -21,21 +22,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "login",
-        element: (
-          <StatusPanel
-            title="Вход в аккаунт"
-            description="Форма входа появится на следующем шаге."
-          />
-        ),
+        element: <AuthPage key="login" mode="login" />,
       },
       {
         path: "register",
-        element: (
-          <StatusPanel
-            title="Создать аккаунт"
-            description="Регистрация скоро станет доступна."
-          />
-        ),
+        element: <AuthPage key="register" mode="register" />,
       },
       {
         element: <RequireUser />,
