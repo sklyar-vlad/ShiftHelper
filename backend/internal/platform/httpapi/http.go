@@ -5,9 +5,14 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 )
+
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+func ValidUUID(value string) bool { return uuidPattern.MatchString(value) }
 
 func DecodeJSON(c *gin.Context, input any, maxBytes int64) bool {
 	contentType, _, err := mime.ParseMediaType(c.GetHeader("Content-Type"))

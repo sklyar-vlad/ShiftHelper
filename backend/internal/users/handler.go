@@ -3,7 +3,6 @@ package users
 import (
 	"errors"
 	"net/http"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -71,10 +70,8 @@ func (h *Handler) update(c *gin.Context) {
 	}
 }
 
-var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-
 func (h *Handler) public(c *gin.Context) {
-	if !uuidPattern.MatchString(c.Param("userId")) {
+	if !httpapi.ValidUUID(c.Param("userId")) {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Некорректный идентификатор пользователя.")
 		return
 	}

@@ -25,41 +25,7 @@ import (
 )
 
 func TestAuthentication(t *testing.T) {
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("set TEST_DATABASE_URL to run authentication tests")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	config, err := pgxpool.ParseConfig(url)
-	if err != nil {
-		t.Fatal("invalid TEST_DATABASE_URL")
-	}
-	admin, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	schema := pgx.Identifier{"auth_test_" + strings.ToLower(rand.Text())}.Sanitize()
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		cleanup, stop := context.WithTimeout(context.Background(), 5*time.Second)
-		defer stop()
-		if _, err := admin.Exec(cleanup, "DROP SCHEMA "+schema+" CASCADE"); err != nil {
-			t.Error(err)
-		}
-	}()
-	config.ConnConfig.RuntimeParams["search_path"] = schema
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Close()
-	if err := migrations.Run(ctx, pool, "up", io.Discard); err != nil {
-		t.Fatal(err)
-	}
+	ctx, pool := testDatabase(t)
 	const origin = "http://shifthelper.localhost"
 	gin.SetMode(gin.ReleaseMode)
 	core, logs := observer.New(zap.InfoLevel)
@@ -208,7 +174,7 @@ func TestAuthentication(t *testing.T) {
 		t.Fatal("empty bio was not cleared")
 	}
 	var gigID string
-	err = pool.QueryRow(ctx, `INSERT INTO gigs (customer_id, title, description, city, address, starts_at, ends_at, amount_kopecks)
+	err := pool.QueryRow(ctx, `INSERT INTO gigs (customer_id, title, description, city, address, starts_at, ends_at, amount_kopecks)
         VALUES ($1, 'Test', 'Work', 'Moscow', 'Example', now() + interval '1 day', now() + interval '2 days', 10000)
         RETURNING id::text`, users[0].ID).Scan(&gigID)
 	if err != nil {
@@ -323,4 +289,44 @@ func TestAuthentication(t *testing.T) {
 			}
 		}
 	}
+}
+
+func testDatabase(t *testing.T) (context.Context, *pgxpool.Pool) {
+	t.Helper()
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("set TEST_DATABASE_URL to run authentication tests")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	t.Cleanup(cancel)
+	config, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		t.Fatal("invalid TEST_DATABASE_URL")
+	}
+	admin, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(admin.Close)
+	schema := pgx.Identifier{"auth_test_" + strings.ToLower(rand.Text())}.Sanitize()
+	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		cleanup, stop := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stop()
+		if _, err := admin.Exec(cleanup, "DROP SCHEMA "+schema+" CASCADE"); err != nil {
+			t.Error(err)
+		}
+	})
+	config.ConnConfig.RuntimeParams["search_path"] = schema
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	if err := migrations.Run(ctx, pool, "up", io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	return ctx, pool
 }
