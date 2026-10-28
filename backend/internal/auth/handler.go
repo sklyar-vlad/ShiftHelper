@@ -2,10 +2,7 @@ package auth
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"errors"
-	"io"
-	"mime"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -16,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sklyar-vlad/ShiftHelper/backend/internal/platform/httpapi"
 )
 
 type User struct {
@@ -38,12 +36,13 @@ func NewHandler(pool *pgxpool.Pool, origin string) *Handler {
 	return &Handler{pool: pool, origin: strings.TrimSuffix(origin, "/"), dummyHash: hashPassword(rand.Text())}
 }
 
-func (h *Handler) Register(router *gin.Engine) {
+func (h *Handler) Register(router *gin.Engine) *gin.RouterGroup {
 	api := router.Group("/api/v1", h.checkOrigin)
 	api.POST("/auth/register", h.register)
 	api.POST("/auth/login", h.login)
 	api.POST("/auth/logout", h.logout)
 	api.GET("/me", h.RequireUser(), func(c *gin.Context) { c.JSON(http.StatusOK, UserFromContext(c)) })
+	return api
 }
 
 type credentials struct {
@@ -64,36 +63,6 @@ func (input *credentials) validate() map[string][]string {
 	return fields
 }
 
-func decode(c *gin.Context, input any) bool {
-	contentType, _, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
-	decoder := json.NewDecoder(http.MaxBytesReader(c.Writer, c.Request.Body, 4096))
-	decoder.DisallowUnknownFields()
-	if err != nil || contentType != "application/json" ||
-		decoder.Decode(input) != nil || decoder.Decode(&struct{}{}) != io.EOF {
-		fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Некорректный JSON или параметры запроса.")
-		return false
-	}
-	return true
-}
-
-func validationError(c *gin.Context, fields map[string][]string) bool {
-	if len(fields) == 0 {
-		return false
-	}
-	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": gin.H{
-		"code": "VALIDATION_ERROR", "message": "Проверьте заполненные поля.", "fields": fields,
-	}})
-	return true
-}
-
-func fail(c *gin.Context, status int, code, message string) {
-	c.AbortWithStatusJSON(status, gin.H{"error": gin.H{"code": code, "message": message}})
-}
-
-func internalError(c *gin.Context) {
-	fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Внутренняя ошибка сервера.")
-}
-
 const userColumns = `u.id::text, u.email, u.name, u.bio, u.role, u.created_at,
     (SELECT count(*) FROM gigs g WHERE g.status = 'completed'
      AND ((u.role = 'customer' AND g.customer_id = u.id) OR (u.role = 'worker' AND g.selected_worker_id = u.id)))`
@@ -112,7 +81,7 @@ func (h *Handler) register(c *gin.Context) {
 		Name string `json:"name"`
 		Role string `json:"role"`
 	}
-	if !decode(c, &input) {
+	if !httpapi.DecodeJSON(c, &input, 4096) {
 		return
 	}
 	fields := input.validate()
@@ -124,14 +93,14 @@ func (h *Handler) register(c *gin.Context) {
 	if input.Role != "customer" && input.Role != "worker" {
 		fields["role"] = []string{"Выберите заказчика или исполнителя."}
 	}
-	if validationError(c, fields) {
+	if httpapi.ValidationError(c, fields) {
 		return
 	}
 	passwordHash := hashPassword(input.Password)
 	ctx := c.Request.Context()
 	tx, err := h.pool.Begin(ctx)
 	if err != nil {
-		internalError(c)
+		httpapi.InternalError(c)
 		return
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
@@ -140,11 +109,11 @@ func (h *Handler) register(c *gin.Context) {
 		input.Email, passwordHash, input.Role, input.Name))
 	var pgerr *pgconn.PgError
 	if errors.As(err, &pgerr) && pgerr.Code == "23505" {
-		fail(c, http.StatusConflict, "EMAIL_TAKEN", "Этот email уже зарегистрирован.")
+		httpapi.Fail(c, http.StatusConflict, "EMAIL_TAKEN", "Этот email уже зарегистрирован.")
 		return
 	}
 	if err != nil {
-		internalError(c)
+		httpapi.InternalError(c)
 		return
 	}
 	h.respondWithSession(c, tx, user, http.StatusCreated)
@@ -152,26 +121,26 @@ func (h *Handler) register(c *gin.Context) {
 
 func (h *Handler) login(c *gin.Context) {
 	var input credentials
-	if !decode(c, &input) || validationError(c, input.validate()) {
+	if !httpapi.DecodeJSON(c, &input, 4096) || httpapi.ValidationError(c, input.validate()) {
 		return
 	}
 	var stored string
 	user, err := scanUser(h.pool.QueryRow(c.Request.Context(),
 		"SELECT "+userColumns+", u.password_hash FROM users u WHERE u.email = $1", input.Email), &stored)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		internalError(c)
+		httpapi.InternalError(c)
 		return
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		stored = h.dummyHash
 	}
 	if !verifyPassword(input.Password, stored) || err != nil {
-		fail(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Неверный email или пароль.")
+		httpapi.Fail(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Неверный email или пароль.")
 		return
 	}
 	tx, err := h.pool.Begin(c.Request.Context())
 	if err != nil {
-		internalError(c)
+		httpapi.InternalError(c)
 		return
 	}
 	defer func() { _ = tx.Rollback(c.Request.Context()) }()

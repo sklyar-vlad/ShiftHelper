@@ -157,6 +157,56 @@ func TestAuthentication(t *testing.T) {
 	expect(send("GET", "/test/customer", "", cookies[1]), 403, "FORBIDDEN")
 	expect(send("GET", "/test/worker", "", cookies[0]), 403, "FORBIDDEN")
 	expect(send("GET", "/test/customer", "", nil), 401, "UNAUTHORIZED")
+	expect(send("PATCH", "/api/v1/me", `{"name":"Name","bio":""}`, nil), 401, "UNAUTHORIZED")
+	for i, cookie := range cookies {
+		response := send("PATCH", "/api/v1/me", `{"name":"  Новое имя  ","bio":"  Обо мне  "}`, cookie)
+		expect(response, 200, "")
+		var updated auth.User
+		if err := json.Unmarshal(response.Body.Bytes(), &updated); err != nil || updated.ID != users[i].ID ||
+			updated.Email != users[i].Email || updated.Role != users[i].Role || updated.Name != "Новое имя" || updated.Bio != "Обо мне" {
+			t.Fatal("profile update changed the wrong fields or account")
+		}
+		response = send("GET", "/api/v1/users/"+users[i].ID, "", nil)
+		expect(response, 200, "")
+		var public map[string]any
+		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 5 ||
+			public["id"] != users[i].ID || public["name"] != "Новое имя" || public["bio"] != "Обо мне" ||
+			public["role"] != users[i].Role || public["completedGigsCount"] != float64(0) {
+			t.Fatal("public profile exposes extra fields or incorrect data")
+		}
+		response = send("GET", "/api/v1/me", "", cookie)
+		expect(response, 200, "")
+		if err := json.Unmarshal(response.Body.Bytes(), &updated); err != nil || updated.Name != "Новое имя" || updated.Bio != "Обо мне" {
+			t.Fatal("profile changes were not persisted")
+		}
+	}
+	for _, invalid := range []string{
+		`{}`, `null`, `{"name":"Name"}`, `{"bio":""}`, `{"name":null,"bio":""}`, `{"name":"Name","bio":null}`,
+		`{"name":" ","bio":""}`, `{"name":"Name","bio":1}`, `{} {}`,
+		`{"name":"\u0000","bio":""}`, `{"name":"Name","bio":"\u0000"}`,
+		`{"name":"Name","bio":"","role":"worker"}`, `{"name":"Name","bio":"","email":"other@example.test"}`,
+		`{"name":"Name","bio":"","id":"` + users[1].ID + `"}`,
+		`{"name":"` + strings.Repeat("я", 101) + `","bio":""}`,
+		`{"name":"Name","bio":"` + strings.Repeat("я", 1001) + `"}`,
+	} {
+		expect(send("PATCH", "/api/v1/me", invalid, cookies[0]), 400, "VALIDATION_ERROR")
+	}
+	request := httptest.NewRequest("PATCH", origin+"/api/v1/me", strings.NewReader(`{"name":"Foreign","bio":""}`))
+	request.Header.Set("Origin", "https://foreign.test")
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(cookies[0])
+	expect(serve(request), 403, "FORBIDDEN")
+	expect(send("GET", "/api/v1/users/bad-id", "", nil), 400, "VALIDATION_ERROR")
+	expect(send("GET", "/api/v1/users/00000000X0000X0000X0000X000000000000", "", nil), 400, "VALIDATION_ERROR")
+	expect(send("GET", "/api/v1/users/00000000-0000-0000-0000-000000000099", "", nil), 404, "NOT_FOUND")
+	expect(send("GET", "/api/v1/users/"+users[0].ID+"?email=true", "", nil), 400, "VALIDATION_ERROR")
+	expect(send("PATCH", "/api/v1/me", `{"name":"`+strings.Repeat("😀", 100)+`","bio":"`+strings.Repeat("😀", 1000)+`"}`, cookies[0]), 200, "")
+	response := send("PATCH", "/api/v1/me", `{"name":"Final name","bio":"  "}`, cookies[0])
+	expect(response, 200, "")
+	var clearedProfile auth.User
+	if err := json.Unmarshal(response.Body.Bytes(), &clearedProfile); err != nil || clearedProfile.Bio != "" {
+		t.Fatal("empty bio was not cleared")
+	}
 	var gigID string
 	err = pool.QueryRow(ctx, `INSERT INTO gigs (customer_id, title, description, city, address, starts_at, ends_at, amount_kopecks)
         VALUES ($1, 'Test', 'Work', 'Moscow', 'Example', now() + interval '1 day', now() + interval '2 days', 10000)
@@ -177,6 +227,12 @@ func TestAuthentication(t *testing.T) {
 		var user auth.User
 		if err := json.Unmarshal(response.Body.Bytes(), &user); err != nil || user.ID != users[i].ID || user.CompletedGigsCount != 1 {
 			t.Fatal("current user or completed work count is incorrect")
+		}
+		response = send("GET", "/api/v1/users/"+users[i].ID, "", cookies[1-i])
+		expect(response, 200, "")
+		var public map[string]any
+		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 5 || public["completedGigsCount"] != float64(1) {
+			t.Fatal("public completed work count is incorrect or private fields were exposed")
 		}
 	}
 	expect(send("POST", "/api/v1/auth/register", body("CUSTOMER@example.test", "worker"), cookies[0]), 409, "EMAIL_TAKEN")
@@ -213,7 +269,7 @@ func TestAuthentication(t *testing.T) {
 		request.Header.Set("Referer", tc.referer)
 		expect(serve(request), tc.status, "")
 	}
-	response := send("POST", "/api/v1/auth/login", loginBody(" CUSTOMER@EXAMPLE.TEST ", password), cookies[0])
+	response = send("POST", "/api/v1/auth/login", loginBody(" CUSTOMER@EXAMPLE.TEST ", password), cookies[0])
 	expect(response, 200, "")
 	rotated := response.Result().Cookies()[0]
 	if rotated.Value == cookies[0].Value {
@@ -238,7 +294,7 @@ func TestAuthentication(t *testing.T) {
 	expect(send("GET", "/api/v1/me", "", cookies[1]), 401, "UNAUTHORIZED")
 	secure := gin.New()
 	auth.NewHandler(pool, "https://shifthelper.example.test").Register(secure)
-	request := httptest.NewRequest("POST", "https://shifthelper.example.test/api/v1/auth/login",
+	request = httptest.NewRequest("POST", "https://shifthelper.example.test/api/v1/auth/login",
 		strings.NewReader(loginBody("worker@example.test", password)))
 	request.Header.Set("Origin", "https://shifthelper.example.test")
 	request.Header.Set("Content-Type", "application/json")
