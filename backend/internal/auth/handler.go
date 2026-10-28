@@ -38,10 +38,11 @@ func NewHandler(pool *pgxpool.Pool, origin string) *Handler {
 
 func (h *Handler) Register(router *gin.Engine) *gin.RouterGroup {
 	api := router.Group("/api/v1", h.checkOrigin)
-	api.POST("/auth/register", h.register)
-	api.POST("/auth/login", h.login)
-	api.POST("/auth/logout", h.logout)
-	api.GET("/me", h.RequireUser(), func(c *gin.Context) { c.JSON(http.StatusOK, UserFromContext(c)) })
+	account := api.Group("", httpapi.ValidateQuery())
+	account.POST("/auth/register", h.register)
+	account.POST("/auth/login", h.login)
+	account.POST("/auth/logout", h.logout)
+	account.GET("/me", h.RequireUser(), func(c *gin.Context) { c.JSON(http.StatusOK, UserFromContext(c)) })
 	return api
 }
 

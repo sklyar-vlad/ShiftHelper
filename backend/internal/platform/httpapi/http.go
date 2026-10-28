@@ -5,7 +5,11 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"regexp"
+	"slices"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,6 +17,24 @@ import (
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 func ValidUUID(value string) bool { return uuidPattern.MatchString(value) }
+
+func ValidateQuery(allowed ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		values, err := url.ParseQuery(c.Request.URL.RawQuery)
+		valid := err == nil
+		if valid {
+			for key, items := range values {
+				if len(items) != 1 || !slices.Contains(allowed, key) || !utf8.ValidString(items[0]) || strings.ContainsRune(items[0], 0) {
+					valid = false
+					break
+				}
+			}
+		}
+		if !valid {
+			Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Некорректные параметры запроса.")
+		}
+	}
+}
 
 func DecodeJSON(c *gin.Context, input any, maxBytes int64) bool {
 	contentType, _, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
