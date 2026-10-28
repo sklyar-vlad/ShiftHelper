@@ -3,7 +3,6 @@ package gigs
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -41,24 +40,7 @@ const profileJoins = `JOIN profiles customer ON customer.id = g.customer_id
 
 func (h *Handler) list(c *gin.Context) {
 	query := c.Request.URL.Query()
-	page, pageSize := int64(1), int64(20)
-	fields := make(map[string][]string)
-	for _, param := range []struct {
-		name  string
-		value *int64
-		max   int64
-	}{
-		{"page", &page, 2147483647}, {"pageSize", &pageSize, 100},
-	} {
-		if query.Has(param.name) {
-			value, err := strconv.ParseInt(query.Get(param.name), 10, 32)
-			if err != nil || value < 1 || value > param.max {
-				fields[param.name] = []string{"Укажите допустимое положительное целое число."}
-			} else {
-				*param.value = value
-			}
-		}
-	}
+	page, pageSize, fields := httpapi.Pagination(c)
 	search, city := strings.TrimSpace(query.Get("q")), strings.TrimSpace(query.Get("city"))
 	if utf8.RuneCountInString(search) > 150 {
 		fields["q"] = []string{"Поиск должен содержать не больше 150 символов."}
@@ -101,9 +83,7 @@ func (h *Handler) get(c *gin.Context) {
 	err := h.pool.QueryRow(c.Request.Context(), profilesSQL+` SELECT `+summaryJSON+` || jsonb_build_object(
         'description', g.description, 'requirements', g.requirements, 'address', g.address,
         'submittedAt', g.submitted_at, 'completedAt', g.completed_at, 'cancelledAt', g.cancelled_at,
-        'myApplication', (SELECT jsonb_build_object(
-            'id', a.id, 'gigId', a.gig_id, 'worker', to_jsonb(applicant), 'comment', a.comment,
-            'status', a.status, 'createdAt', a.created_at, 'updatedAt', a.updated_at)
+        'myApplication', (SELECT `+applicationJSON+`
             FROM applications a JOIN profiles applicant ON applicant.id = a.worker_id
             WHERE a.gig_id = g.id AND a.worker_id = $2::uuid))
         FROM gigs g `+profileJoins+` WHERE g.id = $1 AND (g.status = 'open' OR g.customer_id = $2::uuid
