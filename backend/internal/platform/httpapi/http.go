@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -17,6 +18,29 @@ import (
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 func ValidUUID(value string) bool { return uuidPattern.MatchString(value) }
+
+func Pagination(c *gin.Context) (page, pageSize int64, fields map[string][]string) {
+	page, pageSize = 1, 20
+	fields = make(map[string][]string)
+	query := c.Request.URL.Query()
+	for _, param := range []struct {
+		name  string
+		value *int64
+		max   int64
+	}{
+		{"page", &page, 2147483647}, {"pageSize", &pageSize, 100},
+	} {
+		if query.Has(param.name) {
+			value, err := strconv.ParseInt(query.Get(param.name), 10, 32)
+			if err != nil || value < 1 || value > param.max {
+				fields[param.name] = []string{"Укажите допустимое положительное целое число."}
+			} else {
+				*param.value = value
+			}
+		}
+	}
+	return
+}
 
 func ValidateQuery(allowed ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {

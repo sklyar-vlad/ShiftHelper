@@ -59,9 +59,12 @@ func NewHandler(pool *pgxpool.Pool) *Handler { return &Handler{pool: pool} }
 func (h *Handler) Register(api *gin.RouterGroup, requireUser, optionalUser gin.HandlerFunc) {
 	api.GET("/gigs", httpapi.ValidateQuery("page", "pageSize", "q", "city"), h.list)
 	api.GET("/gigs/:gigId", httpapi.ValidateQuery(), optionalUser, h.get)
+	api.GET("/gigs/:gigId/applications", httpapi.ValidateQuery("page", "pageSize", "status"), requireUser, auth.RequireRole("customer"), h.listApplications)
 	write := api.Group("", httpapi.ValidateQuery())
 	write.POST("/gigs", requireUser, auth.RequireRole("customer"), h.create)
 	write.POST("/gigs/:gigId/cancel", requireUser, auth.RequireRole("customer"), h.cancel)
+	write.POST("/gigs/:gigId/applications", requireUser, auth.RequireRole("worker"), h.apply)
+	write.POST("/gigs/:gigId/applications/:applicationId/withdraw", requireUser, auth.RequireRole("worker"), h.withdraw)
 }
 
 var datePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$`)
