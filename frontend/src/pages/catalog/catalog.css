@@ -138,6 +138,16 @@
   outline: 3px solid #76aa5e;
   outline-offset: 4px;
 }
+.gig-application .application-card {
+  display: block;
+  margin-block: 16px;
+}
+.application-card .gig-text {
+  margin-block: 16px;
+}
+.gig-application > h2 {
+  margin-top: 24px;
+}
 @media (max-width: 700px) {
   .catalog-filters {
     flex-direction: column;
