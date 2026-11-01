@@ -7,6 +7,7 @@ import { RequireUser } from "@/shared/ui/RequireUser";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { CatalogPage } from "@/pages/catalog/CatalogPage";
 import { GigPage } from "@/pages/catalog/GigPage";
+import { CreateGigPage } from "@/pages/create-gig/CreateGigPage";
 
 export const router = createBrowserRouter([
   {
@@ -46,12 +47,7 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "gigs/new",
-            element: (
-              <StatusPanel
-                title="Новое задание"
-                description="Публикация заданий скоро станет доступна."
-              />
-            ),
+            Component: CreateGigPage,
           },
         ],
       },
