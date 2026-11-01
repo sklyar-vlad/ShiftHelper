@@ -158,6 +158,72 @@ func (h *Handler) withdraw(c *gin.Context) {
 	c.JSON(http.StatusOK, application)
 }
 
+func (h *Handler) selectWorker(c *gin.Context) {
+	gigID, id := c.Param("gigId"), c.Param("applicationId")
+	if !httpapi.ValidUUID(gigID) || !httpapi.ValidUUID(id) {
+		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Некорректный идентификатор задания или отклика.")
+		return
+	}
+	ctx := c.Request.Context()
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var owner, gigStatus string
+	err = tx.QueryRow(ctx, "SELECT customer_id::text, status FROM gigs WHERE id = $1 FOR UPDATE", gigID).Scan(&owner, &gigStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
+		return
+	}
+	if err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	if owner != auth.UserFromContext(c).ID {
+		if gigStatus == "open" {
+			httpapi.Fail(c, http.StatusForbidden, "FORBIDDEN", "Выбрать исполнителя может только автор задания.")
+		} else {
+			httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
+		}
+		return
+	}
+	var workerID, applicationStatus string
+	err = tx.QueryRow(ctx, "SELECT worker_id::text, status FROM applications WHERE id = $1 AND gig_id = $2 FOR UPDATE", id, gigID).Scan(&workerID, &applicationStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Отклик не найден.")
+		return
+	}
+	if err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	if gigStatus != "open" || applicationStatus != "pending" {
+		httpapi.Fail(c, http.StatusConflict, "STATE_CONFLICT", "Выбрать можно только ожидающий отклик на открытое задание.")
+		return
+	}
+	if _, err := tx.Exec(ctx, `UPDATE applications SET status = CASE WHEN id = $1 THEN 'selected' ELSE 'rejected' END,
+        updated_at = now() WHERE gig_id = $2 AND status = 'pending'`, id, gigID); err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	if _, err := tx.Exec(ctx, "UPDATE gigs SET selected_worker_id = $1, status = 'in_progress', updated_at = now() WHERE id = $2", workerID, gigID); err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	var gig Gig
+	if err := tx.QueryRow(ctx, detailSQL+" WHERE g.id = $1", gigID, owner).Scan(&gig); err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	c.JSON(http.StatusOK, gig)
+}
+
 func (h *Handler) listApplications(c *gin.Context) {
 	id := c.Param("gigId")
 	if !httpapi.ValidUUID(id) {

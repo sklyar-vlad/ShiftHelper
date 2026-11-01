@@ -38,6 +38,14 @@ const summaryJSON = `jsonb_build_object(
 const profileJoins = `JOIN profiles customer ON customer.id = g.customer_id
     LEFT JOIN profiles worker ON worker.id = g.selected_worker_id`
 
+const detailSQL = profilesSQL + ` SELECT ` + summaryJSON + ` || jsonb_build_object(
+    'description', g.description, 'requirements', g.requirements, 'address', g.address,
+    'submittedAt', g.submitted_at, 'completedAt', g.completed_at, 'cancelledAt', g.cancelled_at,
+    'myApplication', (SELECT ` + applicationJSON + `
+        FROM applications a JOIN profiles applicant ON applicant.id = a.worker_id
+        WHERE a.gig_id = g.id AND a.worker_id = $2::uuid))
+    FROM gigs g ` + profileJoins
+
 func (h *Handler) list(c *gin.Context) {
 	query := c.Request.URL.Query()
 	page, pageSize, fields := httpapi.Pagination(c)
@@ -80,13 +88,7 @@ func (h *Handler) get(c *gin.Context) {
 		viewer = user.ID
 	}
 	var gig Gig
-	err := h.pool.QueryRow(c.Request.Context(), profilesSQL+` SELECT `+summaryJSON+` || jsonb_build_object(
-        'description', g.description, 'requirements', g.requirements, 'address', g.address,
-        'submittedAt', g.submitted_at, 'completedAt', g.completed_at, 'cancelledAt', g.cancelled_at,
-        'myApplication', (SELECT `+applicationJSON+`
-            FROM applications a JOIN profiles applicant ON applicant.id = a.worker_id
-            WHERE a.gig_id = g.id AND a.worker_id = $2::uuid))
-        FROM gigs g `+profileJoins+` WHERE g.id = $1 AND (g.status = 'open' OR g.customer_id = $2::uuid
+	err := h.pool.QueryRow(c.Request.Context(), detailSQL+` WHERE g.id = $1 AND (g.status = 'open' OR g.customer_id = $2::uuid
           OR g.selected_worker_id = $2::uuid
           OR EXISTS (SELECT 1 FROM applications a WHERE a.gig_id = g.id AND a.worker_id = $2::uuid))`,
 		id, viewer).Scan(&gig)
