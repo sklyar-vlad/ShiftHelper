@@ -8,6 +8,7 @@ import {
   type Gig,
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
+import { CustomerActions } from "@/widgets/applications/CustomerActions";
 
 const applicationStatuses = {
   pending: "Отклик ожидает решения заказчика.",
@@ -80,12 +81,10 @@ export function ApplicationPanel({
       </section>
     );
   if (user.role !== "worker")
-    return (
-      <p className="notice">
-        {user.id === gig.customer.id
-          ? "Это ваше задание."
-          : "Отклик доступен только исполнителям."}
-      </p>
+    return user.id === gig.customer.id ? (
+      <CustomerActions gig={gig} />
+    ) : (
+      <p className="notice">Отклик доступен только исполнителям.</p>
     );
   return (
     <section className="gig-application" aria-busy={working}>

@@ -100,13 +100,19 @@ function mount(
 it("offers login to guests and no application form to customers", async () => {
   mount(async () => json(gig), null);
   expect(
-    (
-      await screen.findByRole("link", { name: "Войти" })
-    ).getAttribute("href"),
+    (await screen.findByRole("link", { name: "Войти" })).getAttribute("href"),
   ).toBe("/login");
   expect(screen.queryByRole("form")).toBeNull();
   cleanup();
-  mount(async () => json(gig), { ...worker, role: "customer", id: "customer" });
+  mount(
+    async (url) =>
+      json(
+        url.includes("/applications?")
+          ? { items: [], page: 1, pageSize: 20, total: 0 }
+          : gig,
+      ),
+    { ...worker, role: "customer", id: "customer" },
+  );
   await screen.findByText("Это ваше задание.");
   expect(screen.queryByRole("form")).toBeNull();
 });

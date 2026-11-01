@@ -8,6 +8,7 @@ import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { CatalogPage } from "@/pages/catalog/CatalogPage";
 import { GigPage } from "@/pages/catalog/GigPage";
 import { CreateGigPage } from "@/pages/create-gig/CreateGigPage";
+import { MyGigsPage } from "@/pages/my-gigs/MyGigsPage";
 
 export const router = createBrowserRouter([
   {
@@ -33,12 +34,7 @@ export const router = createBrowserRouter([
           { path: "profile", Component: AccountPage },
           {
             path: "my-gigs",
-            element: (
-              <StatusPanel
-                title="Мои задания"
-                description="Ваши публикации, отклики и история работ появятся здесь."
-              />
-            ),
+            Component: MyGigsPage,
           },
         ],
       },

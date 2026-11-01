@@ -2,6 +2,14 @@ import type { GigSummary } from "@/shared/api/generated/api";
 import { formatDateTime, formatMoney } from "@/shared/lib/format";
 import { UserCard } from "@/entities/user/UserCard";
 
+export const gigStatusNames = {
+  open: "Открыто",
+  in_progress: "В работе",
+  awaiting_confirmation: "Ожидает подтверждения",
+  completed: "Завершено",
+  cancelled: "Отменено",
+};
+
 export function GigFacts({ gig }: { gig: GigSummary }) {
   return (
     <>

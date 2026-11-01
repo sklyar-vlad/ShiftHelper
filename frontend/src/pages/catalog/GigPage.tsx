@@ -2,7 +2,7 @@ import { Link, useLocation, useParams } from "react-router";
 import { getGetGigQueryKey, useGetGig } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
-import { GigFacts } from "@/entities/gig/GigFacts";
+import { GigFacts, gigStatusNames } from "@/entities/gig/GigFacts";
 import { UserCard } from "@/entities/user/UserCard";
 import { useSession } from "@/shared/model/session";
 import { ApplicationPanel } from "./ApplicationPanel";
@@ -19,18 +19,11 @@ export function GigPage() {
       queryKey: [...getGetGigQueryKey(gigId), session.user?.id ?? "guest"],
     },
   });
-  const saved = location.state?.catalog;
-  const catalog =
-    typeof saved === "string" && /^\/catalog(\?|$)/.test(saved)
+  const saved = location.state?.myGigs ?? location.state?.catalog;
+  const backTo =
+    typeof saved === "string" && /^\/(catalog|my-gigs)(\?|$)/.test(saved)
       ? saved
       : "/catalog";
-  const statusNames = {
-    open: "Открыто",
-    in_progress: "В работе",
-    awaiting_confirmation: "Ожидает подтверждения",
-    completed: "Завершено",
-    cancelled: "Отменено",
-  };
 
   if (session.isError)
     return (
@@ -42,8 +35,10 @@ export function GigPage() {
 
   return (
     <>
-      <Link className="text-link" to={catalog}>
-        ← К подработкам
+      <Link className="text-link" to={backTo}>
+        {backTo.startsWith("/my-gigs")
+          ? "← К моим заданиям"
+          : "← К подработкам"}
       </Link>
       {query.isPending ? (
         <StatusPanel title="Загружаем задание" pending />
@@ -63,7 +58,7 @@ export function GigPage() {
         />
       ) : (
         <article className="gig-card gig-detail">
-          <span className="badge">{statusNames[query.data.status]}</span>
+          <span className="badge">{gigStatusNames[query.data.status]}</span>
           <h1>{query.data.title}</h1>
           <GigFacts gig={query.data} />
           <p className="small muted">
