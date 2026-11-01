@@ -1,14 +1,24 @@
 import { Link, useLocation, useParams } from "react-router";
-import { useGetGig } from "@/shared/api/generated/api";
+import { getGetGigQueryKey, useGetGig } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { GigFacts } from "@/entities/gig/GigFacts";
+import { UserCard } from "@/entities/user/UserCard";
+import { useSession } from "@/shared/model/session";
+import { ApplicationPanel } from "./ApplicationPanel";
 import "./catalog.css";
 
 export function GigPage() {
   const { gigId = "" } = useParams();
   const location = useLocation();
-  const query = useGetGig(gigId, { query: { retry: false } });
+  const session = useSession();
+  const query = useGetGig(gigId, {
+    query: {
+      retry: false,
+      enabled: !session.isPending && !session.isError,
+      queryKey: [...getGetGigQueryKey(gigId), session.user?.id ?? "guest"],
+    },
+  });
   const saved = location.state?.catalog;
   const catalog =
     typeof saved === "string" && /^\/catalog(\?|$)/.test(saved)
@@ -21,6 +31,14 @@ export function GigPage() {
     completed: "Завершено",
     cancelled: "Отменено",
   };
+
+  if (session.isError)
+    return (
+      <StatusPanel
+        title="Не удалось проверить аккаунт"
+        retry={() => void session.refresh()}
+      />
+    );
 
   return (
     <>
@@ -36,7 +54,11 @@ export function GigPage() {
               ? "Задание недоступно"
               : "Не удалось загрузить задание"
           }
-          description="Вернитесь в каталог или повторите попытку."
+          description={
+            query.error instanceof ApiError && query.error.status === 404
+              ? "Задание не найдено или больше недоступно. Возможно, его заняли или отменили."
+              : "Вернитесь в каталог или повторите попытку."
+          }
           retry={() => void query.refetch()}
         />
       ) : (
@@ -57,6 +79,21 @@ export function GigPage() {
           )}
           <h2>Адрес</h2>
           <p className="gig-text">{query.data.address}</p>
+          {query.data.selectedWorker && (
+            <section>
+              <h2>Выбранный исполнитель</h2>
+              <UserCard user={query.data.selectedWorker} />
+            </section>
+          )}
+          <p className="notice">
+            Оплата — напрямую между заказчиком и исполнителем по договорённости.
+          </p>
+          <ApplicationPanel
+            key={`${gigId}:${session.user?.id ?? "guest"}`}
+            gig={query.data}
+            user={session.user}
+            refresh={() => query.refetch()}
+          />
         </article>
       )}
     </>

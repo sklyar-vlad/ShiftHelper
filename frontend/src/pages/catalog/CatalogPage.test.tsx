@@ -44,7 +44,14 @@ function mount(url = "/catalog", withSession = false) {
   const router = createMemoryRouter(
     [
       { path: "/catalog", element: <CatalogPage /> },
-      { path: "/gigs/:gigId", element: <GigPage /> },
+      {
+        path: "/gigs/:gigId",
+        element: (
+          <SessionProvider>
+            <GigPage />
+          </SessionProvider>
+        ),
+      },
     ],
     { initialEntries: [url] },
   );
@@ -134,11 +141,13 @@ it("opens API details and returns to the same filtered page", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) =>
-      json(
-        url === "/api/v1/gigs/gig-1"
-          ? gig
-          : { items: [gig], page: 2, pageSize: 20, total: 21 },
-      ),
+      url === "/api/v1/me"
+        ? json({ error: { code: "UNAUTHORIZED", message: "Войдите" } }, 401)
+        : json(
+            url === "/api/v1/gigs/gig-1"
+              ? gig
+              : { items: [gig], page: 2, pageSize: 20, total: 21 },
+          ),
     ),
   );
   const router = mount("/catalog?city=Москва&page=2");
@@ -184,9 +193,11 @@ it("shows loading, retries errors, and offers reset for an empty result", async 
 
 it("normalizes an invalid page and handles unavailable details", async () => {
   const fetch = vi.fn(async (url: string) =>
-    url.startsWith("/api/v1/gigs?")
-      ? json({ items: [gig], page: 1, pageSize: 20, total: 1 })
-      : json({ error: { code: "NOT_FOUND", message: "Нет задания" } }, 404),
+    url === "/api/v1/me"
+      ? json({ error: { code: "UNAUTHORIZED", message: "Войдите" } }, 401)
+      : url.startsWith("/api/v1/gigs?")
+        ? json({ items: [gig], page: 1, pageSize: 20, total: 1 })
+        : json({ error: { code: "NOT_FOUND", message: "Нет задания" } }, 404),
   );
   vi.stubGlobal("fetch", fetch);
   mount("/catalog?page=-10");
