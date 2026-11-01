@@ -121,6 +121,46 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+.profile-edit {
+  margin-top: 24px;
+}
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.profile-edit textarea {
+  width: 100%;
+  max-width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  color: inherit;
+  background: #fcfdf9;
+  border: 1px solid #d9e0d3;
+  border-radius: 8px;
+  resize: vertical;
+}
+.profile-edit textarea[aria-invalid="true"] {
+  border-color: #b66548;
+}
+.profile-edit textarea:focus-visible {
+  outline: 3px solid #76aa5e;
+  outline-offset: 4px;
+}
+.user-card {
+  overflow-wrap: anywhere;
+}
+.user-card p {
+  margin: 6px 0 0;
+}
+.user-bio {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
 @media (max-width: 700px) {
   .status-panel {
     margin-block: 25px;
