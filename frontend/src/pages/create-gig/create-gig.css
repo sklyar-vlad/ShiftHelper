@@ -1,0 +1,44 @@
+.create-gig {
+  max-width: 740px;
+  margin-inline: auto;
+}
+.create-gig form {
+  padding: 28px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+}
+.create-gig textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d9e0d3;
+  border-radius: 8px;
+  background: #fcfdf9;
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+.create-gig textarea[aria-invalid="true"] {
+  border-color: #b66548;
+}
+.create-gig textarea:focus-visible {
+  outline: 3px solid #76aa5e;
+  outline-offset: 4px;
+}
+.create-gig .notice {
+  margin-bottom: 20px;
+}
+@media (max-width: 700px) {
+  .create-gig form {
+    padding: 20px;
+  }
+  .create-gig input,
+  .create-gig textarea {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+  .create-gig button {
+    width: 100%;
+  }
+}
