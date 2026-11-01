@@ -89,6 +89,12 @@ tasks:
       - docker compose --env-file infra/.env -f infra/compose.yaml up -d --wait postgres
       - docker compose --env-file infra/.env -f infra/compose.yaml run --rm --build --no-deps -T goose down
 
+  demo:
+    desc: Заполнить демоданными; задайте DEMO_CUSTOMER_PASSWORD и DEMO_WORKER_PASSWORD в окружении
+    deps: [migrate:up]
+    cmds:
+      - docker compose --env-file infra/.env -f infra/compose.yaml --profile demo run --rm --build --no-deps -T demo
+
   migrate:status:
     desc: Показать состояние миграций Goose
     deps: [env]
@@ -111,7 +117,7 @@ tasks:
 
   build:
     cmds:
-      - cmd: go build ./cmd/api ./cmd/worker
+      - cmd: go build ./cmd/api ./cmd/worker ./cmd/demo
         dir: backend
       - npm --prefix frontend run build
 

@@ -156,6 +156,17 @@ services:
     profiles: [worker]
     restart: unless-stopped
 
+  demo:
+    profiles: [demo]
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+      target: demo
+    environment:
+      <<: *postgres-client
+      DEMO_CUSTOMER_PASSWORD: ${DEMO_CUSTOMER_PASSWORD:-}
+      DEMO_WORKER_PASSWORD: ${DEMO_WORKER_PASSWORD:-}
+
   swagger:
     build:
       context: ..

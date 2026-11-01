@@ -11,7 +11,7 @@ import (
 
 const passwordPrefix = "$argon2id$v=19$m=65536,t=3,p=4$"
 
-func hashPassword(password string) string {
+func HashPassword(password string) string {
 	salt := []byte(rand.Text())
 	key := argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
 	return passwordPrefix + base64.RawStdEncoding.EncodeToString(salt) + "$" + base64.RawStdEncoding.EncodeToString(key)
