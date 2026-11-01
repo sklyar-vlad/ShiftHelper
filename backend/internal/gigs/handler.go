@@ -63,6 +63,8 @@ func (h *Handler) Register(api *gin.RouterGroup, requireUser, optionalUser gin.H
 	write := api.Group("", httpapi.ValidateQuery())
 	write.POST("/gigs", requireUser, auth.RequireRole("customer"), h.create)
 	write.POST("/gigs/:gigId/cancel", requireUser, auth.RequireRole("customer"), h.cancel)
+	write.POST("/gigs/:gigId/submit", requireUser, auth.RequireRole("worker"), func(c *gin.Context) { h.finish(c, false) })
+	write.POST("/gigs/:gigId/confirm", requireUser, auth.RequireRole("customer"), func(c *gin.Context) { h.finish(c, true) })
 	write.POST("/gigs/:gigId/applications", requireUser, auth.RequireRole("worker"), h.apply)
 	write.POST("/gigs/:gigId/applications/:applicationId/select", requireUser, auth.RequireRole("customer"), h.selectWorker)
 	write.POST("/gigs/:gigId/applications/:applicationId/withdraw", requireUser, auth.RequireRole("worker"), h.withdraw)
