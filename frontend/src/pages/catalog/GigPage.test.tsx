@@ -182,7 +182,7 @@ it("refreshes after a conflict and removes actions for a cancelled gig", async (
   expect(screen.queryByRole("button", { name: "Отозвать отклик" })).toBeNull();
 });
 
-it("shows the selected worker and keeps their application read-only", async () => {
+it("shows the selected worker without allowing withdrawal", async () => {
   mount(async () =>
     json({
       ...gig,

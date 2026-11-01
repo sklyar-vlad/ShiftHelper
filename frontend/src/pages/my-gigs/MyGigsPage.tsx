@@ -2,28 +2,31 @@ import { Link, useLocation, useSearchParams } from "react-router";
 import {
   getListMyGigsQueryKey,
   useListMyGigs,
+  getListMyApplicationsQueryKey,
+  useListMyApplications,
+  type CurrentUser,
   type ScopeParameter,
 } from "@/shared/api/generated/api";
 import { useSession } from "@/shared/model/session";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
-import { GigFacts, gigStatusNames } from "@/entities/gig/GigFacts";
+import {
+  GigFacts,
+  gigStatusNames,
+  applicationStatusText,
+} from "@/entities/gig/GigFacts";
 import "@/pages/catalog/catalog.css";
 
 export function MyGigsPage() {
   const { user } = useSession();
-  if (user?.role !== "customer")
-    return (
-      <StatusPanel
-        title="Мои задания"
-        description="Назначенные работы и отклики появятся здесь."
-      />
-    );
-  return <CustomerGigs userId={user.id} />;
+  return user ? <PersonalGigs key={user.id} user={user} /> : null;
 }
 
-function CustomerGigs({ userId }: { userId: string }) {
+function PersonalGigs({ user }: { user: CurrentUser }) {
   const [search] = useSearchParams();
   const location = useLocation();
+  const worker = user.role === "worker";
+  const view =
+    worker && search.get("view") !== "work" ? "applications" : "work";
   const requestedScope = search.get("scope");
   const scope: ScopeParameter =
     requestedScope === "history" || requestedScope === "all"
@@ -37,22 +40,57 @@ function CustomerGigs({ userId }: { userId: string }) {
       ? requestedPage
       : 1;
   const params = { scope, page, pageSize: 20 };
-  const query = useListMyGigs(params, {
+  const gigs = useListMyGigs(params, {
     query: {
+      enabled: view === "work",
       retry: false,
-      queryKey: [...getListMyGigsQueryKey(params), userId],
+      queryKey: [...getListMyGigsQueryKey(params), user.id],
     },
   });
-  const url = (next: number, filter = scope) =>
-    `/my-gigs?scope=${filter}${next > 1 ? `&page=${next}` : ""}`;
+  const applications = useListMyApplications(params, {
+    query: {
+      enabled: worker && view === "applications",
+      retry: false,
+      queryKey: [...getListMyApplicationsQueryKey(params), user.id],
+    },
+  });
+  const query = view === "applications" ? applications : gigs;
+  const items =
+    view === "applications"
+      ? applications.data?.items.map((item) => ({
+          gig: item.gig,
+          application: item.application,
+        }))
+      : gigs.data?.items.map((gig) => ({ gig, application: null }));
+  const url = (next: number, filter = scope, section = view) =>
+    `/my-gigs?scope=${filter}${worker ? `&view=${section}` : ""}${next > 1 ? `&page=${next}` : ""}`;
   return (
     <>
       <header className="page-heading">
         <h1>Мои задания</h1>
-        <Link className="button" to="/gigs/new">
-          Опубликовать задание
+        <Link className="button" to={worker ? "/catalog" : "/gigs/new"}>
+          {worker ? "Найти подработку" : "Опубликовать задание"}
         </Link>
       </header>
+      {worker && (
+        <nav className="profile-actions" aria-label="Раздел кабинета">
+          {(
+            [
+              ["applications", "Мои отклики"],
+              ["work", "Назначенные работы"],
+            ] as const
+          ).map(([value, label]) => (
+            <Link
+              key={value}
+              className={`button ${view === value ? "" : "button-secondary"}`}
+              aria-current={view === value ? "page" : undefined}
+              to={url(1, scope, value)}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+      )}
       <nav className="profile-actions" aria-label="Фильтр заданий">
         {(
           [
@@ -82,12 +120,13 @@ function CustomerGigs({ userId }: { userId: string }) {
       ) : (
         <>
           <p className="catalog-count" role="status">
-            Всего заданий: {query.data.total}
+            {view === "applications" ? "Всего откликов" : "Всего заданий"}:{" "}
+            {query.data.total}
           </p>
-          {query.data.items.length ? (
+          {items?.length ? (
             <div className="catalog-grid">
-              {query.data.items.map((gig) => (
-                <article className="gig-card" key={gig.id}>
+              {items.map(({ gig, application }) => (
+                <article className="gig-card" key={application?.id ?? gig.id}>
                   <span className="badge">{gigStatusNames[gig.status]}</span>
                   <h2>
                     <Link
@@ -98,10 +137,22 @@ function CustomerGigs({ userId }: { userId: string }) {
                     </Link>
                   </h2>
                   <GigFacts gig={gig} />
-                  <p className="small">
-                    Ожидают решения: {gig.pendingApplicationsCount}
-                  </p>
-                  {gig.selectedWorker && (
+                  {application && (
+                    <>
+                      <p role="status">
+                        {applicationStatusText(application.status, gig.status)}
+                      </p>
+                      {application.comment && (
+                        <p className="gig-text">{application.comment}</p>
+                      )}
+                    </>
+                  )}
+                  {!worker && (
+                    <p className="small">
+                      Ожидают решения: {gig.pendingApplicationsCount}
+                    </p>
+                  )}
+                  {!worker && gig.selectedWorker && (
                     <p className="small">
                       Исполнитель: {gig.selectedWorker.name}
                     </p>
@@ -111,9 +162,15 @@ function CustomerGigs({ userId }: { userId: string }) {
             </div>
           ) : (
             <section className="catalog-empty">
-              <h2>Заданий пока нет</h2>
+              <h2>
+                {view === "applications"
+                  ? "Откликов пока нет"
+                  : "Заданий пока нет"}
+              </h2>
               <p className="muted">
-                Здесь будут ваши публикации в выбранном разделе.
+                {worker
+                  ? "Здесь будут ваши отклики и назначенные работы в выбранном разделе."
+                  : "Здесь будут ваши публикации в выбранном разделе."}
               </p>
             </section>
           )}

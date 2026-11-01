@@ -1,4 +1,8 @@
-import type { GigSummary } from "@/shared/api/generated/api";
+import type {
+  ApplicationStatus,
+  GigStatus,
+  GigSummary,
+} from "@/shared/api/generated/api";
 import { formatDateTime, formatMoney } from "@/shared/lib/format";
 import { UserCard } from "@/entities/user/UserCard";
 
@@ -9,6 +13,24 @@ export const gigStatusNames = {
   completed: "Завершено",
   cancelled: "Отменено",
 };
+
+const applicationStatuses = {
+  pending: "Отклик ожидает решения заказчика.",
+  selected: "Вы выбраны исполнителем.",
+  rejected: "Отклик отклонён.",
+  withdrawn: "Отклик отозван. Повторно откликнуться нельзя.",
+};
+
+export function applicationStatusText(
+  status: ApplicationStatus,
+  gigStatus: GigStatus,
+) {
+  if (status === "selected" && gigStatus === "awaiting_confirmation")
+    return "Работа сдана. Ожидайте подтверждения заказчика.";
+  if (status === "selected" && gigStatus === "completed")
+    return "Работа завершена.";
+  return applicationStatuses[status];
+}
 
 export function GigFacts({ gig }: { gig: GigSummary }) {
   return (
