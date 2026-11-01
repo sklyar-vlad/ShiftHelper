@@ -125,7 +125,8 @@
 .gig-application .gig-text {
   margin-bottom: 20px;
 }
-.gig-application textarea {
+.gig-application textarea,
+.gig-application select {
   width: 100%;
   padding: 12px;
   border: 1px solid var(--line);
@@ -134,7 +135,8 @@
   color: inherit;
   resize: vertical;
 }
-.gig-application textarea:focus-visible {
+.gig-application textarea:focus-visible,
+.gig-application select:focus-visible {
   outline: 3px solid #76aa5e;
   outline-offset: 4px;
 }

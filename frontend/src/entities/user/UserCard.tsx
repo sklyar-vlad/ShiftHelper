@@ -8,6 +8,11 @@ export function UserCard({ user }: { user: PublicUser }) {
       <p className="small muted">
         {roleNames[user.role]} · Завершено заданий: {user.completedGigsCount}
       </p>
+      <p className="small muted">
+        {user.ratingAverage == null || !user.reviewsCount
+          ? "Пока нет оценок"
+          : `Рейтинг: ${user.ratingAverage.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} из 5 · Отзывов: ${user.reviewsCount}`}
+      </p>
       <p className="user-bio small">
         {user.bio || "Описание пока не добавлено"}
       </p>

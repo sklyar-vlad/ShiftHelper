@@ -213,3 +213,38 @@ it("hides the private application after logout", async () => {
   await screen.findByRole("link", { name: "Войти" });
   expect(screen.queryByText(application.comment)).toBeNull();
 });
+
+it("offers reviews only to the two participants of a completed gig", async () => {
+  const completed: Gig = {
+    ...gig,
+    status: "completed",
+    selectedWorker: worker,
+  };
+  for (const [current, user, allowed] of [
+    [completed, worker, true],
+    [completed, { ...worker, id: "customer", role: "customer" }, true],
+    [completed, { ...worker, id: "rejected" }, false],
+    [completed, null, false],
+    [{ ...completed, status: "awaiting_confirmation" }, worker, false],
+  ] as const) {
+    const reviews = vi.fn();
+    mount(async (url) => {
+      if (url.endsWith("/reviews")) {
+        reviews();
+        return json({ items: [] });
+      }
+      return json(current);
+    }, user);
+    await screen.findByRole("heading", { name: gig.title });
+    if (allowed) {
+      await screen.findByRole("form", { name: "Оценить вторую сторону" });
+      expect(reviews).toHaveBeenCalledTimes(1);
+    } else {
+      expect(
+        screen.queryByRole("form", { name: "Оценить вторую сторону" }),
+      ).toBeNull();
+      expect(reviews).not.toHaveBeenCalled();
+    }
+    cleanup();
+  }
+});
