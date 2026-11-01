@@ -5,6 +5,8 @@ import { AccountPage } from "@/pages/account/AccountPage";
 import { AuthPage } from "@/pages/auth/AuthPage";
 import { RequireUser } from "@/shared/ui/RequireUser";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
+import { CatalogPage } from "@/pages/catalog/CatalogPage";
+import { GigPage } from "@/pages/catalog/GigPage";
 
 export const router = createBrowserRouter([
   {
@@ -13,13 +15,9 @@ export const router = createBrowserRouter([
       { index: true, Component: HomePage },
       {
         path: "catalog",
-        element: (
-          <StatusPanel
-            title="Подработки"
-            description="Каталог предложений скоро появится здесь."
-          />
-        ),
+        Component: CatalogPage,
       },
+      { path: "gigs/:gigId", Component: GigPage },
       {
         path: "login",
         element: <AuthPage key="login" mode="login" />,

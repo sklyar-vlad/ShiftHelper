@@ -64,8 +64,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
   );
   useEffect(() => {
     if (query.data) hadUser.current = true;
-    if (query.data === null) {
-      if (hadUser.current) setExpired(true);
+    if (query.data === null && hadUser.current) {
+      setExpired(true);
       hadUser.current = false;
       client.removeQueries({
         predicate: (item) => item.queryKey[0] !== sessionKey[0],
