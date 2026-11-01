@@ -90,6 +90,16 @@ try {
       assert.equal(gig.amountKopecks, 150050);
       assert.equal(gig.completedAt, state.completedAt);
       assert.equal(gig.submittedAt, state.submittedAt);
+      assert.equal(gig.customer.ratingAverage, 4);
+      assert.equal(gig.selectedWorker.ratingAverage, 5);
+      await page.goto(`/gigs/${state.gigId}`);
+      await visible(page, `Ваша оценка: ${isWorker ? 4 : 5} из 5`);
+      assert.equal(
+        await page
+          .getByRole("form", { name: "Оценить вторую сторону" })
+          .count(),
+        0,
+      );
     }
     console.log(
       "PASS: accounts, completed work and history survive service restart.",
@@ -175,6 +185,40 @@ try {
     await button(customer, "Подтвердить выполнение").click();
     await visible(customer, "Завершено");
     await post(customer, `${path}/confirm`, undefined, 409);
+    for (const [page, score] of [
+      [customer, 5],
+      [worker, 4],
+    ]) {
+      await page.goto(path);
+      await page
+        .getByLabel("Оценка", { exact: true })
+        .selectOption(String(score));
+      await page
+        .getByLabel("Отзыв (необязательно)", { exact: true })
+        .fill("Спасибо за работу");
+      await button(page, "Отправить оценку").click();
+      await visible(page, `Ваша оценка: ${score} из 5`);
+      assert.equal(
+        await page
+          .getByRole("form", { name: "Оценить вторую сторону" })
+          .count(),
+        0,
+      );
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        true,
+      );
+    }
+    await second.goto(path);
+    await visible(second, "Завершено");
+    assert.equal(
+      await second
+        .getByRole("form", { name: "Оценить вторую сторону" })
+        .count(),
+      0,
+    );
     await history(customer, false, title);
     await history(worker, true, title);
     await button(worker, "Выйти").click();

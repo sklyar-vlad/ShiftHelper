@@ -4,6 +4,7 @@ import { ApiError } from "@/shared/api/http";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { GigFacts, gigStatusNames } from "@/entities/gig/GigFacts";
 import { UserCard } from "@/entities/user/UserCard";
+import { ReviewPanel } from "@/entities/review/ReviewPanel";
 import { useSession } from "@/shared/model/session";
 import { ApplicationPanel } from "./ApplicationPanel";
 import "./catalog.css";
@@ -89,6 +90,16 @@ export function GigPage() {
             user={session.user}
             refresh={() => query.refetch()}
           />
+          {query.data.status === "completed" &&
+            session.user &&
+            (session.user.id === query.data.customer.id ||
+              session.user.id === query.data.selectedWorker?.id) && (
+              <ReviewPanel
+                key={`${gigId}:${session.user.id}`}
+                gigId={gigId}
+                user={session.user}
+              />
+            )}
         </article>
       )}
     </>
