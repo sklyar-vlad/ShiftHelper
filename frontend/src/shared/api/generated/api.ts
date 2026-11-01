@@ -4,7 +4,7 @@
  * ShiftHelper API
  * Контракт MVP для последующей реализации backend и frontend; наличие операции здесь не означает, что она уже реализована.
  * Пользователь имеет одну неизменяемую роль customer или worker. Оплата фиксирована за всё задание, напрямую между сторонами; платформа деньги не проводит.
- * Нет черновиков, редактирования заданий, платежей, чата, споров, оценок, восстановления пароля или подтверждения email.
+ * Нет черновиков, редактирования заданий, платежей, чата, споров, восстановления пароля или подтверждения email.
  * Все даты — RFC 3339 (ISO 8601 с обязательным Z или смещением часового пояса); ответы используют UTC.
  * Суммы — целые копейки RUB. Текстовые поля обрезаются по краям до проверки длины, пароль не изменяется.
  * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100.
@@ -12,7 +12,7 @@
  * Ошибки имеют envelope error с code, message и необязательным fields. Неизвестные поля тела и параметры, неверные UUID, даты, JSON и фильтры дают 400.
  * Для закрытых ресурсов доступ проверяется до состояния: отсутствие прав на скрытые данные даёт 404; неверная роль или действие над видимым чужим ресурсом — 403; конфликт состояния — 409.
  * Изменения статусов атомарны. Повторное действие даёт 409 и не меняет время переходов. Сервер определяет текущего пользователя по сессии.
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
@@ -93,6 +93,36 @@ export const ApplicationStatus = {
   withdrawn: "withdrawn",
 } as const;
 
+export interface CreateReviewRequest {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  score: number;
+  /** @maxLength 1000 */
+  comment?: string;
+}
+
+export interface Review {
+  id: string;
+  gigId: string;
+  authorId: string;
+  recipientId: string;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  score: number;
+  /** @maxLength 1000 */
+  comment: string;
+  createdAt: string;
+}
+
+export interface GigReviews {
+  /** @maxItems 2 */
+  items: Review[];
+}
+
 export interface PublicUser {
   id: string;
   /**
@@ -108,6 +138,15 @@ export interface PublicUser {
   role: Role;
   /** @minimum 0 */
   completedGigsCount: number;
+  /**
+   * Среднее всех полученных оценок без округления; null, если оценок нет.
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  ratingAverage: number | null;
+  /** @minimum 0 */
+  reviewsCount: number;
 }
 
 export interface CurrentUser {
@@ -125,6 +164,15 @@ export interface CurrentUser {
   role: Role;
   /** @minimum 0 */
   completedGigsCount: number;
+  /**
+   * Среднее всех полученных оценок без округления; null, если оценок нет.
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  ratingAverage: number | null;
+  /** @minimum 0 */
+  reviewsCount: number;
   /** @maxLength 254 */
   email: string;
   /** @pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$ */
@@ -242,6 +290,14 @@ export type GigSummarySelectedWorker = {
   role: Role;
   /** @minimum 0 */
   completedGigsCount: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  ratingAverage: number | null;
+  /** @minimum 0 */
+  reviewsCount: number;
 } | null;
 
 export interface GigSummary {
@@ -315,6 +371,14 @@ export type GigSelectedWorker = {
   role: Role;
   /** @minimum 0 */
   completedGigsCount: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  ratingAverage: number | null;
+  /** @minimum 0 */
+  reviewsCount: number;
 } | null;
 
 /**
@@ -3153,6 +3217,324 @@ export const useWithdrawApplication = <
     getWithdrawApplicationMutationOptions(options),
     queryClient,
   );
+};
+
+export const getListGigReviewsUrl = (gigId: string) => {
+  return `/api/v1/gigs/${gigId}/reviews`;
+};
+
+/**
+ * Только владелец и выбранный исполнитель. До завершения возвращается пустой список; после завершения — не больше двух отзывов. Остальным участникам видимого задания 403, чужой скрытый ресурс — 404.
+ * @summary Отзывы участников задания
+ */
+export const listGigReviews = async (
+  gigId: string,
+  options?: Parameters<typeof http>[1],
+): Promise<GigReviews> => {
+  return http<GigReviews>(getListGigReviewsUrl(gigId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListGigReviewsQueryKey = (gigId: string) => {
+  return [`/api/v1/gigs/${gigId}/reviews`] as const;
+};
+
+export const getListGigReviewsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGigReviews>>,
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalErrorResponse,
+>(
+  gigId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof listGigReviews>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListGigReviewsQueryKey(gigId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listGigReviews>>> = ({
+    signal,
+  }) => listGigReviews(gigId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: gigId !== null && gigId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGigReviews>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListGigReviewsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGigReviews>>
+>;
+export type ListGigReviewsQueryError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | InternalErrorResponse;
+
+export function useListGigReviews<
+  TData = Awaited<ReturnType<typeof listGigReviews>>,
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalErrorResponse,
+>(
+  gigId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof listGigReviews>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGigReviews>>,
+          TError,
+          Awaited<ReturnType<typeof listGigReviews>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListGigReviews<
+  TData = Awaited<ReturnType<typeof listGigReviews>>,
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalErrorResponse,
+>(
+  gigId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof listGigReviews>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGigReviews>>,
+          TError,
+          Awaited<ReturnType<typeof listGigReviews>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListGigReviews<
+  TData = Awaited<ReturnType<typeof listGigReviews>>,
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalErrorResponse,
+>(
+  gigId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof listGigReviews>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Отзывы участников задания
+ */
+
+export function useListGigReviews<
+  TData = Awaited<ReturnType<typeof listGigReviews>>,
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalErrorResponse,
+>(
+  gigId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof listGigReviews>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListGigReviewsQueryOptions(gigId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getCreateGigReviewUrl = (gigId: string) => {
+  return `/api/v1/gigs/${gigId}/reviews`;
+};
+
+/**
+ * Только владелец или выбранный исполнитель после completed. Автор определяется по сессии, получатель — другая сторона задания. По одному неизменяемому отзыву от каждой стороны на задание. Повтор, включая конкурентный запрос, — 409 ALREADY_REVIEWED; до completed — 409 STATE_CONFLICT. Доступ проверяется до состояния, как у списка отзывов. Отзыв сразу учитывается в профиле получателя.
+ * @summary Оценить вторую сторону завершённой работы
+ */
+export const createGigReview = async (
+  gigId: string,
+  createReviewRequest: CreateReviewRequest,
+  options?: Parameters<typeof http>[1],
+): Promise<Review> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return http<Review>(getCreateGigReviewUrl(gigId), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(createReviewRequest),
+  });
+};
+
+export const getCreateGigReviewMutationKey = () => ["createGigReview"] as const;
+
+export const getCreateGigReviewMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createGigReview>>,
+    TError,
+    CreateGigReviewMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createGigReview>>,
+  TError,
+  CreateGigReviewMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCreateGigReviewMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createGigReview>>,
+    CreateGigReviewMutationVariables
+  > = (props) => {
+    const { gigId, data } = props ?? {};
+
+    return createGigReview(gigId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateGigReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createGigReview>>
+>;
+export type CreateGigReviewMutationBody = CreateReviewRequest;
+export type CreateGigReviewMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type CreateGigReviewMutationVariables = {
+  gigId: string;
+  data: CreateReviewRequest;
+};
+
+/**
+ * @summary Оценить вторую сторону завершённой работы
+ */
+export const useCreateGigReview = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createGigReview>>,
+      TError,
+      CreateGigReviewMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof createGigReview>>,
+  TError,
+  CreateGigReviewMutationVariables,
+  TContext
+> => {
+  return useMutation(getCreateGigReviewMutationOptions(options), queryClient);
 };
 
 export const getListMyGigsUrl = (params?: ListMyGigsParams) => {

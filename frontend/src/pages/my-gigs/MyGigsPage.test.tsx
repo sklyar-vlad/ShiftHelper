@@ -21,6 +21,8 @@ const owner: CurrentUser = {
   role: "customer",
   bio: "",
   completedGigsCount: 0,
+  ratingAverage: null,
+  reviewsCount: 0,
   createdAt: "2026-11-01T10:00:00Z",
 };
 const worker = {
@@ -29,6 +31,8 @@ const worker = {
   role: "worker" as const,
   bio: "Помогаю по городу",
   completedGigsCount: 2,
+  ratingAverage: null,
+  reviewsCount: 0,
 };
 const gig: Gig = {
   id: "gig-1",

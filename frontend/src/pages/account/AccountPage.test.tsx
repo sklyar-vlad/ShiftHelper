@@ -20,6 +20,8 @@ const user = {
   email: "private@example.test",
   role: "worker" as const,
   completedGigsCount: 0,
+  ratingAverage: null,
+  reviewsCount: 0,
   createdAt: "2026-10-28T10:00:00Z",
 };
 const json = (data: unknown, status = 200) =>

@@ -4,7 +4,7 @@
  * ShiftHelper API
  * Контракт MVP для последующей реализации backend и frontend; наличие операции здесь не означает, что она уже реализована.
  * Пользователь имеет одну неизменяемую роль customer или worker. Оплата фиксирована за всё задание, напрямую между сторонами; платформа деньги не проводит.
- * Нет черновиков, редактирования заданий, платежей, чата, споров, оценок, восстановления пароля или подтверждения email.
+ * Нет черновиков, редактирования заданий, платежей, чата, споров, восстановления пароля или подтверждения email.
  * Все даты — RFC 3339 (ISO 8601 с обязательным Z или смещением часового пояса); ответы используют UTC.
  * Суммы — целые копейки RUB. Текстовые поля обрезаются по краям до проверки длины, пароль не изменяется.
  * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100.
@@ -12,7 +12,7 @@
  * Ошибки имеют envelope error с code, message и необязательным fields. Неизвестные поля тела и параметры, неверные UUID, даты, JSON и фильтры дают 400.
  * Для закрытых ресурсов доступ проверяется до состояния: отсутствие прав на скрытые данные даёт 404; неверная роль или действие над видимым чужим ресурсом — 403; конфликт состояния — 409.
  * Изменения статусов атомарны. Повторное действие даёт 409 и не меняет время переходов. Сервер определяет текущего пользователя по сессии.
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
 import * as zod from "zod";
 
@@ -79,6 +79,10 @@ export const registerResponseBioMax = 1000;
 
 export const registerResponseCompletedGigsCountMin = 0;
 
+export const registerResponseRatingAverageMax = 5;
+
+export const registerResponseReviewsCountMin = 0;
+
 export const registerResponseEmailMax = 254;
 
 export const registerResponseCreatedAtRegExp = new RegExp(
@@ -95,6 +99,15 @@ export const RegisterResponse = zod.object({
       "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
     ),
   completedGigsCount: zod.int().min(registerResponseCompletedGigsCountMin),
+  ratingAverage: zod
+    .number()
+    .min(1)
+    .max(registerResponseRatingAverageMax)
+    .nullable()
+    .describe(
+      "Среднее всех полученных оценок без округления; null, если оценок нет.",
+    ),
+  reviewsCount: zod.int().min(registerResponseReviewsCountMin),
   email: zod.email().max(registerResponseEmailMax),
   createdAt: zod.iso
     .datetime({ offset: true })
@@ -133,6 +146,10 @@ export const loginResponseBioMax = 1000;
 
 export const loginResponseCompletedGigsCountMin = 0;
 
+export const loginResponseRatingAverageMax = 5;
+
+export const loginResponseReviewsCountMin = 0;
+
 export const loginResponseEmailMax = 254;
 
 export const loginResponseCreatedAtRegExp = new RegExp(
@@ -149,6 +166,15 @@ export const LoginResponse = zod.object({
       "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
     ),
   completedGigsCount: zod.int().min(loginResponseCompletedGigsCountMin),
+  ratingAverage: zod
+    .number()
+    .min(1)
+    .max(loginResponseRatingAverageMax)
+    .nullable()
+    .describe(
+      "Среднее всех полученных оценок без округления; null, если оценок нет.",
+    ),
+  reviewsCount: zod.int().min(loginResponseReviewsCountMin),
   email: zod.email().max(loginResponseEmailMax),
   createdAt: zod.iso
     .datetime({ offset: true })
@@ -172,6 +198,10 @@ export const getCurrentUserResponseBioMax = 1000;
 
 export const getCurrentUserResponseCompletedGigsCountMin = 0;
 
+export const getCurrentUserResponseRatingAverageMax = 5;
+
+export const getCurrentUserResponseReviewsCountMin = 0;
+
 export const getCurrentUserResponseEmailMax = 254;
 
 export const getCurrentUserResponseCreatedAtRegExp = new RegExp(
@@ -193,6 +223,15 @@ export const GetCurrentUserResponse = zod.object({
   completedGigsCount: zod
     .int()
     .min(getCurrentUserResponseCompletedGigsCountMin),
+  ratingAverage: zod
+    .number()
+    .min(1)
+    .max(getCurrentUserResponseRatingAverageMax)
+    .nullable()
+    .describe(
+      "Среднее всех полученных оценок без округления; null, если оценок нет.",
+    ),
+  reviewsCount: zod.int().min(getCurrentUserResponseReviewsCountMin),
   email: zod.email().max(getCurrentUserResponseEmailMax),
   createdAt: zod.iso
     .datetime({ offset: true })
@@ -220,6 +259,10 @@ export const updateProfileResponseBioMax = 1000;
 
 export const updateProfileResponseCompletedGigsCountMin = 0;
 
+export const updateProfileResponseRatingAverageMax = 5;
+
+export const updateProfileResponseReviewsCountMin = 0;
+
 export const updateProfileResponseEmailMax = 254;
 
 export const updateProfileResponseCreatedAtRegExp = new RegExp(
@@ -239,6 +282,15 @@ export const UpdateProfileResponse = zod.object({
       "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
     ),
   completedGigsCount: zod.int().min(updateProfileResponseCompletedGigsCountMin),
+  ratingAverage: zod
+    .number()
+    .min(1)
+    .max(updateProfileResponseRatingAverageMax)
+    .nullable()
+    .describe(
+      "Среднее всех полученных оценок без округления; null, если оценок нет.",
+    ),
+  reviewsCount: zod.int().min(updateProfileResponseReviewsCountMin),
   email: zod.email().max(updateProfileResponseEmailMax),
   createdAt: zod.iso
     .datetime({ offset: true })
@@ -260,6 +312,10 @@ export const getPublicUserResponseBioMax = 1000;
 
 export const getPublicUserResponseCompletedGigsCountMin = 0;
 
+export const getPublicUserResponseRatingAverageMax = 5;
+
+export const getPublicUserResponseReviewsCountMin = 0;
+
 export const GetPublicUserResponse = zod.object({
   id: zod.uuid(),
   name: zod.string().min(1).max(getPublicUserResponseNameMax),
@@ -273,6 +329,15 @@ export const GetPublicUserResponse = zod.object({
       "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
     ),
   completedGigsCount: zod.int().min(getPublicUserResponseCompletedGigsCountMin),
+  ratingAverage: zod
+    .number()
+    .min(1)
+    .max(getPublicUserResponseRatingAverageMax)
+    .nullable()
+    .describe(
+      "Среднее всех полученных оценок без округления; null, если оценок нет.",
+    ),
+  reviewsCount: zod.int().min(getPublicUserResponseReviewsCountMin),
 });
 
 /**
@@ -329,12 +394,20 @@ export const listGigsResponseItemsItemCustomerBioMax = 1000;
 
 export const listGigsResponseItemsItemCustomerCompletedGigsCountMin = 0;
 
+export const listGigsResponseItemsItemCustomerRatingAverageMax = 5;
+
+export const listGigsResponseItemsItemCustomerReviewsCountMin = 0;
+
 export const listGigsResponseItemsItemSelectedWorkerNameMax = 100;
 
 export const listGigsResponseItemsItemSelectedWorkerBioMin = 0;
 export const listGigsResponseItemsItemSelectedWorkerBioMax = 1000;
 
 export const listGigsResponseItemsItemSelectedWorkerCompletedGigsCountMin = 0;
+
+export const listGigsResponseItemsItemSelectedWorkerRatingAverageMax = 5;
+
+export const listGigsResponseItemsItemSelectedWorkerReviewsCountMin = 0;
 
 export const listGigsResponseItemsItemPendingApplicationsCountMin = 0;
 
@@ -391,6 +464,17 @@ export const ListGigsResponse = zod.object({
         completedGigsCount: zod
           .int()
           .min(listGigsResponseItemsItemCustomerCompletedGigsCountMin),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(listGigsResponseItemsItemCustomerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(listGigsResponseItemsItemCustomerReviewsCountMin),
       }),
       selectedWorker: zod
         .object({
@@ -411,6 +495,14 @@ export const ListGigsResponse = zod.object({
           completedGigsCount: zod
             .int()
             .min(listGigsResponseItemsItemSelectedWorkerCompletedGigsCountMin),
+          ratingAverage: zod
+            .number()
+            .min(1)
+            .max(listGigsResponseItemsItemSelectedWorkerRatingAverageMax)
+            .nullable(),
+          reviewsCount: zod
+            .int()
+            .min(listGigsResponseItemsItemSelectedWorkerReviewsCountMin),
         })
         .nullable()
         .describe("null до выбора исполнителя."),
@@ -501,12 +593,20 @@ export const createGigResponseCustomerBioMax = 1000;
 
 export const createGigResponseCustomerCompletedGigsCountMin = 0;
 
+export const createGigResponseCustomerRatingAverageMax = 5;
+
+export const createGigResponseCustomerReviewsCountMin = 0;
+
 export const createGigResponseSelectedWorkerNameMax = 100;
 
 export const createGigResponseSelectedWorkerBioMin = 0;
 export const createGigResponseSelectedWorkerBioMax = 1000;
 
 export const createGigResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const createGigResponseSelectedWorkerRatingAverageMax = 5;
+
+export const createGigResponseSelectedWorkerReviewsCountMin = 0;
 
 export const createGigResponsePendingApplicationsCountMin = 0;
 
@@ -538,6 +638,10 @@ export const createGigResponseMyApplicationWorkerBioMin = 0;
 export const createGigResponseMyApplicationWorkerBioMax = 1000;
 
 export const createGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+
+export const createGigResponseMyApplicationWorkerRatingAverageMax = 5;
+
+export const createGigResponseMyApplicationWorkerReviewsCountMin = 0;
 
 export const createGigResponseMyApplicationCommentMin = 0;
 export const createGigResponseMyApplicationCommentMax = 1000;
@@ -586,6 +690,15 @@ export const CreateGigResponse = zod.object({
     completedGigsCount: zod
       .int()
       .min(createGigResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(createGigResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod.int().min(createGigResponseCustomerReviewsCountMin),
   }),
   selectedWorker: zod
     .object({
@@ -603,6 +716,14 @@ export const CreateGigResponse = zod.object({
       completedGigsCount: zod
         .int()
         .min(createGigResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(createGigResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(createGigResponseSelectedWorkerReviewsCountMin),
     })
     .nullable()
     .describe("null до выбора исполнителя."),
@@ -655,6 +776,17 @@ export const CreateGigResponse = zod.object({
         completedGigsCount: zod
           .int()
           .min(createGigResponseMyApplicationWorkerCompletedGigsCountMin),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(createGigResponseMyApplicationWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(createGigResponseMyApplicationWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
@@ -705,12 +837,20 @@ export const getGigResponseCustomerBioMax = 1000;
 
 export const getGigResponseCustomerCompletedGigsCountMin = 0;
 
+export const getGigResponseCustomerRatingAverageMax = 5;
+
+export const getGigResponseCustomerReviewsCountMin = 0;
+
 export const getGigResponseSelectedWorkerNameMax = 100;
 
 export const getGigResponseSelectedWorkerBioMin = 0;
 export const getGigResponseSelectedWorkerBioMax = 1000;
 
 export const getGigResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const getGigResponseSelectedWorkerRatingAverageMax = 5;
+
+export const getGigResponseSelectedWorkerReviewsCountMin = 0;
 
 export const getGigResponsePendingApplicationsCountMin = 0;
 
@@ -742,6 +882,10 @@ export const getGigResponseMyApplicationWorkerBioMin = 0;
 export const getGigResponseMyApplicationWorkerBioMax = 1000;
 
 export const getGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+
+export const getGigResponseMyApplicationWorkerRatingAverageMax = 5;
+
+export const getGigResponseMyApplicationWorkerReviewsCountMin = 0;
 
 export const getGigResponseMyApplicationCommentMin = 0;
 export const getGigResponseMyApplicationCommentMax = 1000;
@@ -788,6 +932,15 @@ export const GetGigResponse = zod.object({
     completedGigsCount: zod
       .int()
       .min(getGigResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(getGigResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod.int().min(getGigResponseCustomerReviewsCountMin),
   }),
   selectedWorker: zod
     .object({
@@ -805,6 +958,12 @@ export const GetGigResponse = zod.object({
       completedGigsCount: zod
         .int()
         .min(getGigResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(getGigResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod.int().min(getGigResponseSelectedWorkerReviewsCountMin),
     })
     .nullable()
     .describe("null до выбора исполнителя."),
@@ -854,6 +1013,17 @@ export const GetGigResponse = zod.object({
         completedGigsCount: zod
           .int()
           .min(getGigResponseMyApplicationWorkerCompletedGigsCountMin),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(getGigResponseMyApplicationWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(getGigResponseMyApplicationWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
@@ -904,12 +1074,20 @@ export const cancelGigResponseCustomerBioMax = 1000;
 
 export const cancelGigResponseCustomerCompletedGigsCountMin = 0;
 
+export const cancelGigResponseCustomerRatingAverageMax = 5;
+
+export const cancelGigResponseCustomerReviewsCountMin = 0;
+
 export const cancelGigResponseSelectedWorkerNameMax = 100;
 
 export const cancelGigResponseSelectedWorkerBioMin = 0;
 export const cancelGigResponseSelectedWorkerBioMax = 1000;
 
 export const cancelGigResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const cancelGigResponseSelectedWorkerRatingAverageMax = 5;
+
+export const cancelGigResponseSelectedWorkerReviewsCountMin = 0;
 
 export const cancelGigResponsePendingApplicationsCountMin = 0;
 
@@ -941,6 +1119,10 @@ export const cancelGigResponseMyApplicationWorkerBioMin = 0;
 export const cancelGigResponseMyApplicationWorkerBioMax = 1000;
 
 export const cancelGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+
+export const cancelGigResponseMyApplicationWorkerRatingAverageMax = 5;
+
+export const cancelGigResponseMyApplicationWorkerReviewsCountMin = 0;
 
 export const cancelGigResponseMyApplicationCommentMin = 0;
 export const cancelGigResponseMyApplicationCommentMax = 1000;
@@ -989,6 +1171,15 @@ export const CancelGigResponse = zod.object({
     completedGigsCount: zod
       .int()
       .min(cancelGigResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(cancelGigResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod.int().min(cancelGigResponseCustomerReviewsCountMin),
   }),
   selectedWorker: zod
     .object({
@@ -1006,6 +1197,14 @@ export const CancelGigResponse = zod.object({
       completedGigsCount: zod
         .int()
         .min(cancelGigResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(cancelGigResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(cancelGigResponseSelectedWorkerReviewsCountMin),
     })
     .nullable()
     .describe("null до выбора исполнителя."),
@@ -1058,6 +1257,17 @@ export const CancelGigResponse = zod.object({
         completedGigsCount: zod
           .int()
           .min(cancelGigResponseMyApplicationWorkerCompletedGigsCountMin),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(cancelGigResponseMyApplicationWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(cancelGigResponseMyApplicationWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
@@ -1108,12 +1318,20 @@ export const submitGigResponseCustomerBioMax = 1000;
 
 export const submitGigResponseCustomerCompletedGigsCountMin = 0;
 
+export const submitGigResponseCustomerRatingAverageMax = 5;
+
+export const submitGigResponseCustomerReviewsCountMin = 0;
+
 export const submitGigResponseSelectedWorkerNameMax = 100;
 
 export const submitGigResponseSelectedWorkerBioMin = 0;
 export const submitGigResponseSelectedWorkerBioMax = 1000;
 
 export const submitGigResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const submitGigResponseSelectedWorkerRatingAverageMax = 5;
+
+export const submitGigResponseSelectedWorkerReviewsCountMin = 0;
 
 export const submitGigResponsePendingApplicationsCountMin = 0;
 
@@ -1145,6 +1363,10 @@ export const submitGigResponseMyApplicationWorkerBioMin = 0;
 export const submitGigResponseMyApplicationWorkerBioMax = 1000;
 
 export const submitGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+
+export const submitGigResponseMyApplicationWorkerRatingAverageMax = 5;
+
+export const submitGigResponseMyApplicationWorkerReviewsCountMin = 0;
 
 export const submitGigResponseMyApplicationCommentMin = 0;
 export const submitGigResponseMyApplicationCommentMax = 1000;
@@ -1193,6 +1415,15 @@ export const SubmitGigResponse = zod.object({
     completedGigsCount: zod
       .int()
       .min(submitGigResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(submitGigResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod.int().min(submitGigResponseCustomerReviewsCountMin),
   }),
   selectedWorker: zod
     .object({
@@ -1210,6 +1441,14 @@ export const SubmitGigResponse = zod.object({
       completedGigsCount: zod
         .int()
         .min(submitGigResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(submitGigResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(submitGigResponseSelectedWorkerReviewsCountMin),
     })
     .nullable()
     .describe("null до выбора исполнителя."),
@@ -1262,6 +1501,17 @@ export const SubmitGigResponse = zod.object({
         completedGigsCount: zod
           .int()
           .min(submitGigResponseMyApplicationWorkerCompletedGigsCountMin),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(submitGigResponseMyApplicationWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(submitGigResponseMyApplicationWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
@@ -1312,12 +1562,20 @@ export const confirmGigResponseCustomerBioMax = 1000;
 
 export const confirmGigResponseCustomerCompletedGigsCountMin = 0;
 
+export const confirmGigResponseCustomerRatingAverageMax = 5;
+
+export const confirmGigResponseCustomerReviewsCountMin = 0;
+
 export const confirmGigResponseSelectedWorkerNameMax = 100;
 
 export const confirmGigResponseSelectedWorkerBioMin = 0;
 export const confirmGigResponseSelectedWorkerBioMax = 1000;
 
 export const confirmGigResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const confirmGigResponseSelectedWorkerRatingAverageMax = 5;
+
+export const confirmGigResponseSelectedWorkerReviewsCountMin = 0;
 
 export const confirmGigResponsePendingApplicationsCountMin = 0;
 
@@ -1349,6 +1607,10 @@ export const confirmGigResponseMyApplicationWorkerBioMin = 0;
 export const confirmGigResponseMyApplicationWorkerBioMax = 1000;
 
 export const confirmGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+
+export const confirmGigResponseMyApplicationWorkerRatingAverageMax = 5;
+
+export const confirmGigResponseMyApplicationWorkerReviewsCountMin = 0;
 
 export const confirmGigResponseMyApplicationCommentMin = 0;
 export const confirmGigResponseMyApplicationCommentMax = 1000;
@@ -1397,6 +1659,15 @@ export const ConfirmGigResponse = zod.object({
     completedGigsCount: zod
       .int()
       .min(confirmGigResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(confirmGigResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod.int().min(confirmGigResponseCustomerReviewsCountMin),
   }),
   selectedWorker: zod
     .object({
@@ -1414,6 +1685,14 @@ export const ConfirmGigResponse = zod.object({
       completedGigsCount: zod
         .int()
         .min(confirmGigResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(confirmGigResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(confirmGigResponseSelectedWorkerReviewsCountMin),
     })
     .nullable()
     .describe("null до выбора исполнителя."),
@@ -1466,6 +1745,17 @@ export const ConfirmGigResponse = zod.object({
         completedGigsCount: zod
           .int()
           .min(confirmGigResponseMyApplicationWorkerCompletedGigsCountMin),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(confirmGigResponseMyApplicationWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(confirmGigResponseMyApplicationWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
@@ -1516,6 +1806,10 @@ export const createApplicationResponseWorkerBioMax = 1000;
 
 export const createApplicationResponseWorkerCompletedGigsCountMin = 0;
 
+export const createApplicationResponseWorkerRatingAverageMax = 5;
+
+export const createApplicationResponseWorkerReviewsCountMin = 0;
+
 export const createApplicationResponseCommentMin = 0;
 export const createApplicationResponseCommentMax = 1000;
 
@@ -1544,6 +1838,15 @@ export const CreateApplicationResponse = zod.object({
     completedGigsCount: zod
       .int()
       .min(createApplicationResponseWorkerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(createApplicationResponseWorkerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod.int().min(createApplicationResponseWorkerReviewsCountMin),
   }),
   comment: zod
     .string()
@@ -1597,6 +1900,10 @@ export const listGigApplicationsResponseItemsItemWorkerBioMax = 1000;
 
 export const listGigApplicationsResponseItemsItemWorkerCompletedGigsCountMin = 0;
 
+export const listGigApplicationsResponseItemsItemWorkerRatingAverageMax = 5;
+
+export const listGigApplicationsResponseItemsItemWorkerReviewsCountMin = 0;
+
 export const listGigApplicationsResponseItemsItemCommentMin = 0;
 export const listGigApplicationsResponseItemsItemCommentMax = 1000;
 
@@ -1634,6 +1941,17 @@ export const ListGigApplicationsResponse = zod.object({
         completedGigsCount: zod
           .int()
           .min(listGigApplicationsResponseItemsItemWorkerCompletedGigsCountMin),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(listGigApplicationsResponseItemsItemWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(listGigApplicationsResponseItemsItemWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
@@ -1685,12 +2003,20 @@ export const selectApplicationResponseCustomerBioMax = 1000;
 
 export const selectApplicationResponseCustomerCompletedGigsCountMin = 0;
 
+export const selectApplicationResponseCustomerRatingAverageMax = 5;
+
+export const selectApplicationResponseCustomerReviewsCountMin = 0;
+
 export const selectApplicationResponseSelectedWorkerNameMax = 100;
 
 export const selectApplicationResponseSelectedWorkerBioMin = 0;
 export const selectApplicationResponseSelectedWorkerBioMax = 1000;
 
 export const selectApplicationResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const selectApplicationResponseSelectedWorkerRatingAverageMax = 5;
+
+export const selectApplicationResponseSelectedWorkerReviewsCountMin = 0;
 
 export const selectApplicationResponsePendingApplicationsCountMin = 0;
 
@@ -1722,6 +2048,10 @@ export const selectApplicationResponseMyApplicationWorkerBioMin = 0;
 export const selectApplicationResponseMyApplicationWorkerBioMax = 1000;
 
 export const selectApplicationResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+
+export const selectApplicationResponseMyApplicationWorkerRatingAverageMax = 5;
+
+export const selectApplicationResponseMyApplicationWorkerReviewsCountMin = 0;
 
 export const selectApplicationResponseMyApplicationCommentMin = 0;
 export const selectApplicationResponseMyApplicationCommentMax = 1000;
@@ -1773,6 +2103,17 @@ export const SelectApplicationResponse = zod.object({
     completedGigsCount: zod
       .int()
       .min(selectApplicationResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(selectApplicationResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod
+      .int()
+      .min(selectApplicationResponseCustomerReviewsCountMin),
   }),
   selectedWorker: zod
     .object({
@@ -1793,6 +2134,14 @@ export const SelectApplicationResponse = zod.object({
       completedGigsCount: zod
         .int()
         .min(selectApplicationResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(selectApplicationResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(selectApplicationResponseSelectedWorkerReviewsCountMin),
     })
     .nullable()
     .describe("null до выбора исполнителя."),
@@ -1847,6 +2196,17 @@ export const SelectApplicationResponse = zod.object({
           .min(
             selectApplicationResponseMyApplicationWorkerCompletedGigsCountMin,
           ),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(selectApplicationResponseMyApplicationWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(selectApplicationResponseMyApplicationWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
@@ -1886,6 +2246,10 @@ export const withdrawApplicationResponseWorkerBioMax = 1000;
 
 export const withdrawApplicationResponseWorkerCompletedGigsCountMin = 0;
 
+export const withdrawApplicationResponseWorkerRatingAverageMax = 5;
+
+export const withdrawApplicationResponseWorkerReviewsCountMin = 0;
+
 export const withdrawApplicationResponseCommentMin = 0;
 export const withdrawApplicationResponseCommentMax = 1000;
 
@@ -1914,6 +2278,17 @@ export const WithdrawApplicationResponse = zod.object({
     completedGigsCount: zod
       .int()
       .min(withdrawApplicationResponseWorkerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(withdrawApplicationResponseWorkerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod
+      .int()
+      .min(withdrawApplicationResponseWorkerReviewsCountMin),
   }),
   comment: zod
     .string()
@@ -1930,6 +2305,71 @@ export const WithdrawApplicationResponse = zod.object({
   updatedAt: zod.iso
     .datetime({ offset: true })
     .regex(withdrawApplicationResponseUpdatedAtRegExp),
+});
+
+/**
+ * Только владелец и выбранный исполнитель. До завершения возвращается пустой список; после завершения — не больше двух отзывов. Остальным участникам видимого задания 403, чужой скрытый ресурс — 404.
+ * @summary Отзывы участников задания
+ */
+export const ListGigReviewsParams = zod.object({
+  gigId: zod.uuid(),
+});
+
+export const listGigReviewsResponseItemsItemScoreMax = 5;
+
+export const listGigReviewsResponseItemsItemCommentMax = 1000;
+
+export const listGigReviewsResponseItemsMax = 2;
+
+export const ListGigReviewsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        gigId: zod.uuid(),
+        authorId: zod.uuid(),
+        recipientId: zod.uuid(),
+        score: zod.int().min(1).max(listGigReviewsResponseItemsItemScoreMax),
+        comment: zod.string().max(listGigReviewsResponseItemsItemCommentMax),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .max(listGigReviewsResponseItemsMax),
+});
+
+/**
+ * Только владелец или выбранный исполнитель после completed. Автор определяется по сессии, получатель — другая сторона задания. По одному неизменяемому отзыву от каждой стороны на задание. Повтор, включая конкурентный запрос, — 409 ALREADY_REVIEWED; до completed — 409 STATE_CONFLICT. Доступ проверяется до состояния, как у списка отзывов. Отзыв сразу учитывается в профиле получателя.
+ * @summary Оценить вторую сторону завершённой работы
+ */
+export const CreateGigReviewParams = zod.object({
+  gigId: zod.uuid(),
+});
+
+export const createGigReviewBodyScoreMax = 5;
+
+export const createGigReviewBodyCommentDefault = ``;
+export const createGigReviewBodyCommentMax = 1000;
+
+export const CreateGigReviewBody = zod.object({
+  score: zod.int().min(1).max(createGigReviewBodyScoreMax),
+  comment: zod
+    .string()
+    .max(createGigReviewBodyCommentMax)
+    .default(createGigReviewBodyCommentDefault),
+});
+
+export const createGigReviewResponseScoreMax = 5;
+
+export const createGigReviewResponseCommentMax = 1000;
+
+export const CreateGigReviewResponse = zod.object({
+  id: zod.uuid(),
+  gigId: zod.uuid(),
+  authorId: zod.uuid(),
+  recipientId: zod.uuid(),
+  score: zod.int().min(1).max(createGigReviewResponseScoreMax),
+  comment: zod.string().max(createGigReviewResponseCommentMax),
+  createdAt: zod.iso.datetime({ offset: true }),
 });
 
 /**
@@ -1979,12 +2419,20 @@ export const listMyGigsResponseItemsItemCustomerBioMax = 1000;
 
 export const listMyGigsResponseItemsItemCustomerCompletedGigsCountMin = 0;
 
+export const listMyGigsResponseItemsItemCustomerRatingAverageMax = 5;
+
+export const listMyGigsResponseItemsItemCustomerReviewsCountMin = 0;
+
 export const listMyGigsResponseItemsItemSelectedWorkerNameMax = 100;
 
 export const listMyGigsResponseItemsItemSelectedWorkerBioMin = 0;
 export const listMyGigsResponseItemsItemSelectedWorkerBioMax = 1000;
 
 export const listMyGigsResponseItemsItemSelectedWorkerCompletedGigsCountMin = 0;
+
+export const listMyGigsResponseItemsItemSelectedWorkerRatingAverageMax = 5;
+
+export const listMyGigsResponseItemsItemSelectedWorkerReviewsCountMin = 0;
 
 export const listMyGigsResponseItemsItemPendingApplicationsCountMin = 0;
 
@@ -2044,6 +2492,17 @@ export const ListMyGigsResponse = zod.object({
         completedGigsCount: zod
           .int()
           .min(listMyGigsResponseItemsItemCustomerCompletedGigsCountMin),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(listMyGigsResponseItemsItemCustomerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(listMyGigsResponseItemsItemCustomerReviewsCountMin),
       }),
       selectedWorker: zod
         .object({
@@ -2066,6 +2525,14 @@ export const ListMyGigsResponse = zod.object({
             .min(
               listMyGigsResponseItemsItemSelectedWorkerCompletedGigsCountMin,
             ),
+          ratingAverage: zod
+            .number()
+            .min(1)
+            .max(listMyGigsResponseItemsItemSelectedWorkerRatingAverageMax)
+            .nullable(),
+          reviewsCount: zod
+            .int()
+            .min(listMyGigsResponseItemsItemSelectedWorkerReviewsCountMin),
         })
         .nullable()
         .describe("null до выбора исполнителя."),
@@ -2120,6 +2587,10 @@ export const listMyApplicationsResponseItemsItemApplicationWorkerBioMax = 1000;
 
 export const listMyApplicationsResponseItemsItemApplicationWorkerCompletedGigsCountMin = 0;
 
+export const listMyApplicationsResponseItemsItemApplicationWorkerRatingAverageMax = 5;
+
+export const listMyApplicationsResponseItemsItemApplicationWorkerReviewsCountMin = 0;
+
 export const listMyApplicationsResponseItemsItemApplicationCommentMin = 0;
 export const listMyApplicationsResponseItemsItemApplicationCommentMax = 1000;
 
@@ -2150,12 +2621,20 @@ export const listMyApplicationsResponseItemsItemGigCustomerBioMax = 1000;
 
 export const listMyApplicationsResponseItemsItemGigCustomerCompletedGigsCountMin = 0;
 
+export const listMyApplicationsResponseItemsItemGigCustomerRatingAverageMax = 5;
+
+export const listMyApplicationsResponseItemsItemGigCustomerReviewsCountMin = 0;
+
 export const listMyApplicationsResponseItemsItemGigSelectedWorkerNameMax = 100;
 
 export const listMyApplicationsResponseItemsItemGigSelectedWorkerBioMin = 0;
 export const listMyApplicationsResponseItemsItemGigSelectedWorkerBioMax = 1000;
 
 export const listMyApplicationsResponseItemsItemGigSelectedWorkerCompletedGigsCountMin = 0;
+
+export const listMyApplicationsResponseItemsItemGigSelectedWorkerRatingAverageMax = 5;
+
+export const listMyApplicationsResponseItemsItemGigSelectedWorkerReviewsCountMin = 0;
 
 export const listMyApplicationsResponseItemsItemGigPendingApplicationsCountMin = 0;
 
@@ -2195,6 +2674,21 @@ export const ListMyApplicationsResponse = zod.object({
             .int()
             .min(
               listMyApplicationsResponseItemsItemApplicationWorkerCompletedGigsCountMin,
+            ),
+          ratingAverage: zod
+            .number()
+            .min(1)
+            .max(
+              listMyApplicationsResponseItemsItemApplicationWorkerRatingAverageMax,
+            )
+            .nullable()
+            .describe(
+              "Среднее всех полученных оценок без округления; null, если оценок нет.",
+            ),
+          reviewsCount: zod
+            .int()
+            .min(
+              listMyApplicationsResponseItemsItemApplicationWorkerReviewsCountMin,
             ),
         }),
         comment: zod
@@ -2264,6 +2758,17 @@ export const ListMyApplicationsResponse = zod.object({
             .min(
               listMyApplicationsResponseItemsItemGigCustomerCompletedGigsCountMin,
             ),
+          ratingAverage: zod
+            .number()
+            .min(1)
+            .max(listMyApplicationsResponseItemsItemGigCustomerRatingAverageMax)
+            .nullable()
+            .describe(
+              "Среднее всех полученных оценок без округления; null, если оценок нет.",
+            ),
+          reviewsCount: zod
+            .int()
+            .min(listMyApplicationsResponseItemsItemGigCustomerReviewsCountMin),
         }),
         selectedWorker: zod
           .object({
@@ -2285,6 +2790,18 @@ export const ListMyApplicationsResponse = zod.object({
               .int()
               .min(
                 listMyApplicationsResponseItemsItemGigSelectedWorkerCompletedGigsCountMin,
+              ),
+            ratingAverage: zod
+              .number()
+              .min(1)
+              .max(
+                listMyApplicationsResponseItemsItemGigSelectedWorkerRatingAverageMax,
+              )
+              .nullable(),
+            reviewsCount: zod
+              .int()
+              .min(
+                listMyApplicationsResponseItemsItemGigSelectedWorkerReviewsCountMin,
               ),
           })
           .nullable()

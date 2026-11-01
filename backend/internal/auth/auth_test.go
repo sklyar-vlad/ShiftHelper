@@ -135,9 +135,10 @@ func TestAuthentication(t *testing.T) {
 		response = send("GET", "/api/v1/users/"+users[i].ID, "", nil)
 		expect(response, 200, "")
 		var public map[string]any
-		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 5 ||
+		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 7 ||
 			public["id"] != users[i].ID || public["name"] != "Новое имя" || public["bio"] != "Обо мне" ||
-			public["role"] != users[i].Role || public["completedGigsCount"] != float64(0) {
+			public["role"] != users[i].Role || public["completedGigsCount"] != float64(0) ||
+			public["ratingAverage"] != nil || public["reviewsCount"] != float64(0) {
 			t.Fatal("public profile exposes extra fields or incorrect data")
 		}
 		response = send("GET", "/api/v1/me", "", cookie)
@@ -197,7 +198,7 @@ func TestAuthentication(t *testing.T) {
 		response = send("GET", "/api/v1/users/"+users[i].ID, "", cookies[1-i])
 		expect(response, 200, "")
 		var public map[string]any
-		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 5 || public["completedGigsCount"] != float64(1) {
+		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 7 || public["completedGigsCount"] != float64(1) {
 			t.Fatal("public completed work count is incorrect or private fields were exposed")
 		}
 	}

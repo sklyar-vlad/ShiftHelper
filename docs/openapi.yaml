@@ -1,14 +1,14 @@
 openapi: 3.0.3
 info:
   title: ShiftHelper API
-  version: 0.2.0
+  version: 0.3.0
   description: 'Контракт MVP для последующей реализации backend и frontend; наличие операции здесь не означает,
     что она уже реализована.
 
     Пользователь имеет одну неизменяемую роль customer или worker. Оплата фиксирована за всё задание, напрямую между
     сторонами; платформа деньги не проводит.
 
-    Нет черновиков, редактирования заданий, платежей, чата, споров, оценок, восстановления пароля или подтверждения
+    Нет черновиков, редактирования заданий, платежей, чата, споров, восстановления пароля или подтверждения
     email.
 
     Все даты — RFC 3339 (ISO 8601 с обязательным Z или смещением часового пояса); ответы используют UTC.
@@ -37,6 +37,7 @@ tags:
 - name: Gigs
 - name: Applications
 - name: Personal
+- name: Reviews
 paths:
   /api/v1/status:
     get:
@@ -577,6 +578,69 @@ paths:
       parameters:
       - $ref: '#/components/parameters/GigId'
       - $ref: '#/components/parameters/ApplicationId'
+  /api/v1/gigs/{gigId}/reviews:
+    parameters:
+    - $ref: '#/components/parameters/GigId'
+    get:
+      operationId: listGigReviews
+      tags: [Reviews]
+      summary: Отзывы участников задания
+      description: Только владелец и выбранный исполнитель. До завершения возвращается пустой список;
+        после завершения — не больше двух отзывов. Остальным участникам видимого задания 403, чужой скрытый ресурс — 404.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Отзывы, новые первыми
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GigReviews'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createGigReview
+      tags: [Reviews]
+      summary: Оценить вторую сторону завершённой работы
+      description: Только владелец или выбранный исполнитель после completed. Автор определяется по сессии,
+        получатель — другая сторона задания. По одному неизменяемому отзыву от каждой стороны на задание.
+        Повтор, включая конкурентный запрос, — 409 ALREADY_REVIEWED; до completed — 409 STATE_CONFLICT.
+        Доступ проверяется до состояния, как у списка отзывов. Отзыв сразу учитывается в профиле получателя.
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReviewRequest'
+      responses:
+        '201':
+          description: Оценка сохранена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/me/gigs:
     get:
       operationId: listMyGigs
@@ -690,6 +754,56 @@ components:
       - withdrawn
       description: Создание → pending; отзыв автором → withdrawn; выбор владельцем → selected, остальные pending
         → rejected. Отмена задания также переводит pending в rejected. Терминальные состояния не меняются.
+    CreateReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [score]
+      properties:
+        score:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+          default: ''
+    Review:
+      type: object
+      additionalProperties: false
+      required: [id, gigId, authorId, recipientId, score, comment, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        gigId:
+          type: string
+          format: uuid
+        authorId:
+          type: string
+          format: uuid
+        recipientId:
+          type: string
+          format: uuid
+        score:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+        createdAt:
+          type: string
+          format: date-time
+    GigReviews:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/Review'
     PublicUser:
       type: object
       additionalProperties: false
@@ -699,6 +813,8 @@ components:
       - bio
       - role
       - completedGigsCount
+      - ratingAverage
+      - reviewsCount
       properties:
         id:
           type: string
@@ -716,6 +832,15 @@ components:
         completedGigsCount:
           type: integer
           minimum: 0
+        ratingAverage:
+          type: number
+          nullable: true
+          minimum: 1
+          maximum: 5
+          description: Среднее всех полученных оценок без округления; null, если оценок нет.
+        reviewsCount:
+          type: integer
+          minimum: 0
     CurrentUser:
       type: object
       additionalProperties: false
@@ -725,6 +850,8 @@ components:
       - bio
       - role
       - completedGigsCount
+      - ratingAverage
+      - reviewsCount
       - email
       - createdAt
       properties:
@@ -742,6 +869,15 @@ components:
         role:
           $ref: '#/components/schemas/Role'
         completedGigsCount:
+          type: integer
+          minimum: 0
+        ratingAverage:
+          type: number
+          nullable: true
+          minimum: 1
+          maximum: 5
+          description: Среднее всех полученных оценок без округления; null, если оценок нет.
+        reviewsCount:
           type: integer
           minimum: 0
         email:
@@ -913,6 +1049,8 @@ components:
           - bio
           - role
           - completedGigsCount
+          - ratingAverage
+          - reviewsCount
           properties:
             id:
               type: string
@@ -928,6 +1066,14 @@ components:
             role:
               $ref: '#/components/schemas/Role'
             completedGigsCount:
+              type: integer
+              minimum: 0
+            ratingAverage:
+              type: number
+              nullable: true
+              minimum: 1
+              maximum: 5
+            reviewsCount:
               type: integer
               minimum: 0
           nullable: true
@@ -1037,6 +1183,8 @@ components:
           - bio
           - role
           - completedGigsCount
+          - ratingAverage
+          - reviewsCount
           properties:
             id:
               type: string
@@ -1052,6 +1200,14 @@ components:
             role:
               $ref: '#/components/schemas/Role'
             completedGigsCount:
+              type: integer
+              minimum: 0
+            ratingAverage:
+              type: number
+              nullable: true
+              minimum: 1
+              maximum: 5
+            reviewsCount:
               type: integer
               minimum: 0
           nullable: true
