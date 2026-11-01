@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, 'feature/**', 'fix/**']
   pull_request:
     branches: [main, dev]
 permissions:
@@ -33,7 +33,7 @@ jobs:
         working-directory: backend
       - run: go vet ./...
         working-directory: backend
-      - run: go build ./cmd/api ./cmd/worker
+      - run: go build ./cmd/api ./cmd/worker ./cmd/demo
         working-directory: backend
   frontend:
     runs-on: ubuntu-latest
@@ -53,3 +53,9 @@ jobs:
       - run: git diff --exit-code -- src/shared/api/generated
       - run: npm run build
       - run: npm run test:ci
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-mvp.sh
