@@ -115,6 +115,11 @@ tasks:
         dir: backend
       - npm --prefix frontend run test:ci
 
+  smoke:
+    desc: Проверить MVP на отдельном стенде с чистой базой (нужен Docker)
+    cmds:
+      - bash scripts/check-mvp.sh
+
   build:
     cmds:
       - cmd: go build ./cmd/api ./cmd/worker ./cmd/demo

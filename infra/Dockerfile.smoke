@@ -1,0 +1,5 @@
+FROM mcr.microsoft.com/playwright:v1.64.1-noble
+WORKDIR /check
+RUN npm install --no-audit --no-fund --ignore-scripts playwright@1.64.1
+COPY scripts/mvp-smoke.mjs ./
+CMD ["node", "mvp-smoke.mjs"]
