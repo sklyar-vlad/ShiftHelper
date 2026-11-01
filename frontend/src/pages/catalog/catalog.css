@@ -114,6 +114,30 @@
   line-height: 1.7;
   margin-bottom: 0;
 }
+.gig-application {
+  border-top: 1px solid var(--line);
+  margin-top: 28px;
+  padding-top: 24px;
+}
+.gig-application h2 {
+  margin-top: 0;
+}
+.gig-application .gig-text {
+  margin-bottom: 20px;
+}
+.gig-application textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  color: inherit;
+  resize: vertical;
+}
+.gig-application textarea:focus-visible {
+  outline: 3px solid #76aa5e;
+  outline-offset: 4px;
+}
 @media (max-width: 700px) {
   .catalog-filters {
     flex-direction: column;
