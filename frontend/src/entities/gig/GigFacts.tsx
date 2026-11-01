@@ -1,5 +1,6 @@
 import type { GigSummary } from "@/shared/api/generated/api";
 import { formatDateTime, formatMoney } from "@/shared/lib/format";
+import { UserCard } from "@/entities/user/UserCard";
 
 export function GigFacts({ gig }: { gig: GigSummary }) {
   return (
@@ -26,7 +27,9 @@ export function GigFacts({ gig }: { gig: GigSummary }) {
         </div>
         <div>
           <dt>Заказчик</dt>
-          <dd>{gig.customer.name}</dd>
+          <dd>
+            <UserCard user={gig.customer} />
+          </dd>
         </div>
       </dl>
     </>
