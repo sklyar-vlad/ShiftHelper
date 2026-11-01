@@ -23,6 +23,8 @@ const worker: CurrentUser = {
   bio: "",
   role: "worker",
   completedGigsCount: 0,
+  ratingAverage: null,
+  reviewsCount: 0,
   email: "private@example.test",
   createdAt: "2026-11-01T10:00:00Z",
 };

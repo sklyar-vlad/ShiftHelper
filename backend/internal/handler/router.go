@@ -12,6 +12,7 @@ import (
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/auth"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/gigs"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/metrics"
+	"github.com/sklyar-vlad/ShiftHelper/backend/internal/reviews"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/status"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/users"
 	"go.uber.org/zap"
@@ -40,6 +41,7 @@ func NewRouter(logger *zap.Logger, pool *pgxpool.Pool, metricsToken, appOrigin s
 	api := authHandler.Register(router)
 	users.NewHandler(pool).Register(api, authHandler.RequireUser())
 	gigs.NewHandler(pool).Register(api, authHandler.RequireUser(), authHandler.OptionalUser())
+	reviews.NewHandler(pool).Register(api, authHandler.RequireUser())
 	router.GET("/metrics", gin.WrapH(metrics.Handler(metricsToken)))
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "NOT_FOUND", "message": "Ресурс не найден."}})

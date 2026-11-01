@@ -126,6 +126,10 @@ func TestMVPMigration(t *testing.T) {
 	}
 	run("down")
 	var removed bool
+	if err := pool.QueryRow(ctx, "SELECT to_regclass(current_schema() || '.reviews') IS NULL").Scan(&removed); err != nil || !removed {
+		t.Fatalf("reviews table was not removed: %v", err)
+	}
+	run("down")
 	if err := pool.QueryRow(ctx, "SELECT to_regclass(current_schema() || '.users') IS NULL").Scan(&removed); err != nil || !removed {
 		t.Fatalf("domain tables were not removed: %v", err)
 	}

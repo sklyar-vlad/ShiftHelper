@@ -20,6 +20,8 @@ const worker: CurrentUser = {
   role: "worker",
   bio: "",
   completedGigsCount: 0,
+  ratingAverage: null,
+  reviewsCount: 0,
   createdAt: "2026-11-01T10:00:00Z",
 };
 const gig: Gig = {

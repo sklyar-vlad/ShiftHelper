@@ -14,11 +14,13 @@ import (
 )
 
 type PublicUser struct {
-	ID                 string `json:"id"`
-	Name               string `json:"name"`
-	Bio                string `json:"bio"`
-	Role               string `json:"role"`
-	CompletedGigsCount int64  `json:"completedGigsCount"`
+	ID                 string   `json:"id"`
+	Name               string   `json:"name"`
+	Bio                string   `json:"bio"`
+	Role               string   `json:"role"`
+	CompletedGigsCount int64    `json:"completedGigsCount"`
+	RatingAverage      *float64 `json:"ratingAverage"`
+	ReviewsCount       int64    `json:"reviewsCount"`
 }
 
 type Handler struct{ pool *pgxpool.Pool }
@@ -79,8 +81,10 @@ func (h *Handler) public(c *gin.Context) {
 	var user PublicUser
 	err := h.pool.QueryRow(c.Request.Context(), `SELECT u.id::text, u.name, u.bio, u.role,
         (SELECT count(*) FROM gigs g WHERE g.status = 'completed'
-         AND ((u.role = 'customer' AND g.customer_id = u.id) OR (u.role = 'worker' AND g.selected_worker_id = u.id)))
-        FROM users u WHERE u.id = $1`, c.Param("userId")).Scan(&user.ID, &user.Name, &user.Bio, &user.Role, &user.CompletedGigsCount)
+         AND ((u.role = 'customer' AND g.customer_id = u.id) OR (u.role = 'worker' AND g.selected_worker_id = u.id))),
+        (SELECT avg(score)::float8 FROM reviews WHERE recipient_id = u.id),
+        (SELECT count(*) FROM reviews WHERE recipient_id = u.id)
+        FROM users u WHERE u.id = $1`, c.Param("userId")).Scan(&user.ID, &user.Name, &user.Bio, &user.Role, &user.CompletedGigsCount, &user.RatingAverage, &user.ReviewsCount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Пользователь не найден.")
 	} else if err != nil {

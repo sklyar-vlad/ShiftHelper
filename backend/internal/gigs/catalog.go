@@ -23,7 +23,9 @@ const profilesSQL = `WITH profiles AS NOT MATERIALIZED (
     SELECT u.id, u.name, u.bio, u.role,
         (SELECT count(*) FROM gigs done WHERE done.status = 'completed'
          AND ((u.role = 'customer' AND done.customer_id = u.id)
-           OR (u.role = 'worker' AND done.selected_worker_id = u.id))) AS "completedGigsCount"
+           OR (u.role = 'worker' AND done.selected_worker_id = u.id))) AS "completedGigsCount",
+        (SELECT avg(score)::float8 FROM reviews WHERE recipient_id = u.id) AS "ratingAverage",
+        (SELECT count(*) FROM reviews WHERE recipient_id = u.id) AS "reviewsCount"
     FROM users u
 )`
 
