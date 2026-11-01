@@ -33,7 +33,7 @@ type Handler struct {
 }
 
 func NewHandler(pool *pgxpool.Pool, origin string) *Handler {
-	return &Handler{pool: pool, origin: strings.TrimSuffix(origin, "/"), dummyHash: hashPassword(rand.Text())}
+	return &Handler{pool: pool, origin: strings.TrimSuffix(origin, "/"), dummyHash: HashPassword(rand.Text())}
 }
 
 func (h *Handler) Register(router *gin.Engine) *gin.RouterGroup {
@@ -97,7 +97,7 @@ func (h *Handler) register(c *gin.Context) {
 	if httpapi.ValidationError(c, fields) {
 		return
 	}
-	passwordHash := hashPassword(input.Password)
+	passwordHash := HashPassword(input.Password)
 	ctx := c.Request.Context()
 	tx, err := h.pool.Begin(ctx)
 	if err != nil {
