@@ -4,9 +4,8 @@
   gap: 16px;
   padding: 24px;
   margin-bottom: 16px;
-  background: white;
-  border: 1px solid var(--line);
-  border-radius: 15px;
+  background: var(--mint);
+  border-radius: 24px;
 }
 .catalog-filters label {
   flex: 1;
@@ -19,10 +18,11 @@
   width: 100%;
   min-height: 48px;
   margin-top: 10px;
-  padding: 12px;
+  padding: 12px 14px;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 12px;
   color: inherit;
+  background: #fff;
 }
 .catalog-filters .text-link {
   padding-block: 16px;
@@ -30,6 +30,7 @@
 .catalog-count {
   margin-block: 32px 20px;
   font-size: 14px;
+  color: var(--muted);
 }
 .catalog-grid {
   display: grid;
@@ -38,26 +39,28 @@
 }
 .gig-card {
   padding: 28px;
-  background: white;
+  background: #fff;
   border: 1px solid var(--line);
-  border-radius: 15px;
+  border-radius: 24px;
   overflow-wrap: anywhere;
 }
 .gig-card h2 {
   margin-block: 20px;
-  font-size: 22px;
-  line-height: 1.4;
+  font-size: 30px;
+  line-height: 1.2;
 }
 .gig-card h2 a {
   text-decoration: none;
 }
 .gig-card h2 a:hover {
-  color: var(--green);
   text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 3px;
 }
 .gig-price {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 650;
+  letter-spacing: -0.7px;
 }
 .gig-price span {
   display: block;
@@ -65,16 +68,18 @@
   color: var(--muted);
   font-size: 12px;
   font-weight: 400;
+  letter-spacing: 0;
 }
 .gig-facts {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.6;
 }
 .gig-facts > div {
   display: grid;
   grid-template-columns: 100px minmax(0, 1fr);
   gap: 14px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 .gig-facts dt {
   color: var(--muted);
@@ -83,7 +88,7 @@
   margin: 0;
 }
 .catalog-empty {
-  padding: 40px 20px;
+  padding: 48px 20px;
   text-align: center;
 }
 .catalog-pagination {
@@ -95,24 +100,25 @@
   margin-top: 32px;
 }
 .gig-detail {
-  max-width: 800px;
+  max-width: 840px;
   margin-top: 24px;
 }
 .gig-detail h1 {
-  font-size: 32px;
-  margin-block: 22px;
+  font-size: 42px;
+  margin-block: 24px;
 }
 .gig-detail h2 {
   margin-top: 32px;
-  font-size: 19px;
+  font-size: 28px;
 }
 .gig-detail .gig-facts {
   margin-bottom: 24px;
 }
 .gig-text {
   white-space: pre-wrap;
-  line-height: 1.7;
+  line-height: 1.8;
   margin-bottom: 0;
+  font-size: 14px;
 }
 .gig-application {
   border-top: 1px solid var(--line);
@@ -125,24 +131,10 @@
 .gig-application .gig-text {
   margin-bottom: 20px;
 }
-.gig-application textarea,
-.gig-application select {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font: inherit;
-  color: inherit;
-  resize: vertical;
-}
-.gig-application textarea:focus-visible,
-.gig-application select:focus-visible {
-  outline: 3px solid #76aa5e;
-  outline-offset: 4px;
-}
 .gig-application .application-card {
   display: block;
   margin-block: 16px;
+  background: #f9fbf8;
 }
 .application-card .gig-text {
   margin-block: 16px;
@@ -150,26 +142,33 @@
 .gig-application > h2 {
   margin-top: 24px;
 }
-@media (max-width: 700px) {
+@media (max-width: 767px) {
   .catalog-filters {
     flex-direction: column;
     align-items: stretch;
     padding: 20px;
   }
+  .catalog-filters input {
+    font-size: 16px;
+  }
   .catalog-filters .text-link {
     text-align: center;
-    padding-block: 4px;
+    padding-block: 8px;
   }
   .catalog-grid {
     grid-template-columns: 1fr;
   }
   .gig-card {
-    padding: 22px;
+    padding: 24px 20px;
   }
   .gig-card h2 {
-    font-size: 20px;
+    font-size: 27px;
   }
   .gig-detail h1 {
-    font-size: 27px;
+    font-size: 34px;
+  }
+  .gig-facts > div {
+    grid-template-columns: 80px minmax(0, 1fr);
+    gap: 12px;
   }
 }

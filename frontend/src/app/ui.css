@@ -5,9 +5,7 @@
   padding: 40px 24px;
 }
 .status-panel h1 {
-  font-size: 30px;
-  letter-spacing: -1px;
-  line-height: 1.2;
+  font-size: 38px;
   margin: 25px 0 16px;
 }
 .status-panel p {
@@ -21,17 +19,16 @@
   place-items: center;
   width: 64px;
   height: 64px;
-  border-radius: 20px;
-  background: #e5eddd;
-  color: var(--green);
-  font-size: 32px;
+  border-radius: 50%;
+  background: var(--mint);
+  font-size: 30px;
 }
 .spinner {
   display: inline-block;
   width: 30px;
   height: 30px;
-  border: 3px solid #dbe5d5;
-  border-top-color: var(--green);
+  border: 3px solid var(--line);
+  border-top-color: #000;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -41,33 +38,36 @@
   }
 }
 .notice {
-  border: 1px solid #d5dfcb;
-  border-radius: 9px;
-  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 18px;
   font-size: 13px;
-  background: #edf3e6;
+  background: var(--mint);
   margin: 18px 0 0;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 .notice-error {
-  color: #8b3f2d;
-  background: #fff4ef;
-  border-color: #edcfc1;
+  background: #f2f4f5;
+  border-left: 3px solid #000;
 }
 .page-heading {
-  margin: 18px 0 34px;
+  margin: 12px 0 32px;
 }
 .page-heading h1 {
-  font-size: 38px;
-  letter-spacing: -1.3px;
-  line-height: 1.15;
+  font-size: 48px;
+  letter-spacing: -1px;
   margin-bottom: 14px;
 }
+.page-heading > p {
+  line-height: 1.7;
+}
 .profile-card {
-  background: white;
+  background: #fff;
   border: 1px solid var(--line);
-  border-radius: 15px;
+  border-radius: 24px;
   padding: 32px;
-  max-width: 740px;
+  max-width: 800px;
 }
 .profile-heading {
   display: flex;
@@ -76,9 +76,8 @@
   padding-bottom: 28px;
 }
 .profile-heading h2 {
-  font-size: 25px;
+  font-size: 32px;
   margin: 9px 0 0;
-  font-weight: 600;
   overflow-wrap: anywhere;
 }
 .avatar-large {
@@ -88,13 +87,14 @@
 }
 .badge {
   display: inline-block;
-  padding: 5px 9px;
-  border: 1px solid #d8e2ce;
-  border-radius: 5px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--green);
-  background: #f1f6eb;
+  padding: 7px 12px;
+  border: 1px solid #d8e9d0;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--mint);
+  color: #000;
+  line-height: 1.4;
 }
 .profile-details {
   margin: 0;
@@ -102,13 +102,13 @@
 }
 .profile-details > div {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: 180px minmax(0, 1fr);
   gap: 20px;
   padding: 20px 0;
-  border-bottom: 1px solid #edf0e8;
+  border-bottom: 1px solid var(--line);
 }
 .profile-details > div:last-child {
-  border-bottom: 0;
+  border: 0;
   padding-bottom: 0;
 }
 .profile-details dt {
@@ -120,6 +120,7 @@
   font-size: 14px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  line-height: 1.6;
 }
 .profile-edit {
   margin-top: 24px;
@@ -130,29 +131,12 @@
   gap: 12px;
   margin-top: 20px;
 }
-.profile-edit textarea {
-  width: 100%;
-  max-width: 100%;
-  padding: 12px 14px;
-  font: inherit;
-  color: inherit;
-  background: #fcfdf9;
-  border: 1px solid #d9e0d3;
-  border-radius: 8px;
-  resize: vertical;
-}
-.profile-edit textarea[aria-invalid="true"] {
-  border-color: #b66548;
-}
-.profile-edit textarea:focus-visible {
-  outline: 3px solid #76aa5e;
-  outline-offset: 4px;
-}
 .user-card {
   overflow-wrap: anywhere;
 }
 .user-card p {
   margin: 6px 0 0;
+  line-height: 1.6;
 }
 .user-bio {
   display: -webkit-box;
@@ -161,19 +145,75 @@
   overflow: hidden;
   white-space: pre-wrap;
 }
-@media (max-width: 700px) {
+.form-fields {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.form-field {
+  margin-bottom: 20px;
+}
+.form-field > label,
+.role-picker > legend {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 9px;
+}
+.form-field input,
+.form-field textarea,
+.form-field select,
+.profile-edit textarea,
+.gig-application textarea,
+.gig-application select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 13px 14px;
+  background: #fff;
+  color: #000;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+.form-field input::placeholder {
+  color: var(--muted);
+  font-size: 13px;
+}
+.form-field [aria-invalid="true"],
+.profile-edit textarea[aria-invalid="true"] {
+  border-color: #000;
+  border-width: 2px;
+}
+.field-error {
+  color: #000;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 8px 0 0;
+}
+.field-hint {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 8px 0 0;
+}
+@media (max-width: 767px) {
   .status-panel {
-    margin-block: 25px;
-    padding: 30px 5px;
+    margin-block: 24px;
+    padding: 24px 4px;
   }
   .status-panel h1 {
-    font-size: 27px;
-  }
-  .page-heading h1 {
     font-size: 32px;
   }
+  .page-heading h1 {
+    font-size: 38px;
+  }
   .profile-card {
-    padding: 23px;
+    padding: 24px 20px;
   }
   .profile-details > div {
     grid-template-columns: 1fr;
@@ -182,9 +222,20 @@
   .profile-heading {
     gap: 16px;
   }
+  .profile-heading h2 {
+    font-size: 28px;
+  }
   .avatar-large {
-    width: 55px;
-    height: 55px;
-    font-size: 22px;
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+  }
+  .form-field input,
+  .form-field textarea,
+  .form-field select,
+  .profile-edit textarea,
+  .gig-application textarea,
+  .gig-application select {
+    font-size: 16px;
   }
 }

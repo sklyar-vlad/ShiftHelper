@@ -221,6 +221,9 @@ try {
     );
     await history(customer, false, title);
     await history(worker, true, title);
+    if (await button(worker, "Открыть меню").isVisible()) {
+      await button(worker, "Открыть меню").click();
+    }
     await button(worker, "Выйти").click();
     await worker.goto("/my-gigs");
     await worker.waitForURL("**/login");
