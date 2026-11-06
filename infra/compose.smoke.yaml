@@ -1,0 +1,14 @@
+services:
+  smoke:
+    profiles: [smoke]
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.smoke
+    environment:
+      SMOKE_BASE_URL: http://traefik
+    volumes:
+      - smoke_state:/state
+    shm_size: 1gb
+
+volumes:
+  smoke_state:

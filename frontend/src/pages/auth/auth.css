@@ -1,0 +1,256 @@
+.auth-layout {
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 24px;
+  max-width: 1050px;
+  margin: 6px auto;
+}
+.auth-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #e8eddf;
+  border: 1px solid #e0e6d7;
+  border-radius: 19px;
+  padding: 36px;
+  min-height: 590px;
+  overflow: hidden;
+}
+.auth-intro h2 {
+  font-weight: 550;
+  font-size: 35px;
+  line-height: 1.24;
+  letter-spacing: -1.1px;
+  margin: 20px 0;
+}
+.auth-intro > div > p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #65745c;
+  max-width: 280px;
+}
+.auth-star {
+  display: block;
+  color: var(--green);
+  font-size: 78px;
+  line-height: 1;
+  transform: rotate(12deg);
+  width: fit-content;
+}
+.auth-intro-footer {
+  font-size: 10px;
+  color: #6a795f;
+  margin-top: 40px;
+}
+.auth-card {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 19px;
+  padding: 37px 42px;
+}
+.auth-card h1 {
+  font-size: 31px;
+  letter-spacing: -1.1px;
+  font-weight: 650;
+  margin: 12px 0;
+}
+.auth-switch {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 29px;
+}
+.auth-switch a {
+  color: var(--green);
+  font-weight: 600;
+  text-decoration: none;
+}
+.form-fields {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.form-field {
+  margin-bottom: 19px;
+}
+.form-field > label,
+.role-picker > legend {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 9px;
+}
+.form-field input {
+  width: 100%;
+  min-height: 47px;
+  border: 1px solid #d9e0d3;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fcfdf9;
+  color: #21372b;
+  font-size: 14px;
+  transition: border-color 0.15s;
+}
+.form-field input::placeholder {
+  color: #929a8e;
+  font-size: 12px;
+}
+.form-field input[aria-invalid="true"] {
+  border-color: #b66548;
+}
+.field-error {
+  color: #a04831;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 7px 0 0;
+}
+.field-hint {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 7px 0 0;
+}
+.password-input {
+  position: relative;
+}
+.password-input input {
+  padding-right: 82px;
+}
+.password-input button {
+  position: absolute;
+  right: 10px;
+  top: 4px;
+  height: 39px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--green);
+}
+.role-picker {
+  padding: 0;
+  margin: 0 0 23px;
+  border: 0;
+  min-width: 0;
+}
+.role-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 10px;
+  cursor: pointer;
+  background: #fcfdf9;
+  min-width: 0;
+}
+.role-option:has(input:checked) {
+  border-color: #518561;
+  background: #f0f6e9;
+}
+.role-option:focus-within {
+  outline: 2px solid #76aa5e;
+  outline-offset: 3px;
+}
+.role-option input {
+  accent-color: var(--green);
+  margin: 2px 0 0;
+  flex-shrink: 0;
+}
+.role-option strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.role-option small {
+  display: block;
+  font-size: 10px;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.auth-submit {
+  width: 100%;
+  margin-top: 5px;
+  justify-content: space-between;
+}
+.auth-footnote {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.8;
+  margin: 20px 0 0;
+  max-width: 310px;
+}
+.auth-card .notice {
+  margin: 0 0 17px;
+}
+.auth-card .eyebrow {
+  font-size: 9px;
+}
+@media (max-width: 850px) {
+  .auth-layout {
+    grid-template-columns: 0.8fr 1fr;
+    gap: 18px;
+  }
+  .auth-intro {
+    padding: 27px;
+  }
+  .auth-intro h2 {
+    font-size: 29px;
+  }
+  .auth-card {
+    padding: 30px 25px;
+  }
+  .role-options {
+    gap: 8px;
+  }
+  .role-option {
+    padding: 12px 8px;
+    gap: 6px;
+  }
+  .role-option strong {
+    font-size: 10px;
+  }
+}
+@media (max-width: 700px) {
+  .auth-layout {
+    display: block;
+    max-width: 470px;
+    margin: 0 auto;
+  }
+  .auth-intro {
+    display: none;
+  }
+  .auth-card {
+    padding: 27px 23px;
+    border-radius: 13px;
+  }
+  .auth-card h1 {
+    font-size: 28px;
+  }
+  .auth-switch {
+    font-size: 12px;
+    margin-bottom: 25px;
+  }
+  .role-option strong {
+    font-size: 11px;
+  }
+  .auth-card .eyebrow {
+    font-size: 9px;
+  }
+  .auth-footnote {
+    font-size: 10px;
+  }
+  .form-field input {
+    font-size: 16px;
+  }
+  .auth-card .notice {
+    font-size: 12px;
+  }
+}

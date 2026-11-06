@@ -1,0 +1,12 @@
+.git
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!infra/.env.example
+.agents
+.codex
+.aws
+AGENTS.md
+.idea
+.vscode

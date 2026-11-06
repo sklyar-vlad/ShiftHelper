@@ -1,0 +1,39 @@
+{
+  "name": "shifthelper-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "api": "orval",
+    "lint": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write src index.html",
+    "test:ci": "vitest run --passWithNoTests",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.9.2",
+    "@tanstack/react-query": "^5.104.5",
+    "motion": "^14.6.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hook-form": "^7.91.0",
+    "react-router": "^8.5.0",
+    "zod": "^4.6.7",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "happy-dom": "^21.0.4",
+    "orval": "^8.44.0",
+    "prettier": "^3.9.10",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.2",
+    "vitest": "^5.0.5"
+  }
+}

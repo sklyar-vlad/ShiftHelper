@@ -1,0 +1,15 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+node_modules/
+frontend/dist/
+coverage/
+*.test
+*.out
+.vscode/
+.idea/
+.DS_Store
+.agents/
+.codex/
+.aws/
