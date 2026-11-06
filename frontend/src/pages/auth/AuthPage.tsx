@@ -9,6 +9,7 @@ import {
 import { ApiError } from "@/shared/api/http";
 import { useSession } from "@/shared/model/session";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
+import { WorkPreview } from "@/shared/ui/WorkPreview";
 import "./auth.css";
 
 type Fields = { name: string; email: string; password: string; role: Role };
@@ -104,9 +105,6 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
       <aside className="auth-intro">
         <p className="eyebrow">Каждому делу — свой человек</p>
         <div>
-          <span className="auth-star" aria-hidden="true">
-            ✳
-          </span>
           <h2>
             {creating ? (
               <>
@@ -127,6 +125,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             понятных условиях.
           </p>
         </div>
+        <WorkPreview />
         <span className="auth-intro-footer">
           Ваш график. Ваш выбор. Ваш ShiftHelper.
         </span>

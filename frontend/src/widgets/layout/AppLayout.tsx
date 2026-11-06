@@ -7,6 +7,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   async function signOut() {
     if (leaving) return;
     setLeaving(true);
@@ -26,21 +27,58 @@ export function AppLayout() {
         К содержимому
       </a>
       <header className="site-header">
-        <div className="container header-inner">
+        <div className="container header-inner" data-menu-open={menuOpen}>
           <Link className="brand" to="/" aria-label="ShiftHelper — на главную">
             <span className="brand-mark" aria-hidden="true">
-              sh.
+              <svg viewBox="0 0 32 32" fill="none">
+                <path d="M5 5h22v17H16l-7 5v-5H5V5Z" fill="currentColor" />
+                <path
+                  d="m12 14 3 3 6-7"
+                  stroke="#000000"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </span>
-            ShiftHelper<span className="brand-dot">●</span>
+            ShiftHelper
           </Link>
-          <nav className="main-nav" aria-label="Основная навигация">
+          <button
+            className="menu-toggle"
+            type="button"
+            aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"}
+            aria-expanded={menuOpen}
+            aria-controls="main-navigation account-navigation"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d={
+                  menuOpen ? "m6 6 12 12M18 6 6 18" : "M4 6h16M4 12h16M4 18h16"
+                }
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+          <nav
+            className="main-nav"
+            id="main-navigation"
+            aria-label="Основная навигация"
+            onClick={() => setMenuOpen(false)}
+          >
             <NavLink to="/" end>
               Главная
             </NavLink>
             <NavLink to="/catalog">Подработки</NavLink>
             {session.user && <NavLink to="/my-gigs">Мои задания</NavLink>}
           </nav>
-          <div className="account-nav">
+          <div
+            className="account-nav"
+            id="account-navigation"
+            onClick={() => setMenuOpen(false)}
+          >
             {session.isPending ? (
               <span className="muted small" role="status">
                 Проверяем вход…
@@ -59,7 +97,11 @@ export function AppLayout() {
                     + Задание
                   </Link>
                 )}
-                <Link className="account-link" to="/profile">
+                <Link
+                  className="account-link"
+                  to="/profile"
+                  aria-label={`Мой профиль: ${session.user.name}`}
+                >
                   <span className="avatar" aria-hidden="true">
                     {Array.from(session.user.name)[0]}
                   </span>
@@ -81,7 +123,10 @@ export function AppLayout() {
                 <Link className="text-link" to="/login">
                   Войти
                 </Link>
-                <Link className="button button-small" to="/register">
+                <Link
+                  className="button button-small button-mint"
+                  to="/register"
+                >
                   Начать <span aria-hidden="true">↗</span>
                 </Link>
               </>
