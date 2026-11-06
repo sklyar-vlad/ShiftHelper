@@ -101,7 +101,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
   if (session.user && !session.isError) return <Navigate to={target} replace />;
 
   return (
-    <div className="auth-layout">
+    <div className="auth-layout" data-register={creating || undefined} key={mode}>
       <aside className="auth-intro">
         <p className="eyebrow">Каждому делу — свой человек</p>
         <div>
@@ -288,6 +288,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             <button
               className="button auth-submit"
               type="submit"
+              aria-busy={isSubmitting || working}
               disabled={isSubmitting || working}
             >
               {isSubmitting || working
@@ -297,7 +298,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
                 : creating
                   ? "Создать аккаунт"
                   : "Войти"}
-              <span aria-hidden="true">↗</span>
+              <span className="auth-submit-icon" aria-hidden="true">↗</span>
             </button>
           </fieldset>
         </form>
