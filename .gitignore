@@ -10,6 +10,9 @@ coverage/
 .vscode/
 .idea/
 .DS_Store
-.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/stageshow/
 .codex/
 .aws/
