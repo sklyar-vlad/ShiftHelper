@@ -22,6 +22,8 @@ var requestIDPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
 
 func NewRouter(logger *zap.Logger, pool *pgxpool.Pool, metricsToken, appOrigin string) *gin.Engine {
 	router := gin.New()
+	_ = router.SetTrustedProxies(nil)
+	router.RemoteIPHeaders = []string{"X-Forwarded-For"}
 	router.HandleMethodNotAllowed = true
 	router.Use(func(c *gin.Context) {
 		id := c.GetHeader("X-Request-Id")

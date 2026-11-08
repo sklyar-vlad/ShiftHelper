@@ -71,6 +71,9 @@ func run(logger *zap.Logger) error {
 	}
 	gin.SetMode(gin.ReleaseMode)
 	router := handler.NewRouter(logger, pool, os.Getenv("METRICS_TOKEN"), cfg.Server.AppOrigin)
+	if err := router.SetTrustedProxies(cfg.Server.TrustedProxies); err != nil {
+		return fmt.Errorf("configure trusted proxies: %w", err)
+	}
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Server.Port),

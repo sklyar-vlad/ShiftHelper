@@ -305,8 +305,59 @@ try {
       }),
       { mode: 0o600 },
     );
+    for (const endpoint of ["login", "register"]) {
+      let limited = false;
+      for (let attempt = 0; attempt < 61; attempt++) {
+        const response = await customer.request.post(
+          `/api/v1/auth/${endpoint}`,
+          {
+            headers: {
+              Origin: baseURL,
+              "X-Forwarded-For": `203.0.113.${attempt + 1}`,
+              "X-Real-IP": `203.0.113.${attempt + 1}`,
+            },
+            data: {},
+          },
+        );
+        if (response.status() === 429) {
+          assert.equal((await response.json()).error.code, "RATE_LIMITED");
+          assert.ok(Number(response.headers()["retry-after"]) > 0);
+          limited = true;
+          break;
+        }
+        assert.equal(response.status(), 400);
+      }
+      assert.ok(
+        limited,
+        `${endpoint} limit cannot be bypassed with forwarded headers`,
+      );
+    }
+    for (const page of [customer, worker]) {
+      await post(page, "/auth/logout", undefined, 204);
+      await page.goto("/login");
+      await page
+        .getByLabel("Email", { exact: true })
+        .fill(credentials.customer.email);
+      await page
+        .getByLabel("Пароль", { exact: true })
+        .fill(credentials.customer.password);
+      await button(page, "Войти").click();
+      await page
+        .getByRole("alert")
+        .filter({ hasText: "Слишком много попыток" })
+        .waitFor();
+      assert.equal(
+        await page.getByLabel("Email", { exact: true }).inputValue(),
+        credentials.customer.email,
+      );
+      assert.equal(
+        await page.getByLabel("Пароль", { exact: true }).inputValue(),
+        "",
+      );
+      assert.equal(await button(page, "Войти").isEnabled(), true);
+    }
     console.log(
-      "PASS: registration, publication, application, selection, completion, history, cancellation, rights, conflicts and two-worker race.",
+      "PASS: MVP flow, concurrent selection and auth limits through Traefik with forged forwarding headers.",
     );
   }
   assert.deepEqual(pageErrors, []);

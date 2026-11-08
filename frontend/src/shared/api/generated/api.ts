@@ -491,6 +491,7 @@ export const ErrorCode = {
   EMAIL_TAKEN: "EMAIL_TAKEN",
   ALREADY_APPLIED: "ALREADY_APPLIED",
   ALREADY_REVIEWED: "ALREADY_REVIEWED",
+  RATE_LIMITED: "RATE_LIMITED",
   STATE_CONFLICT: "STATE_CONFLICT",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 } as const;
@@ -558,6 +559,11 @@ export interface MyApplicationPage {
   /** @minimum 0 */
   total: number;
 }
+
+/**
+ * Слишком много попыток входа или регистрации с одного IP. Счётчики раздельные, окно — одна минута (30 входов или 20 регистраций), сбрасываются при перезапуске API.
+ */
+export type TooManyRequestsResponse = ErrorResponse;
 
 /**
  * VALIDATION_ERROR — некорректный ввод.
@@ -1143,6 +1149,7 @@ export const getRegisterMutationOptions = <
     | BadRequestResponse
     | ForbiddenResponse
     | ConflictResponse
+    | TooManyRequestsResponse
     | InternalErrorResponse,
   TContext = unknown,
 >(options?: {
@@ -1188,6 +1195,7 @@ export type RegisterMutationError =
   | BadRequestResponse
   | ForbiddenResponse
   | ConflictResponse
+  | TooManyRequestsResponse
   | InternalErrorResponse;
 export type RegisterMutationVariables = { data: RegisterRequest };
 
@@ -1199,6 +1207,7 @@ export const useRegister = <
     | BadRequestResponse
     | ForbiddenResponse
     | ConflictResponse
+    | TooManyRequestsResponse
     | InternalErrorResponse,
   TContext = unknown,
 >(
@@ -1272,6 +1281,7 @@ export const getLoginMutationOptions = <
     | BadRequestResponse
     | UnauthorizedResponse
     | ForbiddenResponse
+    | TooManyRequestsResponse
     | InternalErrorResponse,
   TContext = unknown,
 >(options?: {
@@ -1317,6 +1327,7 @@ export type LoginMutationError =
   | BadRequestResponse
   | UnauthorizedResponse
   | ForbiddenResponse
+  | TooManyRequestsResponse
   | InternalErrorResponse;
 export type LoginMutationVariables = { data: LoginRequest };
 
@@ -1328,6 +1339,7 @@ export const useLogin = <
     | BadRequestResponse
     | UnauthorizedResponse
     | ForbiddenResponse
+    | TooManyRequestsResponse
     | InternalErrorResponse,
   TContext = unknown,
 >(

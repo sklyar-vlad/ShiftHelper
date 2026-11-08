@@ -29,20 +29,22 @@ type User struct {
 }
 
 type Handler struct {
-	pool      *pgxpool.Pool
-	origin    string
-	dummyHash string
+	pool          *pgxpool.Pool
+	origin        string
+	dummyHash     string
+	loginLimit    *ipLimiter
+	registerLimit *ipLimiter
 }
 
 func NewHandler(pool *pgxpool.Pool, origin string) *Handler {
-	return &Handler{pool: pool, origin: strings.TrimSuffix(origin, "/"), dummyHash: HashPassword(rand.Text())}
+	return &Handler{pool: pool, origin: strings.TrimSuffix(origin, "/"), dummyHash: HashPassword(rand.Text()), loginLimit: newIPLimiter(30), registerLimit: newIPLimiter(20)}
 }
 
 func (h *Handler) Register(router *gin.Engine) *gin.RouterGroup {
 	api := router.Group("/api/v1", h.checkOrigin)
 	account := api.Group("", httpapi.ValidateQuery())
-	account.POST("/auth/register", h.register)
-	account.POST("/auth/login", h.login)
+	account.POST("/auth/register", h.registerLimit.middleware(), h.register)
+	account.POST("/auth/login", h.loginLimit.middleware(), h.login)
 	account.POST("/auth/logout", h.logout)
 	account.GET("/me", h.RequireUser(), func(c *gin.Context) { c.JSON(http.StatusOK, UserFromContext(c)) })
 	return api
