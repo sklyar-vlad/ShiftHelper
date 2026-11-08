@@ -41,13 +41,13 @@ tasks:
   up:
     deps: [env]
     cmds:
-      - docker compose --env-file infra/.env -f infra/compose.yaml -p shifthelper up -d --build --wait --wait-timeout 180
+      - docker compose --env-file infra/.env -f infra/compose.yaml up -d --build --wait --wait-timeout 180
 
   vps-up:
     aliases: [up:vps]
     deps: [env]
     cmds:
-      - docker compose --env-file infra/.env -f infra/compose.yaml -f infra/compose.vps.yaml -p shifthelper up -d --build --wait --wait-timeout 180
+      - docker compose --env-file infra/.env -f infra/compose.yaml -f infra/compose.vps.yaml up -d --build --wait --wait-timeout 180
 
   down:
     deps: [env]
