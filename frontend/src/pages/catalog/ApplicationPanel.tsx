@@ -54,10 +54,7 @@ export function ApplicationPanel({
           ? (error.details?.fields?.comment?.[0] ?? error.message)
           : "Не удалось связаться с сервисом. Попробуйте ещё раз.",
       );
-      if (
-        error instanceof ApiError &&
-        (error.status === 409 || error.status === 404)
-      ) {
+      if (error instanceof ApiError && [403, 404, 409].includes(error.status)) {
         await refresh();
         await client.invalidateQueries({
           predicate: (query) => query.queryKey[0] !== `/api/v1/gigs/${gig.id}`,

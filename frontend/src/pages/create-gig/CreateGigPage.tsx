@@ -2,7 +2,12 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { createGig, getGetGigQueryKey } from "@/shared/api/generated/api";
+import {
+  createGig,
+  getGetGigQueryKey,
+  getGetCurrentUserQueryKey,
+  type CurrentUser,
+} from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
 import "./create-gig.css";
 
@@ -60,6 +65,9 @@ export function CreateGigPage() {
     busy.current = true;
     setWorking(true);
     setMessage("");
+    const userId = client.getQueryData<CurrentUser>(
+      getGetCurrentUserQueryKey(),
+    )?.id;
     try {
       const { amount, ...input } = values;
       const gig = await createGig({
@@ -73,6 +81,11 @@ export function CreateGigPage() {
         endsAt: new Date(input.endsAt).toISOString(),
         amountKopecks: parseRubles(amount)!,
       });
+      if (
+        client.getQueryData<CurrentUser>(getGetCurrentUserQueryKey())?.id !==
+        userId
+      )
+        return;
       client.setQueryData(getGetGigQueryKey(gig.id), gig);
       void client.invalidateQueries({ queryKey: ["/api/v1/gigs"] });
       navigate(`/gigs/${gig.id}`, { replace: true });

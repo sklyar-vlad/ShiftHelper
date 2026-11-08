@@ -171,7 +171,7 @@ it("refreshes after a conflict and removes actions for a cancelled gig", async (
       myApplication: { ...application, status: "rejected" },
     };
     return json(
-      { error: { code: "INVALID_STATE", message: "Задание уже отменено" } },
+      { error: { code: "STATE_CONFLICT", message: "Задание уже отменено" } },
       409,
     );
   });

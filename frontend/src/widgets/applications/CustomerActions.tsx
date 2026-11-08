@@ -43,10 +43,7 @@ export function CustomerActions({ gig }: { gig: Gig }) {
           ? error.message
           : "Не удалось связаться с сервисом. Попробуйте ещё раз.",
       );
-      if (
-        error instanceof ApiError &&
-        (error.status === 409 || error.status === 404)
-      )
+      if (error instanceof ApiError && [403, 404, 409].includes(error.status))
         await client.invalidateQueries();
     } finally {
       busy.current = false;
