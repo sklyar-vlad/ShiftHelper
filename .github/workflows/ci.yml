@@ -29,6 +29,13 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          working-directory: backend
+          args: --config=../.golangci.yml
+      - run: golangci-lint fmt --config=../.golangci.yml --diff --diff-colored=false ./...
+        working-directory: backend
       - run: go test ./...
         working-directory: backend
       - run: go vet ./...
@@ -49,6 +56,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
       - run: npm run api
       - run: git diff --exit-code -- src/shared/api/generated
       - run: npm run build

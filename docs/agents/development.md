@@ -40,11 +40,15 @@
 Версия Go задаётся backend/go.mod; frontend CI использует Node.js 24.
 
 - Установка frontend-зависимостей: npm --prefix frontend ci.
-- Frontend: npm --prefix frontend run lint, npm --prefix frontend run test:ci.
+- Frontend: npm --prefix frontend run lint (ESLint), npm --prefix frontend run typecheck, npm --prefix frontend run test:ci.
+- Форматирование frontend: npm --prefix frontend run format:check; исправление: npm --prefix frontend run format.
+- Общие проверки: task lint и task format:check; автоформатирование: task fmt.
 - Production-сборка: npm --prefix frontend run build.
 - После генерации проверьте diff в frontend/src/shared/api/generated.
 - CI повторно генерирует клиент и проверяет отсутствие diff в этой папке.
 - В каталоге backend: go test ./..., go vet ./....
+- Используйте golangci-lint 2.15.0, как в CI: golangci-lint run --config=../.golangci.yml ./... из backend.
+- Проверка Go-формата без записи: golangci-lint fmt --config=../.golangci.yml --diff --diff-colored=false ./... из backend.
 - Сборка в backend: go build ./cmd/api ./cmd/worker ./cmd/demo.
 - Интеграционные backend-тесты требуют TEST_DATABASE_URL и доступной PostgreSQL.
 - CI поднимает PostgreSQL 17; без тестовой БД не объявляйте интеграционные тесты пройденными.

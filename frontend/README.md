@@ -20,4 +20,6 @@ npm run dev
 
 Контракт: `../docs/openapi.yaml`. После изменения запустите `npm run api`.
 Файлы `src/shared/api/generated` создаёт Orval, их не редактируют вручную.
-Проверки: `npm run lint`, `npm run build`, `npm run test:ci`.
+Проверки: `npm run lint` (ESLint), `npm run typecheck`, `npm run format:check`, `npm run build`, `npm run test:ci`.
+Автоформатирование: `npm run format`; исправление ESLint: `npm run lint -- --fix`.
+Генерируемый API и сторонние ресурсы исключены из ESLint/Prettier.
