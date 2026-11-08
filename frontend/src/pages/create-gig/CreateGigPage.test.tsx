@@ -167,3 +167,31 @@ it("denies the publication form to workers", async () => {
   expect(screen.queryByRole("form")).toBeNull();
   expect(send).not.toHaveBeenCalled();
 });
+
+it("keeps publication fields after a proxy failure and retries only on submit", async () => {
+  const send = vi
+    .fn<(init: RequestInit) => Promise<Response>>()
+    .mockResolvedValueOnce(
+      new Response("<h1>proxy failed</h1>", { status: 502 }),
+    )
+    .mockResolvedValueOnce(json({ id: "new-gig" }, 201));
+  await mount("customer", send);
+  fill();
+  submit();
+  await screen.findByRole("alert");
+  expect((screen.getByLabelText("Город") as HTMLInputElement).value).toBe(
+    "Москва",
+  );
+  expect((screen.getByLabelText("Описание") as HTMLTextAreaElement).value).toBe(
+    "Перенести коробки",
+  );
+  expect(screen.queryByText(/proxy failed/)).toBeNull();
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(
+    (screen.getByRole("button", { name: "Опубликовать" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(false);
+  submit();
+  await screen.findByRole("heading", { name: "Опубликовано" });
+  expect(send).toHaveBeenCalledTimes(2);
+});

@@ -19,6 +19,8 @@ const user = {
   role: "worker" as const,
   bio: "",
   completedGigsCount: 0,
+  ratingAverage: null,
+  reviewsCount: 0,
   createdAt: "2026-10-28T10:00:00Z",
 };
 const json = (body: unknown, status = 200) =>
@@ -39,6 +41,13 @@ function Probe() {
         {session.isPending ? "Загрузка" : (session.user?.name ?? "Гость")}
       </span>
       <button onClick={() => void session.signOut()}>Выйти</button>
+      <button
+        onClick={() =>
+          void session.signIn({ ...user, id: "user-2", name: "Анна" })
+        }
+      >
+        Сменить аккаунт
+      </button>
       {session.expired && <span>Истекла</span>}
     </>
   );
@@ -70,6 +79,32 @@ function mount(protectedRoute = false) {
 }
 
 describe("session", () => {
+  it("keeps a new account when a previous account's protected request returns 401", async () => {
+    let finish!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url === "/api/v1/me"
+          ? Promise.resolve(json(user))
+          : new Promise<Response>((resolve) => {
+              finish = resolve;
+            }),
+      ),
+    );
+    const client = mount();
+    await screen.findByText("Алексей");
+    const request = http("/api/v1/private");
+    fireEvent.click(screen.getByRole("button", { name: "Сменить аккаунт" }));
+    await screen.findByText("Анна");
+    client.setQueryData(["new-private-work"], { owner: "user-2" });
+    finish(json({}, 401));
+    await expect(request).rejects.toMatchObject({ name: "AbortError" });
+    expect(screen.getByText("Анна")).toBeTruthy();
+    expect(screen.queryByText("Истекла")).toBeNull();
+    expect(client.getQueryData(["new-private-work"])).toEqual({
+      owner: "user-2",
+    });
+  });
   it("restores the user and clears personal queries on logout", async () => {
     const fetcher = vi.fn(async (url: string) =>
       url.endsWith("logout") ? new Response(null, { status: 204 }) : json(user),

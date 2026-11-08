@@ -15,7 +15,7 @@ import {
   type CurrentUser,
   type Role,
 } from "@/shared/api/generated/api";
-import { ApiError } from "@/shared/api/http";
+import { ApiError, invalidateHttpSession } from "@/shared/api/http";
 
 export const roleNames: Record<Role, string> = {
   customer: "Заказчик",
@@ -52,6 +52,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   });
   const reset = useCallback(
     async (user: CurrentUser | null) => {
+      invalidateHttpSession();
       await client.cancelQueries();
       client.removeQueries({
         predicate: (item) => item.queryKey[0] !== sessionKey[0],
@@ -65,6 +66,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (query.data) hadUser.current = true;
     if (query.data === null && hadUser.current) {
+      invalidateHttpSession();
       setExpired(true);
       hadUser.current = false;
       client.removeQueries({

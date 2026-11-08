@@ -1305,6 +1305,7 @@ components:
       - NOT_FOUND
       - EMAIL_TAKEN
       - ALREADY_APPLIED
+      - ALREADY_REVIEWED
       - STATE_CONFLICT
       - INTERNAL_ERROR
     ErrorResponse:
