@@ -58,6 +58,12 @@ tasks:
     cmds:
       - cd backend && golangci-lint run --config=../.golangci.yml ./...
       - npm --prefix frontend run lint
+      - npm --prefix frontend run typecheck
+
+  format:check:
+    cmds:
+      - cd backend && golangci-lint fmt --config=../.golangci.yml --diff --diff-colored=false ./...
+      - npm --prefix frontend run format:check
 
   fmt:
     cmds:

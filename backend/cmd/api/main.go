@@ -117,8 +117,11 @@ func serve(ctx context.Context, server *http.Server, logger *zap.Logger, shutdow
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("graceful shutdown failed", zap.Error(err))
 		closeErr := server.Close()
-		<-result
-		return errors.Join(fmt.Errorf("shutdown HTTP: %w", err), closeErr)
+		serveErr := <-result
+		if errors.Is(serveErr, http.ErrServerClosed) {
+			serveErr = nil
+		}
+		return errors.Join(fmt.Errorf("shutdown HTTP: %w", err), closeErr, serveErr)
 	}
 
 	if err := <-result; !errors.Is(err, http.ErrServerClosed) {

@@ -30,7 +30,9 @@ afterEach(() => {
 
 async function mount(
   role = "customer",
-  send = vi.fn(async (_init: RequestInit) => json({ id: "new-gig" }, 201)),
+  send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
+    json({ id: "new-gig" }, 201),
+  ),
 ) {
   vi.stubGlobal(
     "fetch",
@@ -126,8 +128,8 @@ it("rejects past start and end before start without sending", async () => {
 
 it("blocks duplicate sends and maps API errors to fields without losing values", async () => {
   let finish: (response: Response) => void = () => {};
-  const send = vi.fn(
-    (_init: RequestInit) =>
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(
+    () =>
       new Promise<Response>((resolve) => {
         finish = resolve;
       }),
