@@ -111,6 +111,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
       requestBody:
@@ -147,6 +149,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
       requestBody:
@@ -1306,6 +1310,7 @@ components:
       - EMAIL_TAKEN
       - ALREADY_APPLIED
       - ALREADY_REVIEWED
+      - RATE_LIMITED
       - STATE_CONFLICT
       - INTERNAL_ERROR
     ErrorResponse:
@@ -1468,6 +1473,18 @@ components:
         - history
         default: all
   responses:
+    TooManyRequests:
+      description: Слишком много попыток входа или регистрации с одного IP. Счётчики раздельные, окно — одна минута (30 входов или 20 регистраций), сбрасываются при перезапуске API.
+      headers:
+        Retry-After:
+          description: Минимальное число секунд до следующей попытки.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     BadRequest:
       description: VALIDATION_ERROR — некорректный ввод.
       content:

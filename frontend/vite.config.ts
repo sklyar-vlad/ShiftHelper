@@ -31,7 +31,7 @@ export default defineConfig({
         target: swagger,
         rewrite: (path) => path.replace(/^\/docs/, ""),
       },
-      "/api": api,
+      "/api": { target: api, xfwd: true },
       "/healthz": api,
       "/readyz": api,
     },

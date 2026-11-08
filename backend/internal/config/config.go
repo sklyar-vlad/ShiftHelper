@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type Database struct {
 	ConnectTimeout time.Duration
 }
 type Server struct {
+	TrustedProxies    []string
 	AppOrigin         string
 	Port              string
 	ReadTimeout       time.Duration
@@ -38,6 +40,6 @@ func NewConfig() Config {
 	return Config{
 		Database: Database{URL: os.Getenv("POSTGRES_URL"), MaxConnections: 10, ConnectTimeout: 5 * time.Second},
 		Redis:    Redis{URL: os.Getenv("REDIS_URL")},
-		Server:   Server{AppOrigin: origin, Port: port, ReadTimeout: 30 * time.Second, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: time.Minute, ShutdownTimeout: 5 * time.Second},
+		Server:   Server{TrustedProxies: strings.Fields(strings.ReplaceAll(os.Getenv("TRUSTED_PROXIES"), ",", " ")), AppOrigin: origin, Port: port, ReadTimeout: 30 * time.Second, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: time.Minute, ShutdownTimeout: 5 * time.Second},
 	}
 }

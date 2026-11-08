@@ -49,18 +49,23 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly details?: ErrorResponse["error"],
+    readonly retryAfter?: number,
   ) {
     super(
-      details?.message ??
-        (status === 401
-          ? "Сессия истекла. Войдите снова."
-          : status === 403
-            ? "Это действие недоступно для вашего аккаунта."
-            : status === 404
-              ? "Данные не найдены или больше недоступны."
-              : status === 409
-                ? "Данные изменились. Обновите страницу и попробуйте ещё раз."
-                : "Сервис временно недоступен. Попробуйте ещё раз."),
+      status === 429
+        ? retryAfter
+          ? `Слишком много попыток. Попробуйте через ${retryAfter} сек.`
+          : "Слишком много попыток. Подождите немного и попробуйте ещё раз."
+        : (details?.message ??
+            (status === 401
+              ? "Сессия истекла. Войдите снова."
+              : status === 403
+                ? "Это действие недоступно для вашего аккаунта."
+                : status === 404
+                  ? "Данные не найдены или больше недоступны."
+                  : status === 409
+                    ? "Данные изменились. Обновите страницу и попробуйте ещё раз."
+                    : "Сервис временно недоступен. Попробуйте ещё раз.")),
     );
   }
 }
@@ -95,9 +100,13 @@ export const http = async <T>(
       typeof window !== "undefined"
     )
       window.dispatchEvent(new Event("shifthelper:session-expired"));
+    const retryAfter = Number(response.headers.get("Retry-After"));
     throw new ApiError(
       response.status,
       response.status < 500 ? errorDetails(payload) : undefined,
+      Number.isSafeInteger(retryAfter) && retryAfter > 0
+        ? retryAfter
+        : undefined,
     );
   }
   if (response.status === 204) return undefined as T;
