@@ -141,7 +141,10 @@ export function CityInput({
                   : "Ничего не найдено. Можно ввести свой город."}
             </p>
           )}
-          <p className="city-credit">
+          <p
+            className="city-credit"
+            onPointerDown={(event) => event.preventDefault()}
+          >
             Данные{" "}
             <a
               href="https://github.com/hflabs/city"
