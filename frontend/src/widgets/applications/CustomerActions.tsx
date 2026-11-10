@@ -88,9 +88,19 @@ export function CustomerActions({ gig }: { gig: Gig }) {
                     <p className="gig-text">
                       {application.comment || "Без комментария"}
                     </p>
+                    {(application.termsVersion ?? 1) !==
+                      (gig.termsVersion ?? 1) && (
+                      <p className="notice">
+                        Кандидат ещё не подтвердил новые условия.
+                      </p>
+                    )}
                     <button
                       className="button"
-                      disabled={working}
+                      disabled={
+                        working ||
+                        (application.termsVersion ?? 1) !==
+                          (gig.termsVersion ?? 1)
+                      }
                       onClick={() =>
                         void run(
                           `Выбрать исполнителя «${application.worker.name}»? Остальные ожидающие отклики будут отклонены.`,

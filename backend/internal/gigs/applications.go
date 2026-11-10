@@ -23,13 +23,13 @@ type ApplicationPage struct {
 	Total    int64         `json:"total"`
 }
 
-const applicationColumns = `id::text, gig_id::text, comment, status, created_at, updated_at`
+const applicationColumns = `id::text, gig_id::text, comment, status, created_at, updated_at, terms_version`
 const applicationJSON = `jsonb_build_object('id', a.id, 'gigId', a.gig_id, 'worker', to_jsonb(applicant),
-    'comment', a.comment, 'status', a.status, 'createdAt', a.created_at, 'updatedAt', a.updated_at)`
+    'termsVersion', a.terms_version, 'comment', a.comment, 'status', a.status, 'createdAt', a.created_at, 'updatedAt', a.updated_at)`
 
 func scanApplication(row pgx.Row, worker *auth.User) (Application, error) {
 	var application Application
-	err := row.Scan(&application.ID, &application.GigID, &application.Comment, &application.Status, &application.CreatedAt, &application.UpdatedAt)
+	err := row.Scan(&application.ID, &application.GigID, &application.Comment, &application.Status, &application.CreatedAt, &application.UpdatedAt, &application.TermsVersion)
 	application.Worker = users.PublicUser{ID: worker.ID, Name: worker.Name, Bio: worker.Bio,
 		Role: worker.Role, CompletedGigsCount: worker.CompletedGigsCount,
 		RatingAverage: worker.RatingAverage, ReviewsCount: worker.ReviewsCount}
@@ -44,14 +44,20 @@ func (h *Handler) apply(c *gin.Context) {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Некорректный идентификатор задания.")
 		return
 	}
-	var input *struct {
-		Comment json.RawMessage `json:"comment"`
-	}
+	initialVersion := 1
+	input := &struct {
+		Comment      json.RawMessage `json:"comment"`
+		TermsVersion *int            `json:"termsVersion"`
+	}{TermsVersion: &initialVersion}
 	if !httpapi.DecodeJSON(c, &input, 16*1024) {
 		return
 	}
 	if input == nil {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Ожидается JSON-объект.")
+		return
+	}
+	if input.TermsVersion == nil || *input.TermsVersion < 1 {
+		httpapi.ValidationError(c, map[string][]string{"termsVersion": {"Укажите положительную редакцию условий."}})
 		return
 	}
 	comment := ""
@@ -75,7 +81,8 @@ func (h *Handler) apply(c *gin.Context) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var status string
-	err = tx.QueryRow(ctx, "SELECT status FROM gigs WHERE id = $1 FOR UPDATE", id).Scan(&status)
+	var version int
+	err = tx.QueryRow(ctx, "SELECT status, terms_version FROM gigs WHERE id = $1 FOR UPDATE", id).Scan(&status, &version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
 		return
@@ -98,8 +105,12 @@ func (h *Handler) apply(c *gin.Context) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
 		return
 	}
-	application, err := scanApplication(tx.QueryRow(ctx, `INSERT INTO applications (gig_id, worker_id, comment)
-        VALUES ($1, $2, $3) RETURNING `+applicationColumns, id, worker.ID, comment), worker)
+	if *input.TermsVersion != version {
+		termsConflict(c)
+		return
+	}
+	application, err := scanApplication(tx.QueryRow(ctx, `INSERT INTO applications (gig_id, worker_id, comment, terms_version)
+        VALUES ($1, $2, $3, $4) RETURNING `+applicationColumns, id, worker.ID, comment, version), worker)
 	var pgerr *pgconn.PgError
 	if errors.As(err, &pgerr) && pgerr.Code == "23505" {
 		httpapi.Fail(c, http.StatusConflict, "ALREADY_APPLIED", "Вы уже откликались на это задание.")
@@ -173,7 +184,8 @@ func (h *Handler) selectWorker(c *gin.Context) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var owner, gigStatus string
-	err = tx.QueryRow(ctx, "SELECT customer_id::text, status FROM gigs WHERE id = $1 FOR UPDATE", gigID).Scan(&owner, &gigStatus)
+	var version int
+	err = tx.QueryRow(ctx, "SELECT customer_id::text, status, terms_version FROM gigs WHERE id = $1 FOR UPDATE", gigID).Scan(&owner, &gigStatus, &version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
 		return
@@ -191,7 +203,8 @@ func (h *Handler) selectWorker(c *gin.Context) {
 		return
 	}
 	var workerID, applicationStatus string
-	err = tx.QueryRow(ctx, "SELECT worker_id::text, status FROM applications WHERE id = $1 AND gig_id = $2 FOR UPDATE", id, gigID).Scan(&workerID, &applicationStatus)
+	var agreedVersion int
+	err = tx.QueryRow(ctx, "SELECT worker_id::text, status, terms_version FROM applications WHERE id = $1 AND gig_id = $2 FOR UPDATE", id, gigID).Scan(&workerID, &applicationStatus, &agreedVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Отклик не найден.")
 		return
@@ -202,6 +215,10 @@ func (h *Handler) selectWorker(c *gin.Context) {
 	}
 	if gigStatus != "open" || applicationStatus != "pending" {
 		httpapi.Fail(c, http.StatusConflict, "STATE_CONFLICT", "Выбрать можно только ожидающий отклик на открытое задание.")
+		return
+	}
+	if agreedVersion != version {
+		termsConflict(c)
 		return
 	}
 	if _, err := tx.Exec(ctx, `UPDATE applications SET status = CASE WHEN id = $1 THEN 'selected' ELSE 'rejected' END,

@@ -525,7 +525,7 @@ paths:
       summary: Выбрать одного исполнителя
       description: 'Только customer-владелец и pending отклик этого задания. Атомарно: open → in_progress, отклик
         → selected, остальные pending → rejected, selectedWorker устанавливается. Несовпадение gigId/applicationId
-        — 404. Два выбора либо выбор и отмена: один успех, другой 409 STATE_CONFLICT.'
+        — 404. Редакция, подтверждённая в отклике, должна совпадать с текущей, иначе 409 STATE_CONFLICT. Два выбора либо выбор и отмена: один успех, другой 409 STATE_CONFLICT.'
       security:
       - sessionCookie: []
       responses:
@@ -703,6 +703,124 @@ paths:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
       - $ref: '#/components/parameters/Scope'
+  /api/v1/gigs/{gigId}/terms:
+    put:
+      operationId: editGigTerms
+      tags:
+      - Gigs
+      summary: Изменить или предложить условия
+      description: 'Только владелец. open: применить новую редакцию, отклики сохраняются и требуют повторного согласия.
+        in_progress: создать единственное предложение без изменения текущих условий. termsVersion должна совпадать
+        с текущей, иначе 409. В остальных состояниях 409.'
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      responses: &id001
+        '200':
+          description: Актуальное задание после действия
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditGigTermsRequest'
+  /api/v1/gigs/{gigId}/applications/{applicationId}/confirm-terms:
+    post:
+      operationId: confirmApplicationTerms
+      tags:
+      - Gigs
+      summary: Подтвердить текущие условия отклика
+      description: Только автор pending-отклика на open. Передаётся прочитанная текущая termsVersion. Повтор, устаревшая
+        версия или закрытое задание — 409. Чужой отклик — 404.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - $ref: '#/components/parameters/ApplicationId'
+      responses: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TermsVersionRequest'
+  /api/v1/gigs/{gigId}/changes/{changeId}/accept:
+    post:
+      operationId: acceptGigChange
+      tags:
+      - Gigs
+      summary: Принять предложенные условия
+      description: 'Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится
+        к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает
+        активное предложение как expired; работа продолжается независимо от ответа на предложение.'
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - name: changeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses: *id001
+  /api/v1/gigs/{gigId}/changes/{changeId}/reject:
+    post:
+      operationId: rejectGigChange
+      tags:
+      - Gigs
+      summary: Отказаться от предложенных условий
+      description: 'Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится
+        к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает
+        активное предложение как expired; работа продолжается независимо от ответа на предложение.'
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - name: changeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses: *id001
+  /api/v1/gigs/{gigId}/changes/{changeId}/withdraw:
+    post:
+      operationId: withdrawGigChange
+      tags:
+      - Gigs
+      summary: Отозвать предложение условий
+      description: 'Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится
+        к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает
+        активное предложение как expired; работа продолжается независимо от ответа на предложение.'
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - name: changeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses: *id001
 components:
   schemas:
     ServiceStatus:
@@ -1025,6 +1143,15 @@ components:
       - createdAt
       - updatedAt
       properties:
+        termsVersion:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
+        hasPendingChange:
+          type: boolean
+          default: false
+          description: Ожидается решение по новым условиям начатой работы.
         id:
           type: string
           format: uuid
@@ -1113,6 +1240,11 @@ components:
       - createdAt
       - updatedAt
       properties:
+        termsVersion:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
         id:
           type: string
           format: uuid
@@ -1159,6 +1291,17 @@ components:
       - cancelledAt
       - myApplication
       properties:
+        termsVersion:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
+        hasPendingChange:
+          type: boolean
+          default: false
+          description: Ожидается решение по новым условиям начатой работы.
+        pendingChange:
+          $ref: '#/components/schemas/TermsChange'
         counterpartyContact:
           type: string
           maxLength: 200
@@ -1267,45 +1410,94 @@ components:
           pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
           nullable: true
         myApplication:
-          type: object
-          additionalProperties: false
-          required:
-          - id
-          - gigId
-          - worker
-          - comment
-          - status
-          - createdAt
-          - updatedAt
-          properties:
-            id:
-              type: string
-              format: uuid
-            gigId:
-              type: string
-              format: uuid
-            worker:
-              $ref: '#/components/schemas/PublicUser'
-            comment:
-              type: string
-              minLength: 0
-              maxLength: 1000
-            status:
-              $ref: '#/components/schemas/ApplicationStatus'
-            createdAt:
-              type: string
-              format: date-time
-              pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
-            updatedAt:
-              type: string
-              format: date-time
-              pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
           nullable: true
-          description: Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.
+          allOf:
+          - $ref: '#/components/schemas/Application'
+    EditGigTermsRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - title
+      - description
+      - requirements
+      - city
+      - address
+      - startsAt
+      - endsAt
+      - amountKopecks
+      - termsVersion
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        requirements:
+          type: string
+          minLength: 0
+          maxLength: 2000
+          description: Обязательное поле; пустая строка означает отсутствие дополнительных требований.
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        address:
+          type: string
+          minLength: 1
+          maxLength: 300
+        startsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          description: Будущее начало либо неизменённое текущее начало, даже если оно в прошлом.
+        endsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          description: Строго позже startsAt.
+        amountKopecks:
+          type: integer
+          minimum: 1
+          maximum: 10000000000
+          description: Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).
+        termsVersion: &id001
+          type: integer
+          minimum: 1
+    TermsVersionRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - termsVersion
+      properties:
+        termsVersion: *id001
+    TermsChange:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - termsVersion
+      - terms
+      description: Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая
+        базовая редакция. Условия предложения неизменяемы, решение относится к UUID.
+      properties:
+        id:
+          type: string
+          format: uuid
+        termsVersion: *id001
+        terms:
+          $ref: '#/components/schemas/CreateGigRequest'
     CreateApplicationRequest:
       type: object
       additionalProperties: false
       properties:
+        termsVersion:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
         comment:
           type: string
           minLength: 0

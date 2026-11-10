@@ -137,6 +137,22 @@ function PersonalGigs({ user }: { user: CurrentUser }) {
                     </Link>
                   </h2>
                   <GigFacts gig={gig} />
+                  {gig.hasPendingChange &&
+                    (!worker || gig.selectedWorker?.id === user.id) && (
+                      <p className="notice">
+                        Ожидается решение по изменению условий. Откройте
+                        задание.
+                      </p>
+                    )}
+                  {application?.status === "pending" &&
+                    gig.status === "open" &&
+                    (application.termsVersion ?? 1) !==
+                      (gig.termsVersion ?? 1) && (
+                      <p className="notice">
+                        Условия изменились. Откройте задание и подтвердите новую
+                        редакцию.
+                      </p>
+                    )}
                   {application && (
                     <>
                       <p role="status">

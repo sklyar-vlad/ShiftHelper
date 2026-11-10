@@ -172,3 +172,21 @@
     gap: 12px;
   }
 }
+.terms-comparison > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 16px;
+  padding-block: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.terms-comparison dt {
+  grid-column: 1 / -1;
+  font-weight: 600;
+}
+.terms-comparison dd {
+  margin: 0;
+  min-width: 0;
+}
+.terms-comparison .gig-text {
+  margin-block: 8px;
+}

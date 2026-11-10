@@ -17,16 +17,19 @@ import (
 )
 
 type Application struct {
-	ID        string           `json:"id"`
-	GigID     string           `json:"gigId"`
-	Worker    users.PublicUser `json:"worker"`
-	Comment   string           `json:"comment"`
-	Status    string           `json:"status"`
-	CreatedAt time.Time        `json:"createdAt"`
-	UpdatedAt time.Time        `json:"updatedAt"`
+	TermsVersion int              `json:"termsVersion"`
+	ID           string           `json:"id"`
+	GigID        string           `json:"gigId"`
+	Worker       users.PublicUser `json:"worker"`
+	Comment      string           `json:"comment"`
+	Status       string           `json:"status"`
+	CreatedAt    time.Time        `json:"createdAt"`
+	UpdatedAt    time.Time        `json:"updatedAt"`
 }
 
 type GigSummary struct {
+	TermsVersion             int               `json:"termsVersion"`
+	HasPendingChange         bool              `json:"hasPendingChange"`
 	ID                       string            `json:"id"`
 	Title                    string            `json:"title"`
 	City                     string            `json:"city"`
@@ -42,7 +45,8 @@ type GigSummary struct {
 }
 
 type Gig struct {
-	CounterpartyContact *string `json:"counterpartyContact,omitempty"`
+	PendingChange       *TermsChange `json:"pendingChange,omitempty"`
+	CounterpartyContact *string      `json:"counterpartyContact,omitempty"`
 	GigSummary
 	Description   string       `json:"description"`
 	Requirements  string       `json:"requirements"`
@@ -65,6 +69,11 @@ func (h *Handler) Register(api *gin.RouterGroup, requireUser, optionalUser gin.H
 	api.GET("/gigs/:gigId/applications", httpapi.ValidateQuery("page", "pageSize", "status"), requireUser, auth.RequireRole("customer"), h.listApplications)
 	write := api.Group("", httpapi.ValidateQuery())
 	write.POST("/gigs", requireUser, auth.RequireRole("customer"), h.create)
+	write.PUT("/gigs/:gigId/terms", requireUser, auth.RequireRole("customer"), h.editTerms)
+	write.POST("/gigs/:gigId/applications/:applicationId/confirm-terms", requireUser, auth.RequireRole("worker"), h.confirmTerms)
+	for _, action := range []string{"accept", "reject", "withdraw"} {
+		write.POST("/gigs/:gigId/changes/:changeId/"+action, requireUser, func(c *gin.Context) { h.resolveChange(c, action) })
+	}
 	write.POST("/gigs/:gigId/cancel", requireUser, auth.RequireRole("customer"), h.cancel)
 	write.POST("/gigs/:gigId/submit", requireUser, auth.RequireRole("worker"), func(c *gin.Context) { h.finish(c, false) })
 	write.POST("/gigs/:gigId/confirm", requireUser, auth.RequireRole("customer"), func(c *gin.Context) { h.finish(c, true) })
@@ -76,50 +85,12 @@ func (h *Handler) Register(api *gin.RouterGroup, requireUser, optionalUser gin.H
 var datePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$`)
 
 func (h *Handler) create(c *gin.Context) {
-	var input struct {
-		Title         string  `json:"title"`
-		Description   string  `json:"description"`
-		Requirements  *string `json:"requirements"`
-		City          string  `json:"city"`
-		Address       string  `json:"address"`
-		StartsAt      string  `json:"startsAt"`
-		EndsAt        string  `json:"endsAt"`
-		AmountKopecks *int64  `json:"amountKopecks"`
-	}
+	var input termsInput
 	if !httpapi.DecodeJSON(c, &input, 128*1024) {
 		return
 	}
-	fields := make(map[string][]string)
-	for _, field := range []struct {
-		name     string
-		value    *string
-		min, max int
-	}{
-		{"title", &input.Title, 1, 150}, {"description", &input.Description, 1, 5000},
-		{"requirements", input.Requirements, 0, 2000}, {"city", &input.City, 1, 100}, {"address", &input.Address, 1, 300},
-	} {
-		if field.value == nil {
-			fields[field.name] = []string{"Обязательное поле."}
-			continue
-		}
-		*field.value = strings.TrimSpace(*field.value)
-		length := utf8.RuneCountInString(*field.value)
-		if length < field.min || length > field.max || strings.ContainsRune(*field.value, 0) {
-			fields[field.name] = []string{"Проверьте значение и длину поля."}
-		}
-	}
-	startsAt, startErr := time.Parse(time.RFC3339Nano, input.StartsAt)
-	endsAt, endErr := time.Parse(time.RFC3339Nano, input.EndsAt)
-	if startErr != nil || !datePattern.MatchString(input.StartsAt) || !startsAt.After(time.Now()) {
-		fields["startsAt"] = []string{"Укажите будущую дату с часовым поясом."}
-	}
-	if endErr != nil || !datePattern.MatchString(input.EndsAt) || !endsAt.After(startsAt) {
-		fields["endsAt"] = []string{"Окончание должно быть позже начала; укажите часовой пояс."}
-	}
-	if input.AmountKopecks == nil || *input.AmountKopecks < 1 || *input.AmountKopecks > 10000000000 {
-		fields["amountKopecks"] = []string{"Укажите сумму от 1 до 10000000000 целых копеек."}
-	}
-	if httpapi.ValidationError(c, fields) {
+	startsAt, endsAt, valid := input.validate(c, nil)
+	if !valid {
 		return
 	}
 	gig, err := scanGig(h.pool.QueryRow(c.Request.Context(), `INSERT INTO gigs
@@ -135,13 +106,13 @@ func (h *Handler) create(c *gin.Context) {
 }
 
 const gigColumns = `id::text, title, description, requirements, city, address, starts_at, ends_at,
-    amount_kopecks, status, created_at, updated_at, submitted_at, completed_at, cancelled_at`
+    amount_kopecks, status, created_at, updated_at, submitted_at, completed_at, cancelled_at, terms_version`
 
 func scanGig(row pgx.Row, customer *auth.User) (Gig, error) {
 	var gig Gig
 	err := row.Scan(&gig.ID, &gig.Title, &gig.Description, &gig.Requirements, &gig.City, &gig.Address,
 		&gig.StartsAt, &gig.EndsAt, &gig.AmountKopecks, &gig.Status, &gig.CreatedAt, &gig.UpdatedAt,
-		&gig.SubmittedAt, &gig.CompletedAt, &gig.CancelledAt)
+		&gig.SubmittedAt, &gig.CompletedAt, &gig.CancelledAt, &gig.TermsVersion)
 	gig.Customer = users.PublicUser{ID: customer.ID, Name: customer.Name, Bio: customer.Bio,
 		Role: customer.Role, CompletedGigsCount: customer.CompletedGigsCount}
 	for _, stamp := range []*time.Time{&gig.StartsAt, &gig.EndsAt, &gig.CreatedAt, &gig.UpdatedAt,
@@ -202,4 +173,52 @@ func (h *Handler) cancel(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gig)
+}
+
+type termsInput struct {
+	Title         string  `json:"title"`
+	Description   string  `json:"description"`
+	Requirements  *string `json:"requirements"`
+	City          string  `json:"city"`
+	Address       string  `json:"address"`
+	StartsAt      string  `json:"startsAt"`
+	EndsAt        string  `json:"endsAt"`
+	AmountKopecks *int64  `json:"amountKopecks"`
+}
+
+func (input *termsInput) validate(c *gin.Context, previousStart *time.Time) (time.Time, time.Time, bool) {
+	fields := make(map[string][]string)
+	for _, field := range []struct {
+		name     string
+		value    *string
+		min, max int
+	}{
+		{"title", &input.Title, 1, 150}, {"description", &input.Description, 1, 5000},
+		{"requirements", input.Requirements, 0, 2000}, {"city", &input.City, 1, 100}, {"address", &input.Address, 1, 300},
+	} {
+		if field.value == nil {
+			fields[field.name] = []string{"Обязательное поле."}
+			continue
+		}
+		*field.value = strings.TrimSpace(*field.value)
+		length := utf8.RuneCountInString(*field.value)
+		if length < field.min || length > field.max || strings.ContainsRune(*field.value, 0) {
+			fields[field.name] = []string{"Проверьте значение и длину поля."}
+		}
+	}
+	startsAt, startErr := time.Parse(time.RFC3339Nano, input.StartsAt)
+	endsAt, endErr := time.Parse(time.RFC3339Nano, input.EndsAt)
+	if startErr != nil || !datePattern.MatchString(input.StartsAt) || (!startsAt.After(time.Now()) && (previousStart == nil || !startsAt.Equal(*previousStart))) {
+		fields["startsAt"] = []string{"Укажите будущую дату с часовым поясом."}
+	}
+	if endErr != nil || !datePattern.MatchString(input.EndsAt) || !endsAt.After(startsAt) {
+		fields["endsAt"] = []string{"Окончание должно быть позже начала; укажите часовой пояс."}
+	}
+	if input.AmountKopecks == nil || *input.AmountKopecks < 1 || *input.AmountKopecks > 10000000000 {
+		fields["amountKopecks"] = []string{"Укажите сумму от 1 до 10000000000 целых копеек."}
+	}
+	if httpapi.ValidationError(c, fields) {
+		return startsAt, endsAt, false
+	}
+	return startsAt, endsAt, true
 }

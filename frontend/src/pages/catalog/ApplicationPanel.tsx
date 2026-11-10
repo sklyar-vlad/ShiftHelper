@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createApplication,
+  confirmApplicationTerms,
   withdrawApplication,
   submitGig,
   type CurrentUser,
@@ -29,7 +30,9 @@ export function ApplicationPanel({
   const [message, setMessage] = useState("");
   const application = gig.myApplication;
 
-  async function send(action: "apply" | "withdraw" | "submit") {
+  async function send(
+    action: "apply" | "withdraw" | "submit" | "confirm-terms",
+  ) {
     if (busy.current) return;
     if (action === "apply" && Array.from(comment.trim()).length > 1000) {
       setMessage("Комментарий должен содержать не больше 1000 символов.");
@@ -42,7 +45,15 @@ export function ApplicationPanel({
       if (action === "withdraw")
         await withdrawApplication(gig.id, application!.id);
       else if (action === "submit") await submitGig(gig.id);
-      else await createApplication(gig.id, { comment: comment.trim() });
+      else if (action === "confirm-terms")
+        await confirmApplicationTerms(gig.id, application!.id, {
+          termsVersion: gig.termsVersion ?? 1,
+        });
+      else
+        await createApplication(gig.id, {
+          comment: comment.trim(),
+          termsVersion: gig.termsVersion ?? 1,
+        });
       setComment("");
       await refresh();
       await client.invalidateQueries({
@@ -96,6 +107,23 @@ export function ApplicationPanel({
           {application.comment && (
             <p className="gig-text">{application.comment}</p>
           )}
+          {application.status === "pending" &&
+            gig.status === "open" &&
+            (application.termsVersion ?? 1) !== (gig.termsVersion ?? 1) && (
+              <div className="notice">
+                <p>
+                  Условия изменились. Прочитайте актуальные условия задания
+                  перед подтверждением.
+                </p>
+                <button
+                  className="button"
+                  disabled={working}
+                  onClick={() => void send("confirm-terms")}
+                >
+                  Подтвердить новые условия
+                </button>
+              </div>
+            )}
           {application.status === "pending" && gig.status === "open" && (
             <button
               className="button button-secondary"

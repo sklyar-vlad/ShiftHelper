@@ -125,6 +125,11 @@ func TestMVPMigration(t *testing.T) {
 		t.Fatalf("valid lifecycle: %v", err)
 	}
 	run("down")
+	var version int
+	if err := pool.QueryRow(ctx, "SELECT terms_version FROM gigs LIMIT 1").Scan(&version); err == nil {
+		t.Fatal("terms version column was not removed")
+	}
+	run("down")
 	var contact string
 	if err := pool.QueryRow(ctx, "SELECT contact FROM users LIMIT 1").Scan(&contact); err == nil {
 		t.Fatal("contact column was not removed")
