@@ -72,6 +72,8 @@ export const RegisterBody = zod.object({
     ),
 });
 
+export const registerResponseContactMax = 200;
+
 export const registerResponseNameMax = 100;
 
 export const registerResponseBioMin = 0;
@@ -90,6 +92,13 @@ export const registerResponseCreatedAtRegExp = new RegExp(
 );
 
 export const RegisterResponse = zod.object({
+  contact: zod
+    .string()
+    .max(registerResponseContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(registerResponseNameMax),
   bio: zod.string().min(registerResponseBioMin).max(registerResponseBioMax),
@@ -139,6 +148,8 @@ export const LoginBody = zod.object({
     ),
 });
 
+export const loginResponseContactMax = 200;
+
 export const loginResponseNameMax = 100;
 
 export const loginResponseBioMin = 0;
@@ -157,6 +168,13 @@ export const loginResponseCreatedAtRegExp = new RegExp(
 );
 
 export const LoginResponse = zod.object({
+  contact: zod
+    .string()
+    .max(loginResponseContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(loginResponseNameMax),
   bio: zod.string().min(loginResponseBioMin).max(loginResponseBioMax),
@@ -191,6 +209,8 @@ export const LogoutResponse = zod.void();
  * Email доступен только владельцу. completedGigsCount считается по completed: собственные публикации для customer, назначенные работы для worker.
  * @summary Текущий пользователь
  */
+export const getCurrentUserResponseContactMax = 200;
+
 export const getCurrentUserResponseNameMax = 100;
 
 export const getCurrentUserResponseBioMin = 0;
@@ -209,6 +229,13 @@ export const getCurrentUserResponseCreatedAtRegExp = new RegExp(
 );
 
 export const GetCurrentUserResponse = zod.object({
+  contact: zod
+    .string()
+    .max(getCurrentUserResponseContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(getCurrentUserResponseNameMax),
   bio: zod
@@ -242,15 +269,26 @@ export const GetCurrentUserResponse = zod.object({
  * Оба поля обязательны. Пустой bio очищает описание. Email и роль не редактируются.
  * @summary Изменить свой профиль
  */
+export const updateProfileBodyContactMax = 200;
+
 export const updateProfileBodyNameMax = 100;
 
 export const updateProfileBodyBioMin = 0;
 export const updateProfileBodyBioMax = 1000;
 
 export const UpdateProfileBody = zod.object({
+  contact: zod
+    .string()
+    .max(updateProfileBodyContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   name: zod.string().min(1).max(updateProfileBodyNameMax),
   bio: zod.string().min(updateProfileBodyBioMin).max(updateProfileBodyBioMax),
 });
+
+export const updateProfileResponseContactMax = 200;
 
 export const updateProfileResponseNameMax = 100;
 
@@ -270,6 +308,13 @@ export const updateProfileResponseCreatedAtRegExp = new RegExp(
 );
 
 export const UpdateProfileResponse = zod.object({
+  contact: zod
+    .string()
+    .max(updateProfileResponseContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(updateProfileResponseNameMax),
   bio: zod
@@ -574,6 +619,8 @@ export const CreateGigBody = zod.object({
     ),
 });
 
+export const createGigResponseCounterpartyContactMax = 200;
+
 export const createGigResponseTitleMax = 150;
 
 export const createGigResponseCityMax = 100;
@@ -654,6 +701,13 @@ export const createGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
 );
 
 export const CreateGigResponse = zod.object({
+  counterpartyContact: zod
+    .string()
+    .max(createGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(createGigResponseTitleMax),
   city: zod.string().min(1).max(createGigResponseCityMax),
@@ -818,6 +872,8 @@ export const GetGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const getGigResponseCounterpartyContactMax = 200;
+
 export const getGigResponseTitleMax = 150;
 
 export const getGigResponseCityMax = 100;
@@ -898,6 +954,13 @@ export const getGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
 );
 
 export const GetGigResponse = zod.object({
+  counterpartyContact: zod
+    .string()
+    .max(getGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(getGigResponseTitleMax),
   city: zod.string().min(1).max(getGigResponseCityMax),
@@ -1055,6 +1118,8 @@ export const CancelGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const cancelGigResponseCounterpartyContactMax = 200;
+
 export const cancelGigResponseTitleMax = 150;
 
 export const cancelGigResponseCityMax = 100;
@@ -1135,6 +1200,13 @@ export const cancelGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
 );
 
 export const CancelGigResponse = zod.object({
+  counterpartyContact: zod
+    .string()
+    .max(cancelGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(cancelGigResponseTitleMax),
   city: zod.string().min(1).max(cancelGigResponseCityMax),
@@ -1299,6 +1371,8 @@ export const SubmitGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const submitGigResponseCounterpartyContactMax = 200;
+
 export const submitGigResponseTitleMax = 150;
 
 export const submitGigResponseCityMax = 100;
@@ -1379,6 +1453,13 @@ export const submitGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
 );
 
 export const SubmitGigResponse = zod.object({
+  counterpartyContact: zod
+    .string()
+    .max(submitGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(submitGigResponseTitleMax),
   city: zod.string().min(1).max(submitGigResponseCityMax),
@@ -1543,6 +1624,8 @@ export const ConfirmGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const confirmGigResponseCounterpartyContactMax = 200;
+
 export const confirmGigResponseTitleMax = 150;
 
 export const confirmGigResponseCityMax = 100;
@@ -1623,6 +1706,13 @@ export const confirmGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
 );
 
 export const ConfirmGigResponse = zod.object({
+  counterpartyContact: zod
+    .string()
+    .max(confirmGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(confirmGigResponseTitleMax),
   city: zod.string().min(1).max(confirmGigResponseCityMax),
@@ -1984,6 +2074,8 @@ export const SelectApplicationParams = zod.object({
   applicationId: zod.uuid(),
 });
 
+export const selectApplicationResponseCounterpartyContactMax = 200;
+
 export const selectApplicationResponseTitleMax = 150;
 
 export const selectApplicationResponseCityMax = 100;
@@ -2064,6 +2156,13 @@ export const selectApplicationResponseMyApplicationUpdatedAtRegExp = new RegExp(
 );
 
 export const SelectApplicationResponse = zod.object({
+  counterpartyContact: zod
+    .string()
+    .max(selectApplicationResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(selectApplicationResponseTitleMax),
   city: zod.string().min(1).max(selectApplicationResponseCityMax),

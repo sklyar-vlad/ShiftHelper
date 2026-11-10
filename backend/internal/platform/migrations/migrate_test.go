@@ -125,6 +125,11 @@ func TestMVPMigration(t *testing.T) {
 		t.Fatalf("valid lifecycle: %v", err)
 	}
 	run("down")
+	var contact string
+	if err := pool.QueryRow(ctx, "SELECT contact FROM users LIMIT 1").Scan(&contact); err == nil {
+		t.Fatal("contact column was not removed")
+	}
+	run("down")
 	var removed bool
 	if err := pool.QueryRow(ctx, "SELECT to_regclass(current_schema() || '.reviews') IS NULL").Scan(&removed); err != nil || !removed {
 		t.Fatalf("reviews table was not removed: %v", err)

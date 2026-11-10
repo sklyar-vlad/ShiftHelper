@@ -81,6 +81,20 @@ export function GigPage() {
               <UserCard user={query.data.selectedWorker} />
             </section>
           )}
+          {query.data.counterpartyContact !== undefined && (
+            <section aria-label="Связь со второй стороной">
+              <h2>
+                Контакт{" "}
+                {session.user?.role === "customer"
+                  ? "исполнителя"
+                  : "заказчика"}
+              </h2>
+              <p className="gig-text">
+                {query.data.counterpartyContact ||
+                  "Контакт пока не указан. Вторая сторона может добавить его в своём профиле."}
+              </p>
+            </section>
+          )}
           <p className="notice">
             Оплата — напрямую между заказчиком и исполнителем по договорённости.
           </p>

@@ -42,6 +42,7 @@ type GigSummary struct {
 }
 
 type Gig struct {
+	CounterpartyContact *string `json:"counterpartyContact,omitempty"`
 	GigSummary
 	Description   string       `json:"description"`
 	Requirements  string       `json:"requirements"`

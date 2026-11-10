@@ -77,6 +77,7 @@ it("saves trimmed name and empty bio, updating the session immediately", async (
   expect(JSON.parse(send.mock.calls[0][0].body as string)).toEqual({
     name: "Новое имя",
     bio: "",
+    contact: "",
   });
   expect(screen.getByRole("heading", { name: "Новое имя" })).toBeTruthy();
   expect(screen.getByText("Описание пока не добавлено")).toBeTruthy();
@@ -155,4 +156,28 @@ it("renders only public profile fields, including zero completed gigs", () => {
   expect(screen.getByText(/Завершено заданий: 0/)).toBeTruthy();
   expect(screen.getByText("Описание пока не добавлено")).toBeTruthy();
   expect(screen.queryByText(user.email)).toBeNull();
+});
+
+it("saves and clears the optional private contact", async () => {
+  const send = vi.fn(async (init: RequestInit) =>
+    json({ ...user, ...JSON.parse(init.body as string) }),
+  );
+  await mount(send);
+  fireEvent.change(screen.getByLabelText("Как со мной связаться"), {
+    target: { value: "  @contact  " },
+  });
+  submit();
+  await screen.findByText("Профиль сохранён.");
+  expect(JSON.parse(send.mock.calls[0][0].body as string).contact).toBe(
+    "@contact",
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Редактировать профиль" }),
+  );
+  fireEvent.change(screen.getByLabelText("Как со мной связаться"), {
+    target: { value: "" },
+  });
+  submit();
+  await screen.findByText("Профиль сохранён.");
+  expect(JSON.parse(send.mock.calls[1][0].body as string).contact).toBe("");
 });
