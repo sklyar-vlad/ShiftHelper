@@ -859,6 +859,10 @@ components:
       - email
       - createdAt
       properties:
+        contact:
+          type: string
+          maxLength: 200
+          description: Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
         id:
           type: string
           format: uuid
@@ -943,6 +947,10 @@ components:
       - name
       - bio
       properties:
+        contact:
+          type: string
+          maxLength: 200
+          description: Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
         name:
           type: string
           minLength: 1
@@ -1151,6 +1159,10 @@ components:
       - cancelledAt
       - myApplication
       properties:
+        counterpartyContact:
+          type: string
+          maxLength: 200
+          description: Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.
         id:
           type: string
           format: uuid

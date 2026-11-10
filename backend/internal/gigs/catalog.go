@@ -41,7 +41,10 @@ const profileJoins = `JOIN profiles customer ON customer.id = g.customer_id
     LEFT JOIN profiles worker ON worker.id = g.selected_worker_id`
 
 const detailSQL = profilesSQL + ` SELECT ` + summaryJSON + ` || jsonb_build_object(
-    'description', g.description, 'requirements', g.requirements, 'address', g.address,
+    'counterpartyContact', CASE WHEN g.status IN ('in_progress', 'awaiting_confirmation', 'completed') THEN
+ (SELECT contact FROM users WHERE id = CASE WHEN g.customer_id = $2::uuid THEN g.selected_worker_id
+ WHEN g.selected_worker_id = $2::uuid THEN g.customer_id END) END,
+ 'description', g.description, 'requirements', g.requirements, 'address', g.address,
     'submittedAt', g.submitted_at, 'completedAt', g.completed_at, 'cancelledAt', g.cancelled_at,
     'myApplication', (SELECT ` + applicationJSON + `
         FROM applications a JOIN profiles applicant ON applicant.id = a.worker_id

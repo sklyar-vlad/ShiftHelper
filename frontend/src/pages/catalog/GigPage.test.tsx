@@ -248,3 +248,48 @@ it("offers reviews only to the two participants of a completed gig", async () =>
     cleanup();
   }
 });
+
+it.each(["<b>@private-contact</b>", ""])(
+  "shows counterpart contact safely as text: %s",
+  async (contact) => {
+    mount(async () =>
+      json({
+        ...gig,
+        status: "in_progress",
+        selectedWorker: worker,
+        counterpartyContact: contact,
+      }),
+    );
+    await screen.findByRole("heading", { name: "Контакт заказчика" });
+    expect(
+      screen.getByText(
+        contact ||
+          "Контакт пока не указан. Вторая сторона может добавить его в своём профиле.",
+      ),
+    ).toBeTruthy();
+    expect(document.querySelector("b")).toBeNull();
+  },
+);
+
+it("does not keep a private contact when the account changes", async () => {
+  const client = mount(async () =>
+    json({
+      ...gig,
+      counterpartyContact:
+        client.getQueryData<CurrentUser>(getGetCurrentUserQueryKey())?.id ===
+        worker.id
+          ? "@private-contact"
+          : undefined,
+    }),
+  );
+  await screen.findByText("@private-contact");
+  await act(async () => {
+    client.setQueryData(getGetCurrentUserQueryKey(), {
+      ...worker,
+      id: "different-account",
+    });
+  });
+  await waitFor(() =>
+    expect(screen.queryByText("@private-contact")).toBeNull(),
+  );
+});
