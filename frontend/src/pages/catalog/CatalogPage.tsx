@@ -1,3 +1,4 @@
+import { CityInput } from "@/shared/ui/CityInput";
 import { Link, useSearchParams } from "react-router";
 import { useListGigs } from "@/shared/api/generated/api";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
@@ -59,15 +60,16 @@ export function CatalogPage() {
             placeholder="Например, помощь с переездом"
           />
         </label>
-        <label>
-          Город
-          <input
+        <div className="catalog-city">
+          <label htmlFor="catalog-city">Город</label>
+          <CityInput
+            id="catalog-city"
             name="city"
             defaultValue={city}
             maxLength={100}
             placeholder="Например, Москва"
           />
-        </label>
+        </div>
         <button className="button" type="submit">
           Найти
         </button>

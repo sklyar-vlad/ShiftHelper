@@ -14,6 +14,7 @@ const visible = (page, text) => page.getByText(text, { exact: true }).waitFor();
 async function session(index, mobile = false) {
   const context = await browsers[index].newContext({
     baseURL,
+    hasTouch: mobile,
     viewport: { width: mobile ? 375 : 1280, height: 900 },
     timezoneId: "UTC",
   });
@@ -157,6 +158,18 @@ try {
       "Сумма за всё задание, ₽": "1500,50",
     }))
       await customer.getByLabel(label, { exact: true }).fill(value);
+    const cityField = customer.getByRole("combobox", {
+      name: "Город",
+      exact: true,
+    });
+    await cityField.fill("Киров");
+    await customer
+      .getByRole("option", { name: "Киров Калужская область", exact: true })
+      .waitFor();
+    await customer.screenshot({ path: "/state/city-desktop.png" });
+    await cityField.press("ArrowDown");
+    await cityField.press("Enter");
+    assert.equal(await cityField.inputValue(), "Киров, Калужская область");
     await button(customer, "Опубликовать").click();
     await customer.waitForURL(/\/gigs\/[0-9a-f-]+$/);
     const gigId = customer.url().split("/").at(-1);
@@ -165,7 +178,28 @@ try {
     await post(foreign, `${path}/cancel`, undefined, 403);
     await worker.goto("/catalog");
     await worker.getByLabel("Название задания", { exact: true }).fill(title);
+    const filterCity = worker.getByRole("combobox", {
+      name: "Город",
+      exact: true,
+    });
+    await filterCity.fill("Киров");
+    const option = worker.getByRole("option", {
+      name: "Киров Калужская область",
+      exact: true,
+    });
+    await worker.screenshot({ path: "/state/city-mobile.png" });
+    await option.tap();
+    assert.equal(await filterCity.inputValue(), "Киров, Калужская область");
     await button(worker, "Найти").click();
+    await worker.waitForURL(
+      (url) => url.searchParams.get("city") === "Киров, Калужская область",
+    );
+    await link(worker, title).click();
+    await link(worker, "← К подработкам").click();
+    assert.equal(
+      new URL(worker.url()).searchParams.get("city"),
+      "Киров, Калужская область",
+    );
     await link(worker, title).click();
     await worker
       .getByLabel("Комментарий (необязательно)", { exact: true })
