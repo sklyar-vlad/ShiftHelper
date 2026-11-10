@@ -195,3 +195,62 @@ it("keeps publication fields after a proxy failure and retries only on submit", 
   await screen.findByRole("heading", { name: "Опубликовано" });
   expect(send).toHaveBeenCalledTimes(2);
 });
+
+it("edits existing terms without losing past dates, cents or legacy cities", async () => {
+  const { GigForm } = await import("./CreateGigPage");
+  const client = new QueryClient();
+  client.setQueryData(["/api/v1/me"], { id: "customer" });
+  const saved = vi.fn();
+  const send = vi.fn(async (_url: string, init: RequestInit) => {
+    const input = JSON.parse(init.body as string);
+    expect(input.termsVersion).toBe(2);
+    expect(input.startsAt).toBe("2026-01-01T09:00:00.123456Z");
+    expect(input.amountKopecks).toBe(150050);
+    expect(input.city).toBe("Старый свободный ввод");
+    return json(input);
+  });
+  vi.stubGlobal("fetch", send);
+  const gig = {
+    id: "gig-1",
+    title: "Задание",
+    description: "Описание",
+    requirements: "",
+    city: "Старый свободный ввод",
+    address: "Адрес",
+    startsAt: "2026-01-01T09:00:00.123456Z",
+    endsAt: "2026-01-01T12:00:00Z",
+    amountKopecks: 150050,
+    termsVersion: 2,
+    status: "in_progress" as const,
+    customer: {
+      id: "customer",
+      name: "Customer",
+      bio: "",
+      role: "customer" as const,
+      ratingAverage: null,
+      reviewsCount: 0,
+      completedGigsCount: 0,
+    },
+    selectedWorker: null,
+    pendingApplicationsCount: 0,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    submittedAt: null,
+    completedAt: null,
+    cancelledAt: null,
+    myApplication: null,
+  };
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <GigForm gig={gig} onSaved={saved} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  fireEvent.change(screen.getByLabelText("Описание"), {
+    target: { value: "Новая версия описания" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Предложить изменения" }));
+  await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+  expect(send).toHaveBeenCalledTimes(1);
+});

@@ -59,6 +59,10 @@ func (h *Handler) finish(c *gin.Context, confirming bool) {
 		httpapi.InternalError(c)
 		return
 	}
+	if _, err := tx.Exec(ctx, "UPDATE gig_changes SET status = 'expired' WHERE gig_id = $1 AND status = 'pending'", id); err != nil {
+		httpapi.InternalError(c)
+		return
+	}
 	var gig Gig
 	if err := tx.QueryRow(ctx, detailSQL+" WHERE g.id = $1", id, user.ID).Scan(&gig); err != nil {
 		httpapi.InternalError(c)

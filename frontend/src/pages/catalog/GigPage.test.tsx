@@ -132,6 +132,7 @@ it("creates and withdraws an application, blocking duplicate sends and reapplica
     }
     expect(JSON.parse(init.body as string)).toEqual({
       comment: "Готов помочь",
+      termsVersion: 1,
     });
     return new Promise<Response>((resolve) => {
       finish = resolve;
@@ -291,5 +292,78 @@ it("does not keep a private contact when the account changes", async () => {
   });
   await waitFor(() =>
     expect(screen.queryByText("@private-contact")).toBeNull(),
+  );
+});
+
+it("confirms the exact revised conditions of an existing application", async () => {
+  let current = {
+    ...gig,
+    termsVersion: 2,
+    myApplication: { ...application, termsVersion: 1 },
+  };
+  const send = vi.fn(async (_url: string, init: RequestInit) => {
+    expect(JSON.parse(init.body as string)).toEqual({ termsVersion: 2 });
+    current = {
+      ...current,
+      myApplication: { ...current.myApplication, termsVersion: 2 },
+    };
+    return json(current);
+  });
+  mount(async (url, init) =>
+    init.method === "POST" ? send(url, init) : json(current),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Подтвердить новые условия" }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Подтвердить новые условия" }),
+    ).toBeNull(),
+  );
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+it("shows a real comparison and sends the immutable proposal ID", async () => {
+  const current: Gig = {
+    ...gig,
+    status: "in_progress",
+    selectedWorker: worker,
+    termsVersion: 1,
+    hasPendingChange: true,
+    pendingChange: {
+      id: "proposal-1",
+      termsVersion: 1,
+      terms: {
+        title: "Новые условия",
+        description: "Другое описание",
+        requirements: "",
+        city: "Киров, Калужская область",
+        address: "Мира, 2",
+        startsAt: gig.startsAt,
+        endsAt: gig.endsAt,
+        amountKopecks: 200099,
+      },
+    },
+  };
+  let resolved = false;
+  const send = vi.fn(async (url: string) => {
+    expect(url).toBe("/api/v1/gigs/gig-1/changes/proposal-1/accept");
+    resolved = true;
+    return json({ ...current, pendingChange: undefined });
+  });
+  mount(async (url, init) =>
+    init.method === "POST"
+      ? send(url)
+      : json({
+          ...current,
+          pendingChange: resolved ? undefined : current.pendingChange,
+        }),
+  );
+  await screen.findByRole("heading", { name: "Предложены новые условия" });
+  expect(screen.getByText("Новые условия")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Согласиться" }));
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  await waitFor(() =>
+    expect(screen.queryByRole("button", { name: "Согласиться" })).toBeNull(),
   );
 });

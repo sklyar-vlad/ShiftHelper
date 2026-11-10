@@ -88,7 +88,7 @@ try {
       assert.equal(response.status(), 200);
       const gig = await response.json();
       assert.equal(gig.status, "completed");
-      assert.equal(gig.amountKopecks, 150050);
+      assert.equal(gig.amountKopecks, 200099);
       assert.equal(gig.completedAt, state.completedAt);
       assert.equal(gig.submittedAt, state.submittedAt);
       assert.equal(gig.customer.ratingAverage, 4);
@@ -210,6 +210,23 @@ try {
     await post(customer, `${path}/applications`, {}, 403);
     await post(second, `${path}/applications`, {}, 201);
     await customer.reload();
+    await button(customer, "Изменить условия").click();
+    await customer
+      .getByLabel("Описание", { exact: true })
+      .fill("Обновлённые условия переноски коробок");
+    await button(customer, "Сохранить условия").click();
+    await customer
+      .getByText("Кандидат ещё не подтвердил новые условия.", { exact: true })
+      .first()
+      .waitFor();
+    for (const page of [worker, second]) {
+      await page.goto(path);
+      await button(page, "Подтвердить новые условия").click();
+      await button(page, "Подтвердить новые условия").waitFor({
+        state: "hidden",
+      });
+    }
+    await customer.reload();
     await customer
       .locator(".application-card")
       .filter({ hasText: "Первый исполнитель" })
@@ -241,6 +258,86 @@ try {
         .counterpartyContact,
       undefined,
     );
+    for (const action of ["reject", "withdraw", "accept"]) {
+      await customer.goto(path);
+      await button(customer, "Изменить условия").click();
+      await customer
+        .getByLabel("Сумма за всё задание, ₽", { exact: true })
+        .fill("2000,99");
+      await button(customer, "Предложить изменения").click();
+      await visible(customer, "Предложены новые условия");
+      await worker.goto("/my-gigs?view=work");
+      await worker
+        .getByText(
+          "Ожидается решение по изменению условий. Откройте задание.",
+          { exact: true },
+        )
+        .waitFor();
+      await worker.goto(path);
+      await visible(worker, "Предложены новые условия");
+      if (action === "reject") {
+        await worker
+          .getByRole("heading", {
+            name: "Предложены новые условия",
+            exact: true,
+          })
+          .scrollIntoViewIfNeeded();
+        await worker.screenshot({
+          path: "/state/terms-mobile.png",
+          fullPage: true,
+        });
+        await customer
+          .getByRole("heading", {
+            name: "Предложены новые условия",
+            exact: true,
+          })
+          .scrollIntoViewIfNeeded();
+        await customer.screenshot({
+          path: "/state/terms-desktop.png",
+          fullPage: true,
+        });
+      }
+      const proposed = await (
+        await customer.request.get(`/api/v1${path}`)
+      ).json();
+      assert.equal(proposed.amountKopecks, 150050);
+      assert.equal(proposed.pendingChange.terms.amountKopecks, 200099);
+      assert.equal(
+        (await (await second.request.get(`/api/v1${path}`)).json())
+          .pendingChange,
+        undefined,
+      );
+      if (action === "withdraw")
+        await button(customer, "Отозвать предложение").click();
+      else
+        await button(
+          worker,
+          action === "accept" ? "Согласиться" : "Отказаться",
+        ).click();
+      const activePage = action === "withdraw" ? customer : worker;
+      await activePage
+        .getByRole("heading", { name: "Предложены новые условия", exact: true })
+        .waitFor({ state: "hidden" });
+      await post(
+        worker,
+        `${path}/changes/${proposed.pendingChange.id}/accept`,
+        undefined,
+        409,
+      );
+      assert.equal(
+        await worker.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        true,
+      );
+    }
+    await customer.goto(path);
+    await button(customer, "Изменить условия").click();
+    await customer
+      .getByLabel("Описание", { exact: true })
+      .fill("Предложение, которое истечёт при сдаче");
+    await button(customer, "Предложить изменения").click();
+    await visible(customer, "Предложены новые условия");
     await post(customer, `${path}/cancel`, undefined, 409);
     await post(second, `${path}/submit`, undefined, 403);
     await post(customer, `${path}/submit`, undefined, 403);

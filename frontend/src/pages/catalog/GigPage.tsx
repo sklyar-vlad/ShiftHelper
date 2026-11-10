@@ -1,3 +1,4 @@
+import { TermsPanel } from "./TermsPanel";
 import { Link, useLocation, useParams } from "react-router";
 import { getGetGigQueryKey, useGetGig } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
@@ -98,8 +99,13 @@ export function GigPage() {
           <p className="notice">
             Оплата — напрямую между заказчиком и исполнителем по договорённости.
           </p>
+          <TermsPanel
+            key={`terms:${gigId}:${session.user?.id ?? "guest"}`}
+            gig={query.data}
+            user={session.user}
+          />
           <ApplicationPanel
-            key={`${gigId}:${session.user?.id ?? "guest"}`}
+            key={`application:${gigId}:${session.user?.id ?? "guest"}`}
             gig={query.data}
             user={session.user}
             refresh={() => query.refetch()}
@@ -109,7 +115,7 @@ export function GigPage() {
             (session.user.id === query.data.customer.id ||
               session.user.id === query.data.selectedWorker?.id) && (
               <ReviewPanel
-                key={`${gigId}:${session.user.id}`}
+                key={`review:${gigId}:${session.user.id}`}
                 gigId={gigId}
                 user={session.user}
               />

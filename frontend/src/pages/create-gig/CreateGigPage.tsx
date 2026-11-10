@@ -5,6 +5,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import {
   createGig,
+  editGigTerms,
+  type Gig,
   getGetGigQueryKey,
   getGetCurrentUserQueryKey,
   type CurrentUser,
@@ -49,6 +51,29 @@ export function parseRubles(value: string): number | null {
 }
 
 export function CreateGigPage() {
+  return <GigForm />;
+}
+
+function localDate(value: string) {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, -1);
+}
+function apiDate(value: string, original?: string) {
+  return original && new Date(value).getTime() === new Date(original).getTime()
+    ? original
+    : new Date(value).toISOString();
+}
+export function GigForm({
+  gig,
+  onSaved,
+  onCancel,
+}: {
+  gig?: Gig;
+  onSaved?: () => void;
+  onCancel?: () => void;
+}) {
   const navigate = useNavigate();
   const client = useQueryClient();
   const busy = useRef(false);
@@ -61,7 +86,20 @@ export function CreateGigPage() {
     getValues,
     setError,
     formState: { errors },
-  } = useForm<Values>();
+  } = useForm<Values>({
+    defaultValues: gig
+      ? {
+          title: gig.title,
+          description: gig.description,
+          requirements: gig.requirements,
+          city: gig.city,
+          address: gig.address,
+          startsAt: localDate(gig.startsAt),
+          endsAt: localDate(gig.endsAt),
+          amount: `${Math.floor(gig.amountKopecks / 100)},${String(gig.amountKopecks % 100).padStart(2, "0")}`,
+        }
+      : undefined,
+  });
   const submit = handleSubmit(async (values) => {
     if (busy.current) return;
     busy.current = true;
@@ -72,25 +110,36 @@ export function CreateGigPage() {
     )?.id;
     try {
       const { amount, ...input } = values;
-      const gig = await createGig({
+      const payload = {
         ...input,
         title: input.title.trim(),
         description: input.description.trim(),
         requirements: input.requirements.trim(),
         city: input.city.trim(),
         address: input.address.trim(),
-        startsAt: new Date(input.startsAt).toISOString(),
-        endsAt: new Date(input.endsAt).toISOString(),
+        startsAt: apiDate(input.startsAt, gig?.startsAt),
+        endsAt: apiDate(input.endsAt, gig?.endsAt),
         amountKopecks: parseRubles(amount)!,
-      });
+      };
+      const result = gig
+        ? await editGigTerms(gig.id, {
+            ...payload,
+            termsVersion: gig.termsVersion ?? 1,
+          })
+        : await createGig(payload);
       if (
         client.getQueryData<CurrentUser>(getGetCurrentUserQueryKey())?.id !==
         userId
       )
         return;
-      client.setQueryData(getGetGigQueryKey(gig.id), gig);
+      if (gig) {
+        await client.invalidateQueries();
+        onSaved?.();
+        return;
+      }
+      client.setQueryData(getGetGigQueryKey(result.id), result);
       void client.invalidateQueries({ queryKey: ["/api/v1/gigs"] });
-      navigate(`/gigs/${gig.id}`, { replace: true });
+      navigate(`/gigs/${result.id}`, { replace: true });
     } catch (error) {
       const serverFields =
         error instanceof ApiError ? error.details?.fields : undefined;
@@ -103,6 +152,8 @@ export function CreateGigPage() {
           matched = true;
         }
       }
+      if (error instanceof ApiError && [403, 404, 409].includes(error.status))
+        await client.invalidateQueries();
       if (!matched)
         setMessage(
           error instanceof ApiError
@@ -118,10 +169,15 @@ export function CreateGigPage() {
   return (
     <section className="create-gig">
       <header className="page-heading">
-        <h1 id="create-gig-title">Новое задание</h1>
+        <h1 id="create-gig-title">
+          {gig ? "Изменение условий" : "Новое задание"}
+        </h1>
         <p className="muted">
-          Опишите работу и укажите общую оплату. Расчёт — напрямую с
-          исполнителем.
+          {gig
+            ? gig.status === "in_progress"
+              ? "Действующие условия сохранятся до согласия исполнителя."
+              : "Кандидаты с откликами должны подтвердить новую редакцию перед выбором."
+            : "Опишите работу и укажите общую оплату. Расчёт — напрямую с исполнителем."}
         </p>
       </header>
       <form onSubmit={submit} noValidate aria-labelledby="create-gig-title">
@@ -145,7 +201,12 @@ export function CreateGigPage() {
                     return "Укажите от 0,01 до 100 000 000 ₽, не больше двух знаков после запятой.";
                   if (
                     field.name === "startsAt" &&
-                    !(new Date(value).getTime() > Date.now())
+                    !(new Date(value).getTime() > Date.now()) &&
+                    !(
+                      gig &&
+                      new Date(value).getTime() ===
+                        new Date(gig.startsAt).getTime()
+                    )
                   )
                     return "Начало должно быть в будущем.";
                   if (
@@ -222,8 +283,25 @@ export function CreateGigPage() {
             </p>
           )}
           <button className="button" disabled={working} type="submit">
-            {working ? "Публикуем…" : "Опубликовать"}
+            {working
+              ? gig
+                ? "Сохраняем…"
+                : "Публикуем…"
+              : gig
+                ? gig.status === "in_progress"
+                  ? "Предложить изменения"
+                  : "Сохранить условия"
+                : "Опубликовать"}
           </button>
+          {onCancel && (
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={onCancel}
+            >
+              Отмена
+            </button>
+          )}
         </fieldset>
       </form>
     </section>

@@ -30,7 +30,8 @@ const profilesSQL = `WITH profiles AS NOT MATERIALIZED (
 )`
 
 const summaryJSON = `jsonb_build_object(
-    'id', g.id, 'title', g.title, 'city', g.city, 'startsAt', g.starts_at, 'endsAt', g.ends_at,
+    'termsVersion', g.terms_version, 'hasPendingChange', EXISTS (SELECT 1 FROM gig_changes change WHERE change.gig_id = g.id AND change.status = 'pending'),
+ 'id', g.id, 'title', g.title, 'city', g.city, 'startsAt', g.starts_at, 'endsAt', g.ends_at,
     'amountKopecks', g.amount_kopecks, 'status', g.status, 'createdAt', g.created_at, 'updatedAt', g.updated_at,
     'customer', to_jsonb(customer),
     'selectedWorker', CASE WHEN worker.id IS NULL THEN NULL ELSE to_jsonb(worker) END,
@@ -41,7 +42,10 @@ const profileJoins = `JOIN profiles customer ON customer.id = g.customer_id
     LEFT JOIN profiles worker ON worker.id = g.selected_worker_id`
 
 const detailSQL = profilesSQL + ` SELECT ` + summaryJSON + ` || jsonb_build_object(
-    'counterpartyContact', CASE WHEN g.status IN ('in_progress', 'awaiting_confirmation', 'completed') THEN
+    'pendingChange', CASE WHEN g.customer_id = $2::uuid OR g.selected_worker_id = $2::uuid THEN
+ (SELECT jsonb_build_object('id', change.id, 'termsVersion', change.base_version, 'terms', change.terms)
+ FROM gig_changes change WHERE change.gig_id = g.id AND change.status = 'pending') END,
+ 'counterpartyContact', CASE WHEN g.status IN ('in_progress', 'awaiting_confirmation', 'completed') THEN
  (SELECT contact FROM users WHERE id = CASE WHEN g.customer_id = $2::uuid THEN g.selected_worker_id
  WHEN g.selected_worker_id = $2::uuid THEN g.customer_id END) END,
  'description', g.description, 'requirements', g.requirements, 'address', g.address,
