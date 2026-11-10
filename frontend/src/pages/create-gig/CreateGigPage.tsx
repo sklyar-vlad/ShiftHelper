@@ -1,5 +1,6 @@
+import { CityInput } from "@/shared/ui/CityInput";
 import { useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import {
@@ -55,6 +56,7 @@ export function CreateGigPage() {
   const [message, setMessage] = useState("");
   const {
     register,
+    control,
     handleSubmit,
     getValues,
     setError,
@@ -164,7 +166,34 @@ export function CreateGigPage() {
                   {field.label}
                   {field.name === "requirements" && " (необязательно)"}
                 </label>
-                {"multiline" in field ? (
+                {field.name === "city" ? (
+                  <Controller
+                    name="city"
+                    control={control}
+                    defaultValue=""
+                    rules={{
+                      validate: (value) =>
+                        (!!value.trim() &&
+                          Array.from(value.trim()).length <= 100) ||
+                        "Укажите город до 100 символов.",
+                    }}
+                    render={({ field: binding }) => (
+                      <CityInput
+                        id="city"
+                        name={binding.name}
+                        value={binding.value}
+                        ref={binding.ref}
+                        onBlur={binding.onBlur}
+                        onValueChange={binding.onChange}
+                        maxLength={100}
+                        aria-invalid={!!errors.city}
+                        aria-describedby={
+                          errors.city ? "city-error" : undefined
+                        }
+                      />
+                    )}
+                  />
+                ) : "multiline" in field ? (
                   <textarea
                     {...props}
                     rows={field.name === "description" ? 5 : 3}
