@@ -42,6 +42,10 @@ export function AccountPage() {
             <dd>{user.completedGigsCount}</dd>
           </div>
           <div>
+            <dt>Как со мной связаться</dt>
+            <dd>{user.contact || "Контакт пока не добавлен"}</dd>
+          </div>
+          <div>
             <dt>О себе</dt>
             <dd>{user.bio || "Описание пока не добавлено"}</dd>
           </div>
@@ -92,7 +96,11 @@ function ProfileForm({
     setError,
     formState: { errors },
   } = useForm<UpdateProfileRequest>({
-    defaultValues: { name: user.name, bio: user.bio },
+    defaultValues: {
+      name: user.name,
+      bio: user.bio,
+      contact: user.contact ?? "",
+    },
   });
   const submit = handleSubmit(async (values) => {
     if (busy.current) return;
@@ -103,6 +111,7 @@ function ProfileForm({
       const updated = await updateProfile({
         name: values.name.trim(),
         bio: values.bio.trim(),
+        contact: values.contact?.trim() ?? "",
       });
       const key = getGetCurrentUserQueryKey();
       await client.cancelQueries({ queryKey: key });
@@ -114,7 +123,7 @@ function ProfileForm({
       onClose(true);
     } catch (error) {
       let matched = false;
-      for (const name of ["name", "bio"] as const) {
+      for (const name of ["name", "bio", "contact"] as const) {
         const text =
           error instanceof ApiError
             ? error.details?.fields?.[name]?.[0]
@@ -183,6 +192,28 @@ function ProfileForm({
               {errors.bio.message}
             </p>
           )}
+        </div>
+        <div className="form-field">
+          <label htmlFor="profile-contact">Как со мной связаться</label>
+          <input
+            id="profile-contact"
+            maxLength={200}
+            aria-invalid={!!errors.contact}
+            aria-describedby="profile-contact-hint profile-contact-error"
+            {...register("contact", {
+              validate: (value) =>
+                Array.from(value?.trim() ?? "").length <= 200 ||
+                "Не больше 200 символов.",
+            })}
+          />
+          <p className="small muted" id="profile-contact-hint">
+            Необязательно: телефон или имя в мессенджере. Видно второй стороне
+            задания после выбора исполнителя. Чтобы удалить контакт, очистите
+            поле.
+          </p>
+          <p className="field-error" id="profile-contact-error">
+            {errors.contact?.message}
+          </p>
         </div>
         {message && (
           <p className="notice notice-error" role="alert">

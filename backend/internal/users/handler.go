@@ -35,8 +35,9 @@ func (h *Handler) Register(api *gin.RouterGroup, requireUser gin.HandlerFunc) {
 
 func (h *Handler) update(c *gin.Context) {
 	var input struct {
-		Name *string `json:"name"`
-		Bio  *string `json:"bio"`
+		Contact *string `json:"contact"`
+		Name    *string `json:"name"`
+		Bio     *string `json:"bio"`
 	}
 	if !httpapi.DecodeJSON(c, &input, 16*1024) {
 		return
@@ -58,12 +59,18 @@ func (h *Handler) update(c *gin.Context) {
 			fields["bio"] = []string{"Описание должно содержать не больше 1000 символов."}
 		}
 	}
+	if input.Contact != nil {
+		*input.Contact = strings.TrimSpace(*input.Contact)
+		if utf8.RuneCountInString(*input.Contact) > 200 || strings.ContainsRune(*input.Contact, 0) {
+			fields["contact"] = []string{"Контакт должен содержать не больше 200 символов."}
+		}
+	}
 	if httpapi.ValidationError(c, fields) {
 		return
 	}
 	user := auth.UserFromContext(c)
-	err := h.pool.QueryRow(c.Request.Context(), `UPDATE users SET name = $1, bio = $2, updated_at = now()
-        WHERE id = $3 RETURNING name, bio`, *input.Name, *input.Bio, user.ID).Scan(&user.Name, &user.Bio)
+	err := h.pool.QueryRow(c.Request.Context(), `UPDATE users SET name = $1, bio = $2, contact = COALESCE($4, contact), updated_at = now()
+        WHERE id = $3 RETURNING name, bio, contact`, *input.Name, *input.Bio, user.ID, input.Contact).Scan(&user.Name, &user.Bio, &user.Contact)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "Войдите в аккаунт.")
 	} else if err != nil {

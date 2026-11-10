@@ -122,6 +122,18 @@ try {
       customer: await register(customer, "Заказчик проверки", "customer"),
       worker: await register(worker, "Первый исполнитель", "worker"),
     };
+    for (const [page, contact] of [
+      [customer, "@smoke-customer"],
+      [worker, "@smoke-worker"],
+    ]) {
+      await page.goto("/profile");
+      await button(page, "Редактировать профиль").click();
+      await page
+        .getByLabel("Как со мной связаться", { exact: true })
+        .fill(contact);
+      await button(page, "Сохранить").click();
+      await visible(page, "Профиль сохранён.");
+    }
     await customer.goto("/my-gigs");
     await visible(customer, "Заданий пока нет");
     await worker.goto("/my-gigs");
@@ -172,6 +184,29 @@ try {
     await visible(customer, "В работе");
     assert.equal((await guest.request.get(`/api/v1${path}`)).status(), 404);
     assert.equal((await foreign.request.get(`/api/v1${path}`)).status(), 404);
+    for (const [page, contact] of [
+      [customer, "@smoke-worker"],
+      [worker, "@smoke-customer"],
+    ]) {
+      await page.goto(path);
+      await visible(page, contact);
+      assert.equal(
+        (await (await page.request.get(`/api/v1${path}`)).json())
+          .counterpartyContact,
+        contact,
+      );
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        true,
+      );
+    }
+    assert.equal(
+      (await (await second.request.get(`/api/v1${path}`)).json())
+        .counterpartyContact,
+      undefined,
+    );
     await post(customer, `${path}/cancel`, undefined, 409);
     await post(second, `${path}/submit`, undefined, 403);
     await post(customer, `${path}/submit`, undefined, 403);

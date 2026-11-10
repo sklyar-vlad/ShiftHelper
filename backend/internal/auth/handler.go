@@ -17,6 +17,7 @@ import (
 )
 
 type User struct {
+	Contact            string    `json:"contact"`
 	ID                 string    `json:"id"`
 	Email              string    `json:"email"`
 	Name               string    `json:"name"`
@@ -72,11 +73,11 @@ const userColumns = `u.id::text, u.email, u.name, u.bio, u.role, u.created_at,
     (SELECT count(*) FROM gigs g WHERE g.status = 'completed'
      AND ((u.role = 'customer' AND g.customer_id = u.id) OR (u.role = 'worker' AND g.selected_worker_id = u.id))),
     (SELECT avg(score)::float8 FROM reviews WHERE recipient_id = u.id),
-    (SELECT count(*) FROM reviews WHERE recipient_id = u.id)`
+    (SELECT count(*) FROM reviews WHERE recipient_id = u.id), u.contact`
 
 func scanUser(row pgx.Row, extra ...any) (User, error) {
 	var user User
-	args := []any{&user.ID, &user.Email, &user.Name, &user.Bio, &user.Role, &user.CreatedAt, &user.CompletedGigsCount, &user.RatingAverage, &user.ReviewsCount}
+	args := []any{&user.ID, &user.Email, &user.Name, &user.Bio, &user.Role, &user.CreatedAt, &user.CompletedGigsCount, &user.RatingAverage, &user.ReviewsCount, &user.Contact}
 	err := row.Scan(append(args, extra...)...)
 	user.CreatedAt = user.CreatedAt.UTC()
 	return user, err
@@ -112,7 +113,7 @@ func (h *Handler) register(c *gin.Context) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	user, err := scanUser(tx.QueryRow(ctx, `INSERT INTO users (email, password_hash, role, name)
-        VALUES ($1, $2, $3, $4) RETURNING id::text, email, name, bio, role, created_at, 0, NULL::float8, 0`,
+        VALUES ($1, $2, $3, $4) RETURNING id::text, email, name, bio, role, created_at, 0, NULL::float8, 0, contact`,
 		input.Email, passwordHash, input.Role, input.Name))
 	var pgerr *pgconn.PgError
 	if errors.As(err, &pgerr) && pgerr.Code == "23505" {

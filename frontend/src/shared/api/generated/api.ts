@@ -150,6 +150,11 @@ export interface PublicUser {
 }
 
 export interface CurrentUser {
+  /**
+   * Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
+   * @maxLength 200
+   */
+  contact?: string;
   id: string;
   /**
    * @minLength 1
@@ -214,6 +219,11 @@ export interface LoginRequest {
 }
 
 export interface UpdateProfileRequest {
+  /**
+   * Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
+   * @maxLength 200
+   */
+  contact?: string;
   /**
    * @minLength 1
    * @maxLength 100
@@ -402,6 +412,11 @@ export type GigMyApplication = {
 } | null;
 
 export interface Gig {
+  /**
+   * Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.
+   * @maxLength 200
+   */
+  counterpartyContact?: string;
   id: string;
   /**
    * @minLength 1
