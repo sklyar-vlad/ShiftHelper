@@ -44,15 +44,20 @@ func (h *Handler) apply(c *gin.Context) {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Некорректный идентификатор задания.")
 		return
 	}
-	var input *struct {
+	initialVersion := 1
+	input := &struct {
 		Comment      json.RawMessage `json:"comment"`
 		TermsVersion *int            `json:"termsVersion"`
-	}
+	}{TermsVersion: &initialVersion}
 	if !httpapi.DecodeJSON(c, &input, 16*1024) {
 		return
 	}
 	if input == nil {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Ожидается JSON-объект.")
+		return
+	}
+	if input.TermsVersion == nil || *input.TermsVersion < 1 {
+		httpapi.ValidationError(c, map[string][]string{"termsVersion": {"Укажите положительную редакцию условий."}})
 		return
 	}
 	comment := ""
@@ -100,11 +105,7 @@ func (h *Handler) apply(c *gin.Context) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
 		return
 	}
-	expected := 1
-	if input.TermsVersion != nil {
-		expected = *input.TermsVersion
-	}
-	if expected != version {
+	if *input.TermsVersion != version {
 		termsConflict(c)
 		return
 	}

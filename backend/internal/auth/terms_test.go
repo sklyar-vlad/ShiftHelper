@@ -87,6 +87,9 @@ func TestGigTerms(t *testing.T) {
 	t.Run("open consent and access", func(t *testing.T) {
 		g := create()
 		path := "/gigs/" + g.ID
+		for _, invalid := range []any{nil, 0, -1, 1.5, "1"} {
+			expect(send("POST", path+"/applications", map[string]any{"termsVersion": invalid}, 1), 400)
+		}
 		b := body(g)
 		b["description"] = "Revision 2"
 		g = decode(send("PUT", path+"/terms", b, 0), 200)
