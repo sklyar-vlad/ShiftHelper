@@ -89,6 +89,7 @@ try {
       const gig = await response.json();
       assert.equal(gig.status, "completed");
       assert.equal(gig.amountKopecks, 200099);
+      assert.equal(gig.category, "moving");
       assert.equal(gig.completedAt, state.completedAt);
       assert.equal(gig.submittedAt, state.submittedAt);
       assert.equal(gig.customer.ratingAverage, 4);
@@ -174,6 +175,42 @@ try {
     await customer.waitForURL(/\/gigs\/[0-9a-f-]+$/);
     const gigId = customer.url().split("/").at(-1);
     const path = `/gigs/${gigId}`;
+    const dictionary = await guest.request.get("/api/v1/gig-categories");
+    assert.equal(dictionary.status(), 200);
+    const categories = await dictionary.json();
+    assert.equal(categories.length, 10);
+    assert.ok(
+      categories.some(
+        (item) => item.code === "moving" && item.name === "Переезды и погрузка",
+      ),
+    );
+    const original = await (
+      await customer.request.get(`/api/v1${path}`)
+    ).json();
+    assert.equal(original.category, "other");
+    const conditions = Object.fromEntries(
+      [
+        "title",
+        "description",
+        "requirements",
+        "city",
+        "address",
+        "startsAt",
+        "endsAt",
+        "amountKopecks",
+        "termsVersion",
+      ].map((key) => [key, original[key]]),
+    );
+    const categoryResponse = await customer.request.put(
+      `/api/v1${path}/terms`,
+      {
+        headers: { Origin: baseURL },
+        data: { ...conditions, category: "moving" },
+      },
+    );
+    assert.equal(categoryResponse.status(), 200);
+    const categorized = await categoryResponse.json();
+    assert.equal(categorized.category, "moving");
     await post(worker, "/gigs", {}, 403);
     await post(foreign, `${path}/cancel`, undefined, 403);
     await worker.goto("/catalog");
@@ -208,7 +245,12 @@ try {
     await visible(worker, "Отклик ожидает решения заказчика.");
     await post(worker, `${path}/applications`, {}, 409);
     await post(customer, `${path}/applications`, {}, 403);
-    await post(second, `${path}/applications`, {}, 201);
+    await post(
+      second,
+      `${path}/applications`,
+      { termsVersion: categorized.termsVersion },
+      201,
+    );
     await customer.reload();
     await button(customer, "Изменить условия").click();
     await customer

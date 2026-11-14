@@ -386,6 +386,33 @@ export const GetPublicUserResponse = zod.object({
 });
 
 /**
+ * Публичный список кодов и русских названий в порядке отображения. Пользователь не создаёт категории.
+ * @summary Общий справочник категорий заданий
+ */
+export const ListGigCategoriesResponseItem = zod.object({
+  code: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  name: zod.string(),
+});
+export const ListGigCategoriesResponse = zod.array(
+  ListGigCategoriesResponseItem,
+);
+
+/**
  * Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно. total — число после фильтрации.
  * @summary Каталог открытых подработок
  */
@@ -473,6 +500,23 @@ export const listGigsResponseTotalMin = 0;
 export const ListGigsResponse = zod.object({
   items: zod.array(
     zod.object({
+      category: zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .optional()
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
       termsVersion: zod
         .int()
         .min(1)
@@ -605,6 +649,23 @@ export const createGigBodyEndsAtRegExp = new RegExp(
 export const createGigBodyAmountKopecksMax = 10000000000;
 
 export const CreateGigBody = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   title: zod.string().min(1).max(createGigBodyTitleMax),
   description: zod.string().min(1).max(createGigBodyDescriptionMax),
   requirements: zod
@@ -739,6 +800,23 @@ export const createGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CreateGigResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -755,6 +833,23 @@ export const CreateGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -1081,6 +1176,23 @@ export const getGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const GetGigResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -1097,6 +1209,23 @@ export const GetGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -1416,6 +1545,23 @@ export const cancelGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CancelGigResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -1432,6 +1578,23 @@ export const CancelGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -1758,6 +1921,23 @@ export const submitGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const SubmitGigResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -1774,6 +1954,23 @@ export const SubmitGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -2100,6 +2297,23 @@ export const confirmGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const ConfirmGigResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -2116,6 +2330,23 @@ export const ConfirmGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -2670,6 +2901,23 @@ export const selectApplicationResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const SelectApplicationResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -2686,6 +2934,23 @@ export const SelectApplicationResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -3140,6 +3405,23 @@ export const listMyGigsResponseTotalMin = 0;
 export const ListMyGigsResponse = zod.object({
   items: zod.array(
     zod.object({
+      category: zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .optional()
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
       termsVersion: zod
         .int()
         .min(1)
@@ -3423,6 +3705,23 @@ export const ListMyApplicationsResponse = zod.object({
           .regex(listMyApplicationsResponseItemsItemApplicationUpdatedAtRegExp),
       }),
       gig: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         termsVersion: zod
           .int()
           .min(1)
@@ -3581,6 +3880,23 @@ export const editGigTermsBodyEndsAtRegExp = new RegExp(
 export const editGigTermsBodyAmountKopecksMax = 10000000000;
 
 export const EditGigTermsBody = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   title: zod.string().min(1).max(editGigTermsBodyTitleMax),
   description: zod.string().min(1).max(editGigTermsBodyDescriptionMax),
   requirements: zod
@@ -3718,6 +4034,23 @@ export const editGigTermsResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const EditGigTermsResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -3734,6 +4067,23 @@ export const EditGigTermsResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -4069,6 +4419,23 @@ export const confirmApplicationTermsResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const ConfirmApplicationTermsResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -4085,6 +4452,23 @@ export const ConfirmApplicationTermsResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -4443,6 +4827,23 @@ export const acceptGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const AcceptGigChangeResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -4459,6 +4860,23 @@ export const AcceptGigChangeResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -4794,6 +5212,23 @@ export const rejectGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const RejectGigChangeResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -4810,6 +5245,23 @@ export const RejectGigChangeResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)
@@ -5146,6 +5598,23 @@ export const withdrawGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const WithdrawGigChangeResponse = zod.object({
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   termsVersion: zod
     .int()
     .min(1)
@@ -5162,6 +5631,23 @@ export const WithdrawGigChangeResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
         title: zod
           .string()
           .min(1)

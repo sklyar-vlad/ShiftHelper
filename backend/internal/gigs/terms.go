@@ -19,14 +19,14 @@ type TermsChange struct {
 }
 
 type lockedTerms struct {
-	owner, worker, status string
-	version               int
-	startsAt              time.Time
+	owner, worker, status, category string
+	version                         int
+	startsAt                        time.Time
 }
 
 func lockTerms(c *gin.Context, tx pgx.Tx, id string) (lockedTerms, bool) {
 	var state lockedTerms
-	err := tx.QueryRow(c.Request.Context(), `SELECT customer_id::text, COALESCE(selected_worker_id::text,''), status, terms_version, starts_at FROM gigs WHERE id=$1 FOR UPDATE`, id).Scan(&state.owner, &state.worker, &state.status, &state.version, &state.startsAt)
+	err := tx.QueryRow(c.Request.Context(), `SELECT customer_id::text, COALESCE(selected_worker_id::text,''), status, terms_version, starts_at, category FROM gigs WHERE id=$1 FOR UPDATE`, id).Scan(&state.owner, &state.worker, &state.status, &state.version, &state.startsAt, &state.category)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, 404, "NOT_FOUND", "Задание не найдено.")
 		return state, false
@@ -42,7 +42,7 @@ func termsConflict(c *gin.Context) {
 }
 
 func saveTerms(c *gin.Context, tx pgx.Tx, id string, input termsInput) bool {
-	_, err := tx.Exec(c.Request.Context(), `UPDATE gigs SET title=$2,description=$3,requirements=$4,city=$5,address=$6,starts_at=$7::timestamptz,ends_at=$8::timestamptz,amount_kopecks=$9,terms_version=terms_version+1,updated_at=clock_timestamp() WHERE id=$1`, id, input.Title, input.Description, *input.Requirements, input.City, input.Address, input.StartsAt, input.EndsAt, *input.AmountKopecks)
+	_, err := tx.Exec(c.Request.Context(), `UPDATE gigs SET title=$2,description=$3,requirements=$4,city=$5,address=$6,starts_at=$7::timestamptz,ends_at=$8::timestamptz,amount_kopecks=$9,category=($10::jsonb #>> '{}'),terms_version=terms_version+1,updated_at=clock_timestamp() WHERE id=$1`, id, input.Title, input.Description, *input.Requirements, input.City, input.Address, input.StartsAt, input.EndsAt, *input.AmountKopecks, input.Category)
 	if err != nil {
 		httpapi.InternalError(c)
 		return false
@@ -99,6 +99,9 @@ func (h *Handler) editTerms(c *gin.Context) {
 		return
 	}
 	if _, _, valid := input.validate(c, &state.startsAt); !valid {
+		return
+	}
+	if !resolveCategory(c, tx, &input.termsInput, state.category) {
 		return
 	}
 	if state.status == "open" {
@@ -224,6 +227,9 @@ func (h *Handler) resolveChange(c *gin.Context, action string) {
 	}
 	if action == "accept" {
 		if _, _, valid := change.Terms.validate(c, &state.startsAt); !valid {
+			return
+		}
+		if !resolveCategory(c, tx, &change.Terms, state.category) {
 			return
 		}
 		if !saveTerms(c, tx, id, change.Terms) {

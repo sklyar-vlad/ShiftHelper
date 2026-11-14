@@ -236,7 +236,31 @@ export interface UpdateProfileRequest {
   bio: string;
 }
 
+/**
+ * Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.
+ */
+export type CategoryCode = (typeof CategoryCode)[keyof typeof CategoryCode];
+
+export const CategoryCode = {
+  repair: "repair",
+  electrical: "electrical",
+  plumbing: "plumbing",
+  cleaning: "cleaning",
+  moving: "moving",
+  delivery: "delivery",
+  retail: "retail",
+  warehouse: "warehouse",
+  events: "events",
+  other: "other",
+} as const;
+
+export interface GigCategory {
+  code: CategoryCode;
+  name: string;
+}
+
 export interface CreateGigRequest {
+  category?: CategoryCode;
   /**
    * @minLength 1
    * @maxLength 150
@@ -311,6 +335,7 @@ export type GigSummarySelectedWorker = {
 } | null;
 
 export interface GigSummary {
+  category?: CategoryCode;
   /**
    * Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
    * @minimum 1
@@ -414,6 +439,7 @@ export interface TermsChange {
 }
 
 export interface Gig {
+  category?: CategoryCode;
   /**
    * Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
    * @minimum 1
@@ -494,6 +520,7 @@ export interface Gig {
 }
 
 export interface EditGigTermsRequest {
+  category?: CategoryCode;
   /**
    * @minLength 1
    * @maxLength 150
@@ -1934,6 +1961,163 @@ export function useGetPublicUser<
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
   const queryOptions = getGetPublicUserQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getListGigCategoriesUrl = () => {
+  return `/api/v1/gig-categories`;
+};
+
+/**
+ * Публичный список кодов и русских названий в порядке отображения. Пользователь не создаёт категории.
+ * @summary Общий справочник категорий заданий
+ */
+export const listGigCategories = async (
+  options?: Parameters<typeof http>[1],
+): Promise<GigCategory[]> => {
+  return http<GigCategory[]>(getListGigCategoriesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListGigCategoriesQueryKey = () => {
+  return [`/api/v1/gig-categories`] as const;
+};
+
+export const getListGigCategoriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof listGigCategories>>,
+      TError,
+      TData
+    >
+  >;
+  request?: SecondParameter<typeof http>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListGigCategoriesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listGigCategories>>
+  > = ({ signal }) => listGigCategories({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGigCategories>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListGigCategoriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGigCategories>>
+>;
+export type ListGigCategoriesQueryError =
+  BadRequestResponse | InternalErrorResponse;
+
+export function useListGigCategories<
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listGigCategories>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGigCategories>>,
+          TError,
+          Awaited<ReturnType<typeof listGigCategories>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListGigCategories<
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listGigCategories>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGigCategories>>,
+          TError,
+          Awaited<ReturnType<typeof listGigCategories>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListGigCategories<
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listGigCategories>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Общий справочник категорий заданий
+ */
+
+export function useListGigCategories<
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listGigCategories>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListGigCategoriesQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,

@@ -30,7 +30,7 @@ const profilesSQL = `WITH profiles AS NOT MATERIALIZED (
 )`
 
 const summaryJSON = `jsonb_build_object(
-    'termsVersion', g.terms_version, 'hasPendingChange', EXISTS (SELECT 1 FROM gig_changes change WHERE change.gig_id = g.id AND change.status = 'pending'),
+    'category', g.category, 'termsVersion', g.terms_version, 'hasPendingChange', EXISTS (SELECT 1 FROM gig_changes change WHERE change.gig_id = g.id AND change.status = 'pending'),
  'id', g.id, 'title', g.title, 'city', g.city, 'startsAt', g.starts_at, 'endsAt', g.ends_at,
     'amountKopecks', g.amount_kopecks, 'status', g.status, 'createdAt', g.created_at, 'updatedAt', g.updated_at,
     'customer', to_jsonb(customer),
