@@ -91,10 +91,17 @@ it("requires a score, prevents duplicate sends and shows the saved result", asyn
   const form = await screen.findByRole("form", {
     name: "Оценить вторую сторону",
   });
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Отправить оценку",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
   fireEvent.submit(form);
   await screen.findByText("Выберите оценку от 1 до 5.");
   expect(post).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByLabelText("Оценка"), { target: { value: "5" } });
+  fireEvent.click(screen.getByRole("radio", { name: /^5 из 5/ }));
   fireEvent.change(screen.getByLabelText("Отзыв (необязательно)"), {
     target: { value: "  Спасибо за работу  " },
   });
@@ -113,7 +120,9 @@ it("requires a score, prevents duplicate sends and shows the saved result", asyn
     ),
   ).toEqual({ score: 5, comment: review.comment });
   items = [review];
+  expect(screen.queryByText("Спасибо! Оценка сохранена.")).toBeNull();
   finish(json(review, 201));
+  await screen.findByText("Спасибо! Оценка сохранена.");
   await screen.findByText("Ваша оценка: 5 из 5");
   expect(screen.getByText(review.comment)).toBeTruthy();
   expect(screen.queryByRole("form")).toBeNull();
@@ -129,7 +138,7 @@ it("keeps the entered values after an error and allows retry", async () => {
     return json(review, 201);
   });
   await screen.findByRole("form");
-  fireEvent.change(screen.getByLabelText("Оценка"), { target: { value: "5" } });
+  fireEvent.click(screen.getByRole("radio", { name: /^5 из 5/ }));
   fireEvent.change(screen.getByLabelText("Отзыв (необязательно)"), {
     target: { value: review.comment },
   });
@@ -139,9 +148,10 @@ it("keeps the entered values after an error and allows retry", async () => {
     (screen.getByLabelText("Отзыв (необязательно)") as HTMLTextAreaElement)
       .value,
   ).toBe(review.comment);
-  expect((screen.getByLabelText("Оценка") as HTMLSelectElement).value).toBe(
-    "5",
-  );
+  expect(
+    (screen.getByRole("radio", { name: /^5 из 5/ }) as HTMLInputElement)
+      .checked,
+  ).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Отправить оценку" }));
   await screen.findByText("Ваша оценка: 5 из 5");
   expect(attempts).toBe(2);
@@ -160,7 +170,7 @@ it("loads an existing review after a conflict and removes the form", async () =>
     );
   });
   await screen.findByRole("form");
-  fireEvent.change(screen.getByLabelText("Оценка"), { target: { value: "4" } });
+  fireEvent.click(screen.getByRole("radio", { name: /^4 из 5/ }));
   fireEvent.click(screen.getByRole("button", { name: "Отправить оценку" }));
   await screen.findByText("Ваша оценка: 5 из 5");
   expect(screen.queryByRole("form")).toBeNull();
@@ -204,7 +214,7 @@ it("does not restore private review data after logout during submission", async 
       : json({ items: [] }),
   );
   await screen.findByRole("form");
-  fireEvent.change(screen.getByLabelText("Оценка"), { target: { value: "5" } });
+  fireEvent.click(screen.getByRole("radio", { name: /^5 из 5/ }));
   fireEvent.click(screen.getByRole("button", { name: "Отправить оценку" }));
   await waitFor(() =>
     expect(
@@ -220,4 +230,13 @@ it("does not restore private review data after logout during submission", async 
   expect(
     client.getQueryData([...getListGigReviewsQueryKey("gig"), user.id]),
   ).toBeUndefined();
+});
+
+it("does not offer a form or rating when the API denies access", async () => {
+  mount(async () =>
+    json({ error: { code: "FORBIDDEN", message: "Нет доступа" } }, 403),
+  );
+  await screen.findByText("Не удалось загрузить отзывы");
+  expect(screen.queryByRole("form")).toBeNull();
+  expect(screen.queryByRole("radiogroup")).toBeNull();
 });
