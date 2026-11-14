@@ -168,7 +168,7 @@
 .star-rating-options {
   display: flex;
   flex-direction: row;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px;
 }
 .star-rating-options label {
@@ -189,13 +189,12 @@
   height: 1px;
   opacity: 0;
 }
-.star-rating-options label:hover,
-.star-rating-options label:has(input:checked) {
+.star-rating-options label.is-filled {
   color: #000;
   background: var(--mint);
 }
-.star-rating-options .is-filled {
-  color: #000;
+.star-rating:disabled label {
+  cursor: default;
 }
 .star-rating-options label:has(input:focus-visible) {
   outline: 3px solid var(--green);

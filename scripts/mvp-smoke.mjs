@@ -356,9 +356,31 @@ try {
       [worker, 4],
     ]) {
       await page.goto(path);
+      const rating = page.getByRole("group", { name: "Оценка", exact: true });
+      const radios = rating.getByRole("radio");
+      await radios.nth(4).check();
+      await rating.locator("label").nth(1).hover();
+      assert.deepEqual(
+        await rating
+          .locator('span[aria-hidden="true"]')
+          .evaluateAll((stars) =>
+            stars.map((star) => getComputedStyle(star).color),
+          ),
+        [
+          "rgb(0, 0, 0)",
+          "rgb(0, 0, 0)",
+          ...Array(3).fill("rgb(103, 113, 124)"),
+        ],
+      );
+      assert.equal(await radios.nth(4).isChecked(), true);
+      await page.getByRole("heading", { name: "Оценки за работу" }).hover();
+      assert.equal(await rating.locator("label.is-filled").count(), 5);
+      await radios.nth(4).focus();
+      await page.keyboard.press("ArrowRight");
+      assert.equal(await radios.nth(0).isChecked(), true);
       await page
-        .getByLabel("Оценка", { exact: true })
-        .selectOption(String(score));
+        .getByRole("radio", { name: new RegExp(`^${score} из 5 —`) })
+        .check();
       await page
         .getByLabel("Отзыв (необязательно)", { exact: true })
         .fill("Спасибо за работу");
