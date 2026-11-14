@@ -72,10 +72,19 @@ async function chooseDay(page, label, value) {
       exact: true,
     });
     await segment.focus();
-    await segment.press("Backspace");
     await segment.pressSequentially(text);
   }
   await page.keyboard.press("Tab");
+  for (const [part, text] of [
+    ["год", year],
+    ["месяц", month],
+    ["день", day],
+  ]) {
+    const actual = await group
+      .getByRole("spinbutton", { name: `${part}, ${label}`, exact: true })
+      .getAttribute("aria-valuenow");
+    assert.equal(Number(actual), Number(text), `${label}: ${part}`);
+  }
 }
 async function chooseDateTime(page, label, value) {
   const [day, time] = value.split("T");
@@ -442,7 +451,19 @@ try {
       await chooseDateTime(customer, "Начало работы", proposedStart);
       await chooseDateTime(customer, "Окончание работы", proposedEnd);
       await button(customer, "Предложить изменения").click();
-      await visible(customer, "Предложены новые условия");
+      await Promise.race([
+        visible(customer, "Предложены новые условия"),
+        customer
+          .locator(".field-error")
+          .filter({ hasText: /\S/ })
+          .first()
+          .waitFor()
+          .then(async () => {
+            throw new Error(
+              `Form errors: ${await customer.locator(".field-error").allTextContents()}`,
+            );
+          }),
+      ]);
       await worker.goto("/my-gigs?view=work");
       await worker
         .getByText(
