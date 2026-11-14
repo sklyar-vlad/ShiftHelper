@@ -39,8 +39,8 @@ export function DateTimeField({
         <input
           id={`${id}-time`}
           type="time"
-          step="0.001"
-          value={time}
+          step="60"
+          value={time.slice(0, 5)}
           onChange={(event) => onChange(`${day}T${event.target.value}`)}
           onBlur={onBlur}
           disabled={disabled}
