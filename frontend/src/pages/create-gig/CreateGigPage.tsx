@@ -1,3 +1,11 @@
+import { formatDateTime } from "@/shared/lib/format";
+import { DateTimeField } from "@/shared/ui/DateTimeField";
+import {
+  localDate,
+  apiDate,
+  parseLocalDateTime,
+  formatDuration,
+} from "@/shared/lib/dates";
 import { useGigCategories } from "@/entities/gig/GigCategory";
 import { CityInput } from "@/shared/ui/CityInput";
 import { useRef, useState } from "react";
@@ -32,13 +40,11 @@ const fields = [
     name: "startsAt",
     label: "Начало работы",
     required: true,
-    type: "datetime-local",
   },
   {
     name: "endsAt",
     label: "Окончание работы",
     required: true,
-    type: "datetime-local",
   },
   { name: "amount", label: "Сумма за всё задание, ₽", required: true, max: 12 },
 ] as const;
@@ -56,17 +62,6 @@ export function CreateGigPage() {
   return <GigForm />;
 }
 
-function localDate(value: string) {
-  const date = new Date(value);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, -1);
-}
-function apiDate(value: string, original?: string) {
-  return original && new Date(value).getTime() === new Date(original).getTime()
-    ? original
-    : new Date(value).toISOString();
-}
 export function GigForm({
   gig,
   onSaved,
@@ -84,6 +79,13 @@ export function GigForm({
   const busy = useRef(false);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
+  const computedEnd = useRef<{ local: string; iso: string } | null>(null);
+  const endApiDate = (value: string) =>
+    computedEnd.current?.local === value
+      ? computedEnd.current.iso
+      : apiDate(value, gig?.endsAt);
+  const [duration, setDuration] = useState<number | null>(null);
+  const [periodError, setPeriodError] = useState("");
   const {
     register,
     watch,
@@ -91,6 +93,7 @@ export function GigForm({
     handleSubmit,
     getValues,
     setError,
+    setValue,
     formState: { errors },
   } = useForm<Values>({
     defaultValues: gig
@@ -107,6 +110,42 @@ export function GigForm({
         }
       : { category: "other" },
   });
+  const startValue = watch("startsAt") ?? "";
+  const endValue = watch("endsAt") ?? "";
+  const startISO = apiDate(startValue, gig?.startsAt);
+  const endISO = endApiDate(endValue);
+  const periodLength =
+    startISO && endISO ? Date.parse(endISO) - Date.parse(startISO) : 0;
+  function recalculate(value: string, minutes: number) {
+    const iso = apiDate(value, gig?.startsAt);
+    if (!iso) {
+      setPeriodError("Сначала выберите корректные дату и время начала.");
+      return false;
+    }
+    const end = new Date(Date.parse(iso) + minutes * 60000);
+    if (end.getUTCFullYear() > 9999) {
+      setPeriodError("Окончание выходит за допустимый диапазон дат.");
+      return false;
+    }
+    computedEnd.current = {
+      local: localDate(end.toISOString()),
+      iso: end.toISOString(),
+    };
+    setValue("endsAt", computedEnd.current.local, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setPeriodError("");
+    return true;
+  }
+  function chooseDuration(minutes: number | null) {
+    if (minutes === null) {
+      setDuration(null);
+      setPeriodError("");
+      return;
+    }
+    if (recalculate(getValues("startsAt"), minutes)) setDuration(minutes);
+  }
   const submit = handleSubmit(async (values) => {
     if (busy.current || !categoriesReady) return;
     busy.current = true;
@@ -124,8 +163,8 @@ export function GigForm({
         requirements: input.requirements.trim(),
         city: input.city.trim(),
         address: input.address.trim(),
-        startsAt: apiDate(input.startsAt, gig?.startsAt),
-        endsAt: apiDate(input.endsAt, gig?.endsAt),
+        startsAt: apiDate(input.startsAt, gig?.startsAt)!,
+        endsAt: endApiDate(input.endsAt)!,
         amountKopecks: parseRubles(amount)!,
       };
       const result = gig
@@ -254,6 +293,38 @@ export function GigForm({
           </div>
           {fields.map((field) => {
             const max = "max" in field ? field.max : undefined;
+            const rules = {
+              validate: (value: string) => {
+                if ("required" in field && field.required && !value.trim())
+                  return "Заполните поле.";
+                if (max && Array.from(value.trim()).length > max)
+                  return `Не больше ${max} символов.`;
+                if (field.name === "amount" && parseRubles(value) === null)
+                  return "Укажите от 0,01 до 100 000 000 ₽, не больше двух знаков после запятой.";
+                if (
+                  (field.name === "startsAt" || field.name === "endsAt") &&
+                  !parseLocalDateTime(value)
+                )
+                  return "Укажите корректные дату и время в вашем часовом поясе.";
+                if (
+                  field.name === "startsAt" &&
+                  !(new Date(value).getTime() > Date.now()) &&
+                  !(gig && value === localDate(gig.startsAt))
+                )
+                  return "Начало должно быть в будущем.";
+                if (
+                  field.name === "endsAt" &&
+                  !(
+                    Date.parse(endApiDate(value) ?? "") >
+                    Date.parse(
+                      apiDate(getValues("startsAt"), gig?.startsAt) ?? "",
+                    )
+                  )
+                )
+                  return "Окончание должно быть позже начала.";
+                return true;
+              },
+            };
             const props = {
               id: field.name,
               maxLength: max,
@@ -261,43 +332,43 @@ export function GigForm({
               "aria-describedby": errors[field.name]
                 ? `${field.name}-error`
                 : undefined,
-              ...register(field.name, {
-                validate: (value) => {
-                  if ("required" in field && field.required && !value.trim())
-                    return "Заполните поле.";
-                  if (max && Array.from(value.trim()).length > max)
-                    return `Не больше ${max} символов.`;
-                  if (field.name === "amount" && parseRubles(value) === null)
-                    return "Укажите от 0,01 до 100 000 000 ₽, не больше двух знаков после запятой.";
-                  if (
-                    field.name === "startsAt" &&
-                    !(new Date(value).getTime() > Date.now()) &&
-                    !(
-                      gig &&
-                      new Date(value).getTime() ===
-                        new Date(gig.startsAt).getTime()
-                    )
-                  )
-                    return "Начало должно быть в будущем.";
-                  if (
-                    field.name === "endsAt" &&
-                    !(
-                      new Date(value).getTime() >
-                      new Date(getValues("startsAt")).getTime()
-                    )
-                  )
-                    return "Окончание должно быть позже начала.";
-                  return true;
-                },
-              }),
+              ...register(field.name, rules),
             };
             return (
               <div className="form-field" key={field.name}>
-                <label htmlFor={field.name}>
-                  {field.label}
-                  {field.name === "requirements" && " (необязательно)"}
-                </label>
-                {field.name === "city" ? (
+                {field.name !== "startsAt" && field.name !== "endsAt" && (
+                  <label htmlFor={field.name}>
+                    {field.label}
+                    {field.name === "requirements" && " (необязательно)"}
+                  </label>
+                )}
+                {field.name === "startsAt" || field.name === "endsAt" ? (
+                  <Controller
+                    name={field.name}
+                    control={control}
+                    defaultValue=""
+                    rules={rules}
+                    render={({ field: binding }) => (
+                      <DateTimeField
+                        id={field.name}
+                        label={field.label}
+                        value={binding.value}
+                        onChange={(next) => {
+                          binding.onChange(next);
+                          if (field.name === "endsAt") {
+                            computedEnd.current = null;
+                            setDuration(null);
+                            setPeriodError("");
+                          } else if (duration) recalculate(next, duration);
+                        }}
+                        onBlur={binding.onBlur}
+                        inputRef={binding.ref}
+                        error={errors[field.name]?.message}
+                        disabled={working}
+                      />
+                    )}
+                  />
+                ) : field.name === "city" ? (
                   <Controller
                     name="city"
                     control={control}
@@ -332,15 +403,57 @@ export function GigForm({
                 ) : (
                   <input
                     {...props}
-                    type={"type" in field ? field.type : "text"}
+                    type="text"
                     inputMode={field.name === "amount" ? "decimal" : undefined}
                   />
                 )}
-                {errors[field.name] && (
-                  <p id={`${field.name}-error`} className="field-error">
-                    {errors[field.name]?.message}
-                  </p>
+                {field.name === "endsAt" && (
+                  <>
+                    <div
+                      className="duration-presets"
+                      role="group"
+                      aria-label="Быстрая длительность"
+                    >
+                      {[120, 240, 480].map((minutes) => (
+                        <button
+                          key={minutes}
+                          type="button"
+                          className="duration-preset"
+                          aria-pressed={duration === minutes}
+                          onClick={() => chooseDuration(minutes)}
+                        >
+                          На {minutes / 60} {minutes === 480 ? "часов" : "часа"}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="duration-preset"
+                        aria-pressed={duration === null}
+                        onClick={() => chooseDuration(null)}
+                      >
+                        Свой период
+                      </button>
+                    </div>
+                    {periodError && (
+                      <p className="field-error" role="alert">
+                        {periodError}
+                      </p>
+                    )}
+                    {periodLength > 0 && startISO && endISO && (
+                      <p className="period-summary" role="status">
+                        {formatDateTime(startISO)} — {formatDateTime(endISO)}.
+                        Длительность: {formatDuration(periodLength)}.
+                      </p>
+                    )}
+                  </>
                 )}
+                {field.name !== "startsAt" &&
+                  field.name !== "endsAt" &&
+                  errors[field.name] && (
+                    <p id={`${field.name}-error`} className="field-error">
+                      {errors[field.name]?.message}
+                    </p>
+                  )}
               </div>
             );
           })}

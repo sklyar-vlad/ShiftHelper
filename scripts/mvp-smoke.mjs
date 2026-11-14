@@ -59,6 +59,44 @@ async function register(page, name, role) {
   return credentials;
 }
 
+async function chooseDay(page, label, value) {
+  const [year, month, day] = value.split("-");
+  const group = page.getByRole("group", { name: label, exact: true });
+  for (const [part, text] of [
+    ["год", year],
+    ["месяц", month],
+    ["день", day],
+  ]) {
+    const segment = group.getByRole("spinbutton", {
+      name: `${part}, ${label}`,
+      exact: true,
+    });
+    await segment.focus();
+    await segment.pressSequentially(text);
+  }
+  await page.keyboard.press("Tab");
+  for (const [part, text] of [
+    ["год", year],
+    ["месяц", month],
+    ["день", day],
+  ]) {
+    const actual = await group
+      .getByRole("spinbutton", { name: `${part}, ${label}`, exact: true })
+      .getAttribute("aria-valuenow");
+    assert.equal(Number(actual), Number(text), `${label}: ${part}`);
+  }
+}
+async function chooseDateTime(page, label, value) {
+  const [day, time] = value.split("T");
+  await chooseDay(page, label, day);
+  await page
+    .getByLabel(
+      label === "Начало работы" ? "Время начала" : "Время окончания",
+      { exact: true },
+    )
+    .fill(time);
+}
+
 async function history(page, worker, title) {
   await page.goto(
     worker ? "/my-gigs?view=work&scope=history" : "/my-gigs?scope=history",
@@ -158,7 +196,9 @@ try {
       "Окончание работы": date(90000000),
       "Сумма за всё задание, ₽": "1500,50",
     }))
-      await customer.getByLabel(label, { exact: true }).fill(value);
+      if (label === "Начало работы" || label === "Окончание работы")
+        await chooseDateTime(customer, label, value);
+      else await customer.getByLabel(label, { exact: true }).fill(value);
     const cityField = customer.getByRole("combobox", {
       name: "Город",
       exact: true,
@@ -180,6 +220,33 @@ try {
     for (let step = 0; step < 4; step++) await categoryField.press("ArrowDown");
     await categoryField.press("Tab");
     assert.equal(await categoryField.inputValue(), "moving");
+    const calendarTrigger = button(customer, "Открыть календарь Начало работы");
+    await calendarTrigger.focus();
+    await calendarTrigger.press("Enter");
+    await customer
+      .getByRole("dialog", { name: "Выбор даты: Начало работы" })
+      .waitFor();
+    await customer.screenshot({
+      path: "/state/date-desktop.png",
+      fullPage: true,
+    });
+    await customer.keyboard.press("Escape");
+    await customer.waitForFunction(
+      (id) => document.activeElement?.id === id,
+      await calendarTrigger.getAttribute("id"),
+    );
+    await button(customer, "На 2 часа").click();
+    assert.equal(
+      await button(customer, "На 2 часа").getAttribute("aria-pressed"),
+      "true",
+    );
+    await customer
+      .getByLabel("Время окончания", { exact: true })
+      .fill(date(90000000).split("T")[1]);
+    assert.equal(
+      await button(customer, "Свой период").getAttribute("aria-pressed"),
+      "true",
+    );
     await button(customer, "Опубликовать").click();
     await customer.waitForURL(/\/gigs\/[0-9a-f-]+$/);
     const gigId = customer.url().split("/").at(-1);
@@ -229,12 +296,34 @@ try {
       .selectOption("moving");
     await worker.getByLabel("Оплата от, ₽", { exact: true }).fill("1500,50");
     await worker.getByLabel("Оплата до, ₽", { exact: true }).fill("1500.50");
-    await worker
-      .getByLabel("Начало от", { exact: true })
-      .fill(original.startsAt.slice(0, 10));
-    await worker
-      .getByLabel("Начало до, включительно", { exact: true })
-      .fill(original.startsAt.slice(0, 10));
+    await chooseDay(worker, "Начало от", original.startsAt.slice(0, 10));
+    await chooseDay(
+      worker,
+      "Начало до, включительно",
+      original.startsAt.slice(0, 10),
+    );
+    const mobileCalendar = button(worker, "Открыть календарь Начало от");
+    await mobileCalendar.click();
+    const calendarPanel = worker.locator(".date-picker-popover");
+    await calendarPanel.waitFor();
+    const calendarBounds = await calendarPanel.boundingBox();
+    assert.ok(
+      calendarBounds.x >= 0 && calendarBounds.x + calendarBounds.width <= 375,
+    );
+    assert.ok(
+      calendarBounds.y >= 0 && calendarBounds.y + calendarBounds.height <= 900,
+    );
+    await worker.screenshot({ path: "/state/date-mobile.png", fullPage: true });
+    await worker.keyboard.press("PageDown");
+    await worker.keyboard.press("Escape");
+    await calendarPanel.waitFor({ state: "hidden" });
+    await worker.waitForFunction(
+      (id) => document.activeElement?.id === id,
+      await mobileCalendar.getAttribute("id"),
+    );
+    await mobileCalendar.click();
+    await worker.mouse.click(4, 150);
+    await calendarPanel.waitFor({ state: "hidden" });
     await worker
       .getByLabel("Длительность", { exact: true })
       .selectOption("120");
@@ -348,6 +437,8 @@ try {
         .counterpartyContact,
       undefined,
     );
+    const proposedStart = date(2 * 86400000);
+    const proposedEnd = date(2 * 86400000 + 3600000);
     for (const action of ["reject", "withdraw", "accept"]) {
       await customer.goto(path);
       await button(customer, "Изменить условия").click();
@@ -357,8 +448,22 @@ try {
       await customer
         .getByLabel("Категория", { exact: true })
         .selectOption(action === "accept" ? "moving" : "delivery");
+      await chooseDateTime(customer, "Начало работы", proposedStart);
+      await chooseDateTime(customer, "Окончание работы", proposedEnd);
       await button(customer, "Предложить изменения").click();
-      await visible(customer, "Предложены новые условия");
+      await Promise.race([
+        visible(customer, "Предложены новые условия"),
+        customer
+          .locator(".field-error")
+          .filter({ hasText: /\S/ })
+          .first()
+          .waitFor()
+          .then(async () => {
+            throw new Error(
+              `Form errors: ${await customer.locator(".field-error").allTextContents()}`,
+            );
+          }),
+      ]);
       await worker.goto("/my-gigs?view=work");
       await worker
         .getByText(
@@ -407,6 +512,28 @@ try {
         .waitFor();
       assert.equal(proposed.pendingChange.terms.amountKopecks, 200099);
       assert.equal(
+        Date.parse(proposed.startsAt),
+        Date.parse(original.startsAt),
+      );
+      assert.equal(
+        Date.parse(proposed.pendingChange.terms.startsAt),
+        Date.parse(`${proposedStart}Z`),
+      );
+      assert.equal(
+        Date.parse(proposed.pendingChange.terms.endsAt),
+        Date.parse(`${proposedEnd}Z`),
+      );
+      const proposedText = new Intl.DateTimeFormat("ru-RU", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "UTC",
+      }).format(new Date(`${proposedStart}Z`));
+      await worker
+        .getByRole("region", { name: "Условия задания", exact: true })
+        .getByText(proposedText, { exact: true })
+        .waitFor();
+
+      assert.equal(
         (await (await second.request.get(`/api/v1${path}`)).json())
           .pendingChange,
         undefined,
@@ -422,6 +549,21 @@ try {
       await activePage
         .getByRole("heading", { name: "Предложены новые условия", exact: true })
         .waitFor({ state: "hidden" });
+      const currentTerms = await (
+        await worker.request.get(`/api/v1${path}`)
+      ).json();
+      assert.equal(
+        Date.parse(currentTerms.startsAt),
+        action === "accept"
+          ? Date.parse(`${proposedStart}Z`)
+          : Date.parse(original.startsAt),
+      );
+      assert.equal(
+        Date.parse(currentTerms.endsAt),
+        action === "accept"
+          ? Date.parse(`${proposedEnd}Z`)
+          : Date.parse(original.endsAt),
+      );
       await post(
         worker,
         `${path}/changes/${proposed.pendingChange.id}/accept`,
@@ -604,6 +746,41 @@ try {
     await dst.getByRole("alert").waitFor();
     await dst.waitForLoadState("networkidle");
     assert.equal(invalidRequests, 0);
+    await dst.context().addCookies(await customer.context().cookies());
+    const fold = await (
+      await post(
+        customer,
+        "/gigs",
+        {
+          title: "Проверка перевода часов",
+          description: "Работа для проверки",
+          requirements: "",
+          city: "Москва",
+          address: "Адрес",
+          startsAt: "2030-11-03T00:30:00-04:00",
+          endsAt: "2030-11-03T01:30:00-04:00",
+          amountKopecks: 10000,
+        },
+        201,
+      )
+    ).json();
+    await dst.goto(`/gigs/${fold.id}`);
+    await button(dst, "Изменить условия").click();
+    assert.equal(
+      await button(dst, "Свой период").getAttribute("aria-pressed"),
+      "true",
+    );
+    await button(dst, "На 2 часа").click();
+    await button(dst, "Сохранить условия").click();
+    await button(dst, "Изменить условия").waitFor();
+    const savedFold = await (
+      await dst.request.get(`/api/v1/gigs/${fold.id}`)
+    ).json();
+    assert.equal(
+      Date.parse(savedFold.endsAt) - Date.parse(savedFold.startsAt),
+      7200000,
+    );
+    assert.equal(savedFold.endsAt, "2030-11-03T06:30:00Z");
     await dst.close();
     const completed = await (
       await customer.request.get(`/api/v1${path}`)

@@ -16,9 +16,11 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.2",
+    "@internationalized/date": "^3.12.4",
     "@tanstack/react-query": "^5.104.5",
     "motion": "^14.6.0",
     "react": "^19.2.0",
+    "react-aria-components": "^1.22.1",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.91.0",
     "react-router": "^8.5.0",
