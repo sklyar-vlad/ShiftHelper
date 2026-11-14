@@ -734,7 +734,47 @@ export type ListGigsParams = {
    * @maxLength 100
    */
   city?: string;
+  /**
+   * Код из GET /api/v1/gig-categories. Пустое значение не фильтрует.
+   */
+  category?: string;
+  /**
+   * Минимальная общая оплата в целых копейках RUB, включительно.
+   * @minimum 0
+   * @maximum 10000000000
+   */
+  minAmountKopecks?: number;
+  /**
+   * Максимальная общая оплата в целых копейках RUB, включительно.
+   * @minimum 0
+   * @maximum 10000000000
+   */
+  maxAmountKopecks?: number;
+  /**
+   * Начало работы не раньше этой даты и времени с часовым поясом.
+   */
+  startsFrom?: string;
+  /**
+   * Начало работы строго раньше этой даты и времени с часовым поясом.
+   */
+  startsBefore?: string;
+  /**
+   * Максимальная длительность в целых минутах, включительно (например, 120, 240 или 480).
+   * @minimum 1
+   * @maximum 2147483647
+   */
+  maxDurationMinutes?: number;
+  sort?: ListGigsSort;
 };
+
+export type ListGigsSort = (typeof ListGigsSort)[keyof typeof ListGigsSort];
+
+export const ListGigsSort = {
+  newest: "newest",
+  nearest: "nearest",
+  amount_asc: "amount_asc",
+  amount_desc: "amount_desc",
+} as const;
 
 export type ListGigApplicationsParams = {
   /**
@@ -2144,7 +2184,7 @@ export const getListGigsUrl = (params?: ListGigsParams) => {
 };
 
 /**
- * Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно. total — число после фильтрации.
+ * Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно. total — число после фильтрации до пагинации. Оплата — целые копейки RUB, границы включены. Начало работы входит в интервал [startsFrom, startsBefore); длительность — endsAt минус startsAt. Пустые значения новых фильтров и sort не ограничивают выдачу. minAmountKopecks не больше maxAmountKopecks; startsFrom строго раньше startsBefore. Неизвестная категория, сортировка или неверные границы дают 400. newest сортирует createdAt DESC, id DESC; nearest — startsAt ASC, id ASC; amount_asc — amountKopecks ASC, id ASC; amount_desc — amountKopecks DESC, id DESC. При неизменном каталоге порядок страниц стабилен; параллельные изменения могут сдвигать offset-пагинацию.
  * @summary Каталог открытых подработок
  */
 export const listGigs = async (
