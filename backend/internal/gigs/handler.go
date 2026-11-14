@@ -67,7 +67,7 @@ func (h *Handler) Register(api *gin.RouterGroup, requireUser, optionalUser gin.H
 	api.GET("/gig-categories", httpapi.ValidateQuery(), h.categories)
 	api.GET("/me/gigs", httpapi.ValidateQuery("page", "pageSize", "scope"), requireUser, h.myGigs)
 	api.GET("/me/applications", httpapi.ValidateQuery("page", "pageSize", "scope"), requireUser, auth.RequireRole("worker"), h.myApplications)
-	api.GET("/gigs", httpapi.ValidateQuery("page", "pageSize", "q", "city"), h.list)
+	api.GET("/gigs", httpapi.ValidateQuery("page", "pageSize", "q", "city", "category", "minAmountKopecks", "maxAmountKopecks", "startsFrom", "startsBefore", "maxDurationMinutes", "sort"), h.list)
 	api.GET("/gigs/:gigId", httpapi.ValidateQuery(), optionalUser, h.get)
 	api.GET("/gigs/:gigId/applications", httpapi.ValidateQuery("page", "pageSize", "status"), requireUser, auth.RequireRole("customer"), h.listApplications)
 	write := api.Group("", httpapi.ValidateQuery())

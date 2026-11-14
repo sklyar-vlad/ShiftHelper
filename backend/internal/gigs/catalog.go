@@ -3,7 +3,9 @@ package gigs
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
@@ -65,6 +67,62 @@ func (h *Handler) list(c *gin.Context) {
 	if utf8.RuneCountInString(city) > 100 {
 		fields["city"] = []string{"Город должен содержать не больше 100 символов."}
 	}
+	category := query.Get("category")
+	if category != "" {
+		var exists bool
+		if err := h.pool.QueryRow(c.Request.Context(), "SELECT EXISTS(SELECT 1 FROM gig_categories WHERE code=$1)", category).Scan(&exists); err != nil {
+			httpapi.InternalError(c)
+			return
+		}
+		if !exists {
+			fields["category"] = []string{"Выберите категорию из справочника."}
+		}
+	}
+	numbers := make(map[string]*int64)
+	for _, name := range []string{"minAmountKopecks", "maxAmountKopecks", "maxDurationMinutes"} {
+		if raw := query.Get(name); raw != "" {
+			minValue, maxValue := int64(0), int64(10000000000)
+			if name == "maxDurationMinutes" {
+				minValue, maxValue = 1, 2147483647
+			}
+			value, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil || value < minValue || value > maxValue {
+				fields[name] = []string{"Укажите целое число в допустимом диапазоне."}
+			} else {
+				numbers[name] = &value
+			}
+		}
+	}
+	if minAmount, maxAmount := numbers["minAmountKopecks"], numbers["maxAmountKopecks"]; minAmount != nil && maxAmount != nil && *minAmount > *maxAmount {
+		fields["maxAmountKopecks"] = []string{"Максимальная оплата должна быть не меньше минимальной."}
+	}
+	dates := make(map[string]*time.Time)
+	for _, name := range []string{"startsFrom", "startsBefore"} {
+		if raw := query.Get(name); raw != "" {
+			value, err := time.Parse(time.RFC3339Nano, raw)
+			if err != nil || !datePattern.MatchString(raw) || value.Year() < 1 {
+				fields[name] = []string{"Укажите дату и время с часовым поясом."}
+			} else {
+				dates[name] = &value
+			}
+		}
+	}
+	if from, before := dates["startsFrom"], dates["startsBefore"]; from != nil && before != nil && !from.Before(*before) {
+		fields["startsBefore"] = []string{"Конец периода должен быть позже начала."}
+	}
+	sort := query.Get("sort")
+	order := "created_at DESC, id DESC"
+	switch sort {
+	case "", "newest":
+	case "nearest":
+		order = "starts_at ASC, id ASC"
+	case "amount_asc":
+		order = "amount_kopecks ASC, id ASC"
+	case "amount_desc":
+		order = "amount_kopecks DESC, id DESC"
+	default:
+		fields["sort"] = []string{"Выберите доступный порядок сортировки."}
+	}
 	if httpapi.ValidationError(c, fields) {
 		return
 	}
@@ -73,12 +131,19 @@ func (h *Handler) list(c *gin.Context) {
         SELECT * FROM gigs WHERE status = 'open'
           AND ($1 = '' OR strpos(lower(title), lower($1)) > 0)
           AND ($2 = '' OR lower(city) = lower($2))
+          AND ($3 = '' OR category = $3)
+          AND ($4::bigint IS NULL OR amount_kopecks >= $4)
+          AND ($5::bigint IS NULL OR amount_kopecks <= $5)
+          AND ($6::timestamptz IS NULL OR starts_at >= $6)
+          AND ($7::timestamptz IS NULL OR starts_at < $7)
+          AND ($8::bigint IS NULL OR extract(epoch FROM (ends_at - starts_at)) <= $8::bigint * 60)
     )
-    SELECT COALESCE(jsonb_agg(page.item ORDER BY page.created_at DESC, page.id DESC), '[]'::jsonb),
+    SELECT COALESCE(jsonb_agg(page.item ORDER BY `+order+`), '[]'::jsonb),
            (SELECT count(*) FROM filtered)
-    FROM (SELECT `+summaryJSON+` AS item, g.created_at, g.id FROM filtered g `+profileJoins+`
-          ORDER BY g.created_at DESC, g.id DESC LIMIT $3 OFFSET $4) page`,
-		search, city, pageSize, (page-1)*pageSize).Scan(&result.Items, &result.Total)
+    FROM (SELECT `+summaryJSON+` AS item, g.created_at, g.starts_at, g.amount_kopecks, g.id FROM filtered g `+profileJoins+`
+          ORDER BY g.`+strings.ReplaceAll(order, ", ", ", g.")+` LIMIT $9 OFFSET $10) page`,
+		search, city, category, numbers["minAmountKopecks"], numbers["maxAmountKopecks"],
+		dates["startsFrom"], dates["startsBefore"], numbers["maxDurationMinutes"], pageSize, (page-1)*pageSize).Scan(&result.Items, &result.Total)
 	if err != nil {
 		httpapi.InternalError(c)
 		return

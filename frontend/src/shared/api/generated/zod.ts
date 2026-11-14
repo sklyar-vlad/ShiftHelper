@@ -413,7 +413,7 @@ export const ListGigCategoriesResponse = zod.array(
 );
 
 /**
- * Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно. total — число после фильтрации.
+ * Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно. total — число после фильтрации до пагинации. Оплата — целые копейки RUB, границы включены. Начало работы входит в интервал [startsFrom, startsBefore); длительность — endsAt минус startsAt. Пустые значения новых фильтров и sort не ограничивают выдачу. minAmountKopecks не больше maxAmountKopecks; startsFrom строго раньше startsBefore. Неизвестная категория, сортировка или неверные границы дают 400. newest сортирует createdAt DESC, id DESC; nearest — startsAt ASC, id ASC; amount_asc — amountKopecks ASC, id ASC; amount_desc — amountKopecks DESC, id DESC. При неизменном каталоге порядок страниц стабилен; параллельные изменения могут сдвигать offset-пагинацию.
  * @summary Каталог открытых подработок
  */
 export const listGigsQueryPageDefault = 1;
@@ -427,6 +427,16 @@ export const listGigsQueryQMax = 150;
 
 export const listGigsQueryCityMin = 0;
 export const listGigsQueryCityMax = 100;
+
+export const listGigsQueryMinAmountKopecksMin = 0;
+export const listGigsQueryMinAmountKopecksMax = 10000000000;
+
+export const listGigsQueryMaxAmountKopecksMin = 0;
+export const listGigsQueryMaxAmountKopecksMax = 10000000000;
+
+export const listGigsQueryMaxDurationMinutesMax = 2147483647;
+
+export const listGigsQuerySortDefault = `newest`;
 
 export const ListGigsQueryParams = zod.object({
   page: zod
@@ -445,6 +455,45 @@ export const ListGigsQueryParams = zod.object({
     .min(listGigsQueryCityMin)
     .max(listGigsQueryCityMax)
     .optional(),
+  category: zod
+    .string()
+    .optional()
+    .describe(
+      "Код из GET /api/v1/gig-categories. Пустое значение не фильтрует.",
+    ),
+  minAmountKopecks: zod
+    .int()
+    .min(listGigsQueryMinAmountKopecksMin)
+    .max(listGigsQueryMinAmountKopecksMax)
+    .optional()
+    .describe("Минимальная общая оплата в целых копейках RUB, включительно."),
+  maxAmountKopecks: zod
+    .int()
+    .min(listGigsQueryMaxAmountKopecksMin)
+    .max(listGigsQueryMaxAmountKopecksMax)
+    .optional()
+    .describe("Максимальная общая оплата в целых копейках RUB, включительно."),
+  startsFrom: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Начало работы не раньше этой даты и времени с часовым поясом."),
+  startsBefore: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe(
+      "Начало работы строго раньше этой даты и времени с часовым поясом.",
+    ),
+  maxDurationMinutes: zod
+    .int()
+    .min(1)
+    .max(listGigsQueryMaxDurationMinutesMax)
+    .optional()
+    .describe(
+      "Максимальная длительность в целых минутах, включительно (например, 120, 240 или 480).",
+    ),
+  sort: zod
+    .enum(["newest", "nearest", "amount_asc", "amount_desc"])
+    .default(listGigsQuerySortDefault),
 });
 
 export const listGigsResponseItemsItemTermsVersionDefault = 1;
