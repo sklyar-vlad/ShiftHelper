@@ -1,3 +1,4 @@
+import { useGigCategories } from "@/entities/gig/GigCategory";
 import { CityInput } from "@/shared/ui/CityInput";
 import { useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -7,6 +8,7 @@ import {
   createGig,
   editGigTerms,
   type Gig,
+  type CategoryCode,
   getGetGigQueryKey,
   getGetCurrentUserQueryKey,
   type CurrentUser,
@@ -41,7 +43,7 @@ const fields = [
   { name: "amount", label: "Сумма за всё задание, ₽", required: true, max: 12 },
 ] as const;
 type Name = (typeof fields)[number]["name"];
-type Values = Record<Name, string>;
+type Values = Record<Name, string> & { category: CategoryCode };
 
 export function parseRubles(value: string): number | null {
   if (!/^\d{1,9}([.,]\d{1,2})?$/.test(value.trim())) return null;
@@ -76,11 +78,15 @@ export function GigForm({
 }) {
   const navigate = useNavigate();
   const client = useQueryClient();
+  const categories = useGigCategories();
+  const categoryItems = Array.isArray(categories.data) ? categories.data : [];
+  const categoriesReady = categoryItems.length > 0;
   const busy = useRef(false);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
   const {
     register,
+    watch,
     control,
     handleSubmit,
     getValues,
@@ -89,6 +95,7 @@ export function GigForm({
   } = useForm<Values>({
     defaultValues: gig
       ? {
+          category: gig.category ?? "other",
           title: gig.title,
           description: gig.description,
           requirements: gig.requirements,
@@ -98,10 +105,10 @@ export function GigForm({
           endsAt: localDate(gig.endsAt),
           amount: `${Math.floor(gig.amountKopecks / 100)},${String(gig.amountKopecks % 100).padStart(2, "0")}`,
         }
-      : undefined,
+      : { category: "other" },
   });
   const submit = handleSubmit(async (values) => {
-    if (busy.current) return;
+    if (busy.current || !categoriesReady) return;
     busy.current = true;
     setWorking(true);
     setMessage("");
@@ -144,6 +151,14 @@ export function GigForm({
       const serverFields =
         error instanceof ApiError ? error.details?.fields : undefined;
       let matched = false;
+      if (serverFields?.category?.[0]) {
+        setError(
+          "category",
+          { message: serverFields.category[0] },
+          { shouldFocus: true },
+        );
+        matched = true;
+      }
       for (const { name } of fields) {
         const text =
           serverFields?.[name === "amount" ? "amountKopecks" : name]?.[0];
@@ -182,6 +197,61 @@ export function GigForm({
       </header>
       <form onSubmit={submit} noValidate aria-labelledby="create-gig-title">
         <fieldset className="form-fields" disabled={working}>
+          <div className="form-field category-field">
+            <label htmlFor="gig-category">Категория</label>
+            <select
+              id="gig-category"
+              value={watch("category")}
+              disabled={!categoriesReady}
+              aria-invalid={!!errors.category}
+              aria-describedby="gig-category-status gig-category-error"
+              {...register("category", {
+                validate: (value) =>
+                  categoryItems.some((item) => item.code === value) ||
+                  "Выберите категорию из справочника.",
+              })}
+            >
+              {!categoriesReady && (
+                <option value={watch("category")}>
+                  {categories.isPending
+                    ? "Загружаем категории…"
+                    : "Категории недоступны"}
+                </option>
+              )}
+              {categoriesReady &&
+                !categoryItems.some(
+                  (item) => item.code === watch("category"),
+                ) && (
+                  <option value={watch("category")} disabled>
+                    Выберите доступную категорию
+                  </option>
+                )}
+              {categoryItems.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <p id="gig-category-status" className="small muted" role="status">
+              {categories.isPending
+                ? "Загружаем справочник категорий…"
+                : !categoriesReady
+                  ? "Не удалось загрузить категории. Остальной ввод сохранён."
+                  : "Выберите направление работы — так исполнителям проще понять задачу."}
+            </p>
+            {!categories.isPending && !categoriesReady && (
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => void categories.refetch()}
+              >
+                Загрузить категории снова
+              </button>
+            )}
+            <p id="gig-category-error" className="field-error">
+              {errors.category?.message}
+            </p>
+          </div>
           {fields.map((field) => {
             const max = "max" in field ? field.max : undefined;
             const props = {
@@ -282,7 +352,11 @@ export function GigForm({
               {message}
             </p>
           )}
-          <button className="button" disabled={working} type="submit">
+          <button
+            className="button"
+            disabled={working || !categoriesReady}
+            type="submit"
+          >
             {working
               ? gig
                 ? "Сохраняем…"

@@ -171,6 +171,15 @@ try {
     await cityField.press("ArrowDown");
     await cityField.press("Enter");
     assert.equal(await cityField.inputValue(), "Киров, Калужская область");
+    const categoryField = customer.getByLabel("Категория", { exact: true });
+    await customer.waitForFunction(
+      () => !!document.querySelector('#gig-category option[value="moving"]'),
+    );
+    await categoryField.focus();
+    await categoryField.press("Home");
+    for (let step = 0; step < 4; step++) await categoryField.press("ArrowDown");
+    await categoryField.press("Tab");
+    assert.equal(await categoryField.inputValue(), "moving");
     await button(customer, "Опубликовать").click();
     await customer.waitForURL(/\/gigs\/[0-9a-f-]+$/);
     const gigId = customer.url().split("/").at(-1);
@@ -187,30 +196,13 @@ try {
     const original = await (
       await customer.request.get(`/api/v1${path}`)
     ).json();
-    assert.equal(original.category, "other");
-    const conditions = Object.fromEntries(
-      [
-        "title",
-        "description",
-        "requirements",
-        "city",
-        "address",
-        "startsAt",
-        "endsAt",
-        "amountKopecks",
-        "termsVersion",
-      ].map((key) => [key, original[key]]),
-    );
-    const categoryResponse = await customer.request.put(
-      `/api/v1${path}/terms`,
-      {
-        headers: { Origin: baseURL },
-        data: { ...conditions, category: "moving" },
-      },
-    );
-    assert.equal(categoryResponse.status(), 200);
-    const categorized = await categoryResponse.json();
-    assert.equal(categorized.category, "moving");
+    assert.equal(original.category, "moving");
+    const categorized = original;
+    await visible(customer, "Переезды и погрузка");
+    await customer.screenshot({
+      path: "/state/category-desktop.png",
+      fullPage: true,
+    });
     await post(worker, "/gigs", {}, 403);
     await post(foreign, `${path}/cancel`, undefined, 403);
     await worker.goto("/catalog");
@@ -256,6 +248,9 @@ try {
     await customer
       .getByLabel("Описание", { exact: true })
       .fill("Обновлённые условия переноски коробок");
+    await customer
+      .getByLabel("Категория", { exact: true })
+      .selectOption("repair");
     await button(customer, "Сохранить условия").click();
     await customer
       .getByText("Кандидат ещё не подтвердил новые условия.", { exact: true })
@@ -263,6 +258,7 @@ try {
       .waitFor();
     for (const page of [worker, second]) {
       await page.goto(path);
+      await visible(page, "Ремонт и сборка");
       await button(page, "Подтвердить новые условия").click();
       await button(page, "Подтвердить новые условия").waitFor({
         state: "hidden",
@@ -306,6 +302,9 @@ try {
       await customer
         .getByLabel("Сумма за всё задание, ₽", { exact: true })
         .fill("2000,99");
+      await customer
+        .getByLabel("Категория", { exact: true })
+        .selectOption(action === "accept" ? "moving" : "delivery");
       await button(customer, "Предложить изменения").click();
       await visible(customer, "Предложены новые условия");
       await worker.goto("/my-gigs?view=work");
@@ -343,6 +342,17 @@ try {
         await customer.request.get(`/api/v1${path}`)
       ).json();
       assert.equal(proposed.amountKopecks, 150050);
+      assert.equal(proposed.category, "repair");
+      assert.equal(
+        proposed.pendingChange.terms.category,
+        action === "accept" ? "moving" : "delivery",
+      );
+      await worker
+        .getByRole("region", { name: "Условия задания", exact: true })
+        .getByText(action === "accept" ? "Переезды и погрузка" : "Доставка", {
+          exact: true,
+        })
+        .waitFor();
       assert.equal(proposed.pendingChange.terms.amountKopecks, 200099);
       assert.equal(
         (await (await second.request.get(`/api/v1${path}`)).json())

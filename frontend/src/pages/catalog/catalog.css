@@ -190,3 +190,9 @@
 .terms-comparison .gig-text {
   margin-block: 8px;
 }
+
+.category-badge {
+  margin-top: 12px;
+  background: #fff;
+  border-color: var(--line);
+}
