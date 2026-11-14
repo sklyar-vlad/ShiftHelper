@@ -259,6 +259,26 @@ paths:
         schema:
           type: string
           format: uuid
+  /api/v1/gig-categories:
+    get:
+      operationId: listGigCategories
+      tags: [Gigs]
+      summary: Общий справочник категорий заданий
+      description: Публичный список кодов и русских названий в порядке отображения. Пользователь не создаёт категории.
+      security: []
+      responses:
+        '200':
+          description: Категории заданий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GigCategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/gigs:
     get:
       operationId: listGigs
@@ -1077,6 +1097,19 @@ components:
           type: string
           minLength: 0
           maxLength: 1000
+    CategoryCode:
+      type: string
+      enum: [repair, electrical, plumbing, cleaning, moving, delivery, retail, warehouse, events, other]
+      description: Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.
+    GigCategory:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          $ref: '#/components/schemas/CategoryCode'
+        name:
+          type: string
     CreateGigRequest:
       type: object
       additionalProperties: false
@@ -1090,6 +1123,8 @@ components:
       - endsAt
       - amountKopecks
       properties:
+        category:
+          $ref: '#/components/schemas/CategoryCode'
         title:
           type: string
           minLength: 1
@@ -1143,6 +1178,8 @@ components:
       - createdAt
       - updatedAt
       properties:
+        category:
+          $ref: '#/components/schemas/CategoryCode'
         termsVersion:
           type: integer
           minimum: 1
@@ -1291,6 +1328,8 @@ components:
       - cancelledAt
       - myApplication
       properties:
+        category:
+          $ref: '#/components/schemas/CategoryCode'
         termsVersion:
           type: integer
           minimum: 1
@@ -1427,6 +1466,8 @@ components:
       - amountKopecks
       - termsVersion
       properties:
+        category:
+          $ref: '#/components/schemas/CategoryCode'
         title:
           type: string
           minLength: 1

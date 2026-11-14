@@ -1,6 +1,7 @@
 package gigs
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
@@ -28,6 +29,7 @@ type Application struct {
 }
 
 type GigSummary struct {
+	Category                 string            `json:"category"`
 	TermsVersion             int               `json:"termsVersion"`
 	HasPendingChange         bool              `json:"hasPendingChange"`
 	ID                       string            `json:"id"`
@@ -62,6 +64,7 @@ type Handler struct{ pool *pgxpool.Pool }
 func NewHandler(pool *pgxpool.Pool) *Handler { return &Handler{pool: pool} }
 
 func (h *Handler) Register(api *gin.RouterGroup, requireUser, optionalUser gin.HandlerFunc) {
+	api.GET("/gig-categories", httpapi.ValidateQuery(), h.categories)
 	api.GET("/me/gigs", httpapi.ValidateQuery("page", "pageSize", "scope"), requireUser, h.myGigs)
 	api.GET("/me/applications", httpapi.ValidateQuery("page", "pageSize", "scope"), requireUser, auth.RequireRole("worker"), h.myApplications)
 	api.GET("/gigs", httpapi.ValidateQuery("page", "pageSize", "q", "city"), h.list)
@@ -93,11 +96,14 @@ func (h *Handler) create(c *gin.Context) {
 	if !valid {
 		return
 	}
+	if !resolveCategory(c, h.pool, &input, "other") {
+		return
+	}
 	gig, err := scanGig(h.pool.QueryRow(c.Request.Context(), `INSERT INTO gigs
-        (customer_id, title, description, requirements, city, address, starts_at, ends_at, amount_kopecks)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING `+gigColumns,
+        (customer_id, title, description, requirements, city, address, starts_at, ends_at, amount_kopecks, category)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,($10::jsonb #>> '{}')) RETURNING `+gigColumns,
 		auth.UserFromContext(c).ID, input.Title, input.Description, *input.Requirements, input.City,
-		input.Address, startsAt, endsAt, *input.AmountKopecks), auth.UserFromContext(c))
+		input.Address, startsAt, endsAt, *input.AmountKopecks, input.Category), auth.UserFromContext(c))
 	if err != nil {
 		httpapi.InternalError(c)
 		return
@@ -106,13 +112,13 @@ func (h *Handler) create(c *gin.Context) {
 }
 
 const gigColumns = `id::text, title, description, requirements, city, address, starts_at, ends_at,
-    amount_kopecks, status, created_at, updated_at, submitted_at, completed_at, cancelled_at, terms_version`
+    amount_kopecks, status, created_at, updated_at, submitted_at, completed_at, cancelled_at, terms_version, category`
 
 func scanGig(row pgx.Row, customer *auth.User) (Gig, error) {
 	var gig Gig
 	err := row.Scan(&gig.ID, &gig.Title, &gig.Description, &gig.Requirements, &gig.City, &gig.Address,
 		&gig.StartsAt, &gig.EndsAt, &gig.AmountKopecks, &gig.Status, &gig.CreatedAt, &gig.UpdatedAt,
-		&gig.SubmittedAt, &gig.CompletedAt, &gig.CancelledAt, &gig.TermsVersion)
+		&gig.SubmittedAt, &gig.CompletedAt, &gig.CancelledAt, &gig.TermsVersion, &gig.Category)
 	gig.Customer = users.PublicUser{ID: customer.ID, Name: customer.Name, Bio: customer.Bio,
 		Role: customer.Role, CompletedGigsCount: customer.CompletedGigsCount}
 	for _, stamp := range []*time.Time{&gig.StartsAt, &gig.EndsAt, &gig.CreatedAt, &gig.UpdatedAt,
@@ -176,14 +182,15 @@ func (h *Handler) cancel(c *gin.Context) {
 }
 
 type termsInput struct {
-	Title         string  `json:"title"`
-	Description   string  `json:"description"`
-	Requirements  *string `json:"requirements"`
-	City          string  `json:"city"`
-	Address       string  `json:"address"`
-	StartsAt      string  `json:"startsAt"`
-	EndsAt        string  `json:"endsAt"`
-	AmountKopecks *int64  `json:"amountKopecks"`
+	Category      json.RawMessage `json:"category,omitempty"`
+	Title         string          `json:"title"`
+	Description   string          `json:"description"`
+	Requirements  *string         `json:"requirements"`
+	City          string          `json:"city"`
+	Address       string          `json:"address"`
+	StartsAt      string          `json:"startsAt"`
+	EndsAt        string          `json:"endsAt"`
+	AmountKopecks *int64          `json:"amountKopecks"`
 }
 
 func (input *termsInput) validate(c *gin.Context, previousStart *time.Time) (time.Time, time.Time, bool) {
