@@ -83,7 +83,11 @@ function mount(
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init: RequestInit = {}) =>
-      url === "/api/v1/me" ? json(user) : handler(url, init),
+      url === "/api/v1/gig-categories"
+        ? json([{ code: "other", name: "Другое" }])
+        : url === "/api/v1/me"
+          ? json(user)
+          : handler(url, init),
     ),
   );
   const client = new QueryClient({

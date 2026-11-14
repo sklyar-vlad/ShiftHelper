@@ -1,3 +1,4 @@
+import { CategoryName } from "@/entities/gig/GigCategory";
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -95,6 +96,21 @@ export function TermsPanel({
             исполнителя. Сдать работу можно и без ответа на предложение.
           </p>
           <dl className="terms-comparison">
+            <div>
+              <dt>Категория</dt>
+              <dd>
+                <span className="small muted">Сейчас</span>
+                <p className="gig-text">
+                  <CategoryName code={gig.category} />
+                </p>
+              </dd>
+              <dd>
+                <span className="small muted">Предлагается</span>
+                <p className="gig-text">
+                  <CategoryName code={change.terms.category ?? gig.category} />
+                </p>
+              </dd>
+            </div>
             {(Object.keys(labels) as (keyof typeof labels)[]).map((key) => {
               const display = (value: string | number) =>
                 key === "amountKopecks"

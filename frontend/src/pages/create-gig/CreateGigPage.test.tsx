@@ -17,6 +17,11 @@ const json = (value: unknown, status = 200) =>
     status,
     headers: { "Content-Type": "application/json" },
   });
+const categoryList = [
+  { code: "other", name: "Другое" },
+  { code: "moving", name: "Переезды и погрузка" },
+  { code: "repair", name: "Ремонт и сборка" },
+];
 const localDate = (offset: number) => {
   const d = new Date(Date.now() + offset);
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
@@ -33,13 +38,18 @@ async function mount(
   send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
     json({ id: "new-gig" }, 201),
   ),
+  categoryResponse?: () => Promise<Response>,
 ) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init: RequestInit) =>
-      url === "/api/v1/me"
-        ? json({ id: "user", name: "Тест", role })
-        : send(init),
+      url === "/api/v1/gig-categories"
+        ? categoryResponse
+          ? categoryResponse()
+          : json(categoryList)
+        : url === "/api/v1/me"
+          ? json({ id: "user", name: "Тест", role })
+          : send(init),
     ),
   );
   const client = new QueryClient({
@@ -59,7 +69,11 @@ async function mount(
       </SessionProvider>
     </QueryClientProvider>,
   );
-  if (role === "customer") await screen.findByLabelText("Название");
+  if (role === "customer") {
+    await screen.findByLabelText("Название");
+    if (!categoryResponse)
+      await screen.findByRole("option", { name: "Другое" });
+  }
   return send;
 }
 
@@ -98,10 +112,14 @@ it("converts decimal rubles to exact integer kopecks and rejects invalid amounts
 it("publishes exact money and timezone dates, then opens the new gig", async () => {
   const send = await mount();
   fill();
+  fireEvent.change(screen.getByLabelText("Категория"), {
+    target: { value: "moving" },
+  });
   submit();
   await screen.findByRole("heading", { name: "Опубликовано" });
   const input = JSON.parse(send.mock.calls[0][0].body as string);
   expect(input.amountKopecks).toBe(29);
+  expect(input.category).toBe("moving");
   expect(input.title).toBe("Помочь с переездом");
   expect(input.requirements).toBe("");
   expect(input.startsAt.endsWith("Z")).toBe(true);
@@ -204,14 +222,20 @@ it("edits existing terms without losing past dates, cents or legacy cities", asy
   const send = vi.fn(async (_url: string, init: RequestInit) => {
     const input = JSON.parse(init.body as string);
     expect(input.termsVersion).toBe(2);
+    expect(input.category).toBe("repair");
     expect(input.startsAt).toBe("2026-01-01T09:00:00.123456Z");
     expect(input.amountKopecks).toBe(150050);
     expect(input.city).toBe("Старый свободный ввод");
     return json(input);
   });
-  vi.stubGlobal("fetch", send);
+  vi.stubGlobal("fetch", (url: string, init: RequestInit) =>
+    url === "/api/v1/gig-categories"
+      ? Promise.resolve(json(categoryList))
+      : send(url, init),
+  );
   const gig = {
     id: "gig-1",
+    category: "repair" as const,
     title: "Задание",
     description: "Описание",
     requirements: "",
@@ -247,10 +271,91 @@ it("edits existing terms without losing past dates, cents or legacy cities", asy
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  await screen.findByRole("option", { name: "Другое" });
+  expect((screen.getByLabelText("Категория") as HTMLSelectElement).value).toBe(
+    "repair",
+  );
   fireEvent.change(screen.getByLabelText("Описание"), {
     target: { value: "Новая версия описания" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Предложить изменения" }));
   await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
   expect(send).toHaveBeenCalledTimes(1);
+});
+
+it("keeps draft and blocks submission until the category dictionary loads", async () => {
+  let finish: (response: Response) => void = () => {};
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
+    json({ id: "new-gig" }, 201),
+  );
+  await mount(
+    "customer",
+    send,
+    () =>
+      new Promise<Response>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  fill();
+  expect(
+    (screen.getByLabelText("Категория") as HTMLSelectElement).disabled,
+  ).toBe(true);
+  expect(
+    (screen.getByRole("button", { name: "Опубликовать" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  expect(send).not.toHaveBeenCalled();
+  finish(json(categoryList));
+  await screen.findByRole("option", { name: "Другое" });
+  expect((screen.getByLabelText("Категория") as HTMLSelectElement).value).toBe(
+    "other",
+  );
+  expect((screen.getByLabelText("Описание") as HTMLTextAreaElement).value).toBe(
+    "Перенести коробки",
+  );
+});
+
+it("retries dictionary failures without losing input or inventing a category", async () => {
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
+    json({ id: "new-gig" }, 201),
+  );
+  const dictionary = vi
+    .fn()
+    .mockResolvedValueOnce(json({}, 500))
+    .mockResolvedValueOnce(json(categoryList));
+  await mount("customer", send, dictionary);
+  fill();
+  await screen.findByRole("button", { name: "Загрузить категории снова" });
+  expect(
+    (screen.getByRole("button", { name: "Опубликовать" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Загрузить категории снова" }),
+  );
+  await screen.findByRole("option", { name: "Ремонт и сборка" });
+  fireEvent.change(screen.getByLabelText("Категория"), {
+    target: { value: "repair" },
+  });
+  submit();
+  await screen.findByRole("heading", { name: "Опубликовано" });
+  const input = JSON.parse(send.mock.calls[0][0]?.body as string);
+  expect(input.category).toBe("repair");
+  expect(input.description).toBe("Перенести коробки");
+});
+
+it("keeps the chosen category after a failed publication", async () => {
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
+    json({}, 500),
+  );
+  await mount("customer", send);
+  fill();
+  fireEvent.change(screen.getByLabelText("Категория"), {
+    target: { value: "moving" },
+  });
+  submit();
+  await screen.findByRole("alert");
+  expect((screen.getByLabelText("Категория") as HTMLSelectElement).value).toBe(
+    "moving",
+  );
 });

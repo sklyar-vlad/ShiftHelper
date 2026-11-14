@@ -75,11 +75,17 @@ function mount(
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init: RequestInit = {}) =>
-      url === "/api/v1/me"
-        ? user
-          ? json(user)
-          : json({ error: { code: "UNAUTHORIZED", message: "Войдите" } }, 401)
-        : handler(url, init),
+      url === "/api/v1/gig-categories"
+        ? json([
+            { code: "other", name: "Другое" },
+            { code: "repair", name: "Ремонт и сборка" },
+            { code: "moving", name: "Переезды и погрузка" },
+          ])
+        : url === "/api/v1/me"
+          ? user
+            ? json(user)
+            : json({ error: { code: "UNAUTHORIZED", message: "Войдите" } }, 401)
+          : handler(url, init),
     ),
   );
   const client = new QueryClient({
@@ -326,6 +332,7 @@ it("confirms the exact revised conditions of an existing application", async () 
 it("shows a real comparison and sends the immutable proposal ID", async () => {
   const current: Gig = {
     ...gig,
+    category: "repair",
     status: "in_progress",
     selectedWorker: worker,
     termsVersion: 1,
@@ -334,6 +341,7 @@ it("shows a real comparison and sends the immutable proposal ID", async () => {
       id: "proposal-1",
       termsVersion: 1,
       terms: {
+        category: "moving",
         title: "Новые условия",
         description: "Другое описание",
         requirements: "",
@@ -361,6 +369,10 @@ it("shows a real comparison and sends the immutable proposal ID", async () => {
   );
   await screen.findByRole("heading", { name: "Предложены новые условия" });
   expect(screen.getByText("Новые условия")).toBeTruthy();
+  await screen.findByText("Переезды и погрузка");
+  expect(screen.getAllByText("Ремонт и сборка").length).toBeGreaterThanOrEqual(
+    2,
+  );
   fireEvent.click(screen.getByRole("button", { name: "Согласиться" }));
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   await waitFor(() =>

@@ -1,3 +1,4 @@
+import { GigCategory } from "./GigCategory";
 import type {
   ApplicationStatus,
   GigStatus,
@@ -35,6 +36,7 @@ export function applicationStatusText(
 export function GigFacts({ gig }: { gig: GigSummary }) {
   return (
     <>
+      <GigCategory code={gig.category} />
       <p className="gig-price">
         {formatMoney(gig.amountKopecks)} <span>за всё задание</span>
       </p>
