@@ -167,7 +167,7 @@
 }
 .star-rating-options {
   display: flex;
-  flex-direction: row-reverse;
+  flex-direction: row;
   justify-content: flex-end;
   gap: 4px;
 }
@@ -190,11 +190,12 @@
   opacity: 0;
 }
 .star-rating-options label:hover,
-.star-rating-options label:hover ~ label,
-.star-rating-options label:has(input:checked),
-.star-rating-options label:has(input:checked) ~ label {
+.star-rating-options label:has(input:checked) {
   color: #000;
   background: var(--mint);
+}
+.star-rating-options .is-filled {
+  color: #000;
 }
 .star-rating-options label:has(input:focus-visible) {
   outline: 3px solid var(--green);

@@ -16,6 +16,7 @@ import {
   type Review,
 } from "@/shared/api/generated/api";
 import { UserCard } from "@/entities/user/UserCard";
+import { StarRating } from "@/shared/ui/StarRating";
 import { ReviewPanel } from "./ReviewPanel";
 
 const user: CurrentUser = {
@@ -46,6 +47,41 @@ const json = (data: unknown, status = 200) =>
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+it("supports arrow-key selection and restores the selected score after hover", () => {
+  let score: number | null = 2;
+  const onChange = vi.fn((next: number) => {
+    score = next;
+  });
+  const view = render(<StarRating value={score} onChange={onChange} />);
+  const threeStars = screen.getByRole("radio", { name: "3 из 5 — Нормально" });
+  const caption = () => view.container.querySelector(".star-rating-caption")!;
+  const filledCount = () =>
+    view.container.querySelectorAll(".is-filled").length;
+  fireEvent.mouseEnter(threeStars.closest("label")!);
+  expect(caption().textContent).toBe("3 из 5 — Нормально");
+  expect(filledCount()).toBe(3);
+  expect(
+    (screen.getByRole("radio", { name: "2 из 5 — Плохо" }) as HTMLInputElement)
+      .checked,
+  ).toBe(true);
+  fireEvent.mouseLeave(screen.getByRole("group", { name: "Оценка" }));
+  expect(caption().textContent).toBe("2 из 5 — Плохо");
+  expect(filledCount()).toBe(2);
+
+  const selected = screen.getByRole("radio", { name: "2 из 5 — Плохо" });
+  fireEvent.keyDown(selected, { key: "ArrowRight" });
+  expect(onChange).toHaveBeenCalledWith(3);
+  view.rerender(<StarRating value={score} onChange={onChange} />);
+  expect(
+    (
+      screen.getByRole("radio", {
+        name: "3 из 5 — Нормально",
+      }) as HTMLInputElement
+    ).checked,
+  ).toBe(true);
+  expect(filledCount()).toBe(3);
 });
 
 function mount(handler: (init: RequestInit) => Promise<Response>) {

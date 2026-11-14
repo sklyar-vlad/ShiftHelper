@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 const labels = ["Очень плохо", "Плохо", "Нормально", "Хорошо", "Отлично"];
 
 export function StarRating({
@@ -9,14 +11,46 @@ export function StarRating({
   onChange: (value: number) => void;
   disabled?: boolean;
 }) {
+  const [preview, setPreview] = useState<number | null>(null);
+  const shownValue = preview ?? value;
+
   return (
-    <fieldset className="star-rating" disabled={disabled}>
+    <fieldset
+      className="star-rating"
+      disabled={disabled}
+      onMouseLeave={() => setPreview(null)}
+      onKeyDown={(event) => {
+        if (!(event.target instanceof HTMLInputElement)) return;
+        const direction = ["ArrowRight", "ArrowDown"].includes(event.key)
+          ? 1
+          : ["ArrowLeft", "ArrowUp"].includes(event.key)
+            ? -1
+            : 0;
+        if (!direction) return;
+        event.preventDefault();
+        const radios = Array.from(
+          event.currentTarget.querySelectorAll<HTMLInputElement>(
+            'input[type="radio"]',
+          ),
+        );
+        const next = Math.max(
+          0,
+          Math.min(radios.length - 1, radios.indexOf(event.target) + direction),
+        );
+        radios[next]?.focus();
+        onChange(next + 1);
+      }}
+    >
       <legend>Оценка</legend>
       <div className="star-rating-options">
         {labels.map((label, index) => {
           const rating = index + 1;
           return (
-            <label key={rating} title={`${rating} из 5 — ${label}`}>
+            <label
+              key={rating}
+              title={`${rating} из 5 — ${label}`}
+              onMouseEnter={() => setPreview(rating)}
+            >
               <input
                 type="radio"
                 name="review-score"
@@ -24,14 +58,23 @@ export function StarRating({
                 checked={value === rating}
                 onChange={() => onChange(rating)}
               />
-              <span aria-hidden="true">★</span>
+              <span
+                className={
+                  rating <= (shownValue ?? 0) ? "is-filled" : undefined
+                }
+                aria-hidden="true"
+              >
+                ★
+              </span>
               <span className="visually-hidden">{`${rating} из 5 — ${label}`}</span>
             </label>
           );
         })}
       </div>
       <p className="star-rating-caption" aria-live="polite">
-        {value ? `${value} из 5 — ${labels[value - 1]}` : "Выберите оценку"}
+        {shownValue
+          ? `${shownValue} из 5 — ${labels[shownValue - 1]}`
+          : "Выберите оценку"}
       </p>
     </fieldset>
   );
