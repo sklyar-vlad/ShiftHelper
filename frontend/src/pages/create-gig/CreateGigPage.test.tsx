@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -31,6 +32,7 @@ const localDate = (offset: number) => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 async function mount(
@@ -77,6 +79,67 @@ async function mount(
   return send;
 }
 
+function fillDateTime(label: string, value: string) {
+  const [date, time] = value.split("T");
+  const [year, month, day] = date.split("-").map(Number);
+  const text = new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+  fireEvent.click(
+    screen.getByRole("button", { name: `Открыть календарь ${label}` }),
+  );
+  let cell = screen.queryByRole("button", {
+    name: new RegExp(", " + text.replace(/\./g, "\\.")),
+  });
+  for (let step = 0; !cell && step < 24; step++) {
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: (() => {
+          const heading =
+            screen.getByRole("heading", { level: 2 }).textContent ?? "";
+          const currentYear = Number(heading.match(/\d{4}/)?.[0]);
+          const currentMonth = Array.from({ length: 12 }, (_, m) =>
+            new Intl.DateTimeFormat("ru-RU", { month: "long" }).format(
+              new Date(2028, m, 1),
+            ),
+          ).findIndex((name) => heading.toLowerCase().includes(name));
+          return year * 12 + month - 1 > currentYear * 12 + currentMonth
+            ? "Следующий месяц"
+            : "Предыдущий месяц";
+        })(),
+      }),
+    );
+    cell = screen.queryByRole("button", {
+      name: new RegExp(", " + text.replace(/\./g, "\\.")),
+    });
+  }
+  if (!cell) throw new Error(`Missing calendar day ${date}`);
+  fireEvent.click(cell);
+  fireEvent.change(
+    screen.getByLabelText(
+      label === "Начало работы" ? "Время начала" : "Время окончания",
+    ),
+    { target: { value: time } },
+  );
+}
+
+function readDateTime(label: string) {
+  const group = screen.getByRole("group", { name: label });
+  const part = (name: string) =>
+    within(group)
+      .getByRole("spinbutton", { name: `${name}, ${label}` })
+      .getAttribute("aria-valuenow")!;
+  const date = `${part("год").padStart(4, "0")}-${part("месяц").padStart(2, "0")}-${part("день").padStart(2, "0")}`;
+  const time = (
+    screen.getByLabelText(
+      label === "Начало работы" ? "Время начала" : "Время окончания",
+    ) as HTMLInputElement
+  ).value;
+  return new Date(`${date}T${time}`).getTime();
+}
+
 function fill() {
   for (const [label, value] of Object.entries({
     Название: "  Помочь с переездом  ",
@@ -87,7 +150,9 @@ function fill() {
     "Окончание работы": localDate(90000000),
     "Сумма за всё задание, ₽": "0,29",
   })) {
-    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    if (label === "Начало работы" || label === "Окончание работы")
+      fillDateTime(label, value);
+    else fireEvent.change(screen.getByLabelText(label), { target: { value } });
   }
 }
 const submit = () =>
@@ -131,14 +196,10 @@ it("publishes exact money and timezone dates, then opens the new gig", async () 
 it("rejects past start and end before start without sending", async () => {
   const send = await mount();
   fill();
-  fireEvent.change(screen.getByLabelText("Начало работы"), {
-    target: { value: localDate(-86400000) },
-  });
+  fillDateTime("Начало работы", localDate(-86400000));
   submit();
   await screen.findByText("Начало должно быть в будущем.");
-  fireEvent.change(screen.getByLabelText("Начало работы"), {
-    target: { value: localDate(100000000) },
-  });
+  fillDateTime("Начало работы", localDate(100000000));
   submit();
   await screen.findByText("Окончание должно быть позже начала.");
   expect(send).not.toHaveBeenCalled();
@@ -358,4 +419,68 @@ it("keeps the chosen category after a failed publication", async () => {
   expect((screen.getByLabelText("Категория") as HTMLSelectElement).value).toBe(
     "moving",
   );
+});
+
+it.each([2, 4, 8])(
+  "saves a %s-hour preset as an actual period",
+  async (hours) => {
+    const send = await mount();
+    fill();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `На ${hours} ${hours === 8 ? "часов" : "часа"}`,
+      }),
+    );
+    expect(
+      screen
+        .getByRole("button", {
+          name: `На ${hours} ${hours === 8 ? "часов" : "часа"}`,
+        })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    submit();
+    await screen.findByRole("heading", { name: "Опубликовано" });
+    const payload = JSON.parse(send.mock.calls[0][0].body as string);
+    expect(Date.parse(payload.endsAt) - Date.parse(payload.startsAt)).toBe(
+      hours * 3600000,
+    );
+  },
+);
+it("requires a start before a preset and leaves an existing end unchanged", async () => {
+  await mount();
+  fireEvent.click(screen.getByRole("button", { name: "На 2 часа" }));
+  await screen.findByRole("alert");
+  expect(
+    screen
+      .getByRole("button", { name: "Свой период" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(
+    (screen.getByLabelText("Время окончания") as HTMLInputElement).value,
+  ).toBe("");
+});
+it("recalculates an active preset across a year boundary and stops after a manual end edit", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2028, 11, 31, 20, 0));
+  await mount();
+  fill();
+  fillDateTime("Начало работы", "2028-12-31T23:30");
+  fireEvent.click(screen.getByRole("button", { name: "На 4 часа" }));
+  expect(readDateTime("Окончание работы")).toBe(
+    new Date(2029, 0, 1, 3, 30).getTime(),
+  );
+  fillDateTime("Начало работы", "2029-01-01T01:00");
+  expect(readDateTime("Окончание работы")).toBe(
+    new Date(2029, 0, 1, 5, 0).getTime(),
+  );
+  fillDateTime("Окончание работы", "2029-01-03T12:15");
+  expect(
+    screen
+      .getByRole("button", { name: "Свой период" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  const manualEnd = readDateTime("Окончание работы");
+  fillDateTime("Начало работы", "2029-01-01T02:00");
+  expect(readDateTime("Окончание работы")).toBe(manualEnd);
+  expect(screen.getByText(/Длительность: 2 д 10 ч 15 мин/)).toBeTruthy();
 });

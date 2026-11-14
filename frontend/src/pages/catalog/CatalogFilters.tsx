@@ -1,3 +1,4 @@
+import { DatePicker } from "@/shared/ui/DatePicker";
 import { useState } from "react";
 import { Link } from "react-router";
 import { CityInput } from "@/shared/ui/CityInput";
@@ -171,8 +172,18 @@ export function CatalogFilters({
         {select("sort", "Сортировка", sortLabels)}
         {input("minPay", "Оплата от, ₽")}
         {input("maxPay", "Оплата до, ₽")}
-        {input("dateFrom", "Начало от", "date")}
-        {input("dateTo", "Начало до, включительно", "date")}
+        <DatePicker
+          label="Начало от"
+          value={draft.dateFrom}
+          onChange={(value) => change("dateFrom", value)}
+          error={errors.dateFrom}
+        />
+        <DatePicker
+          label="Начало до, включительно"
+          value={draft.dateTo}
+          onChange={(value) => change("dateTo", value)}
+          error={errors.dateTo}
+        />
         {select("duration", "Длительность", { "": "Любая", ...durationLabels })}
         <p className="small muted catalog-filter-help">
           Общая оплата за задание. Даты — в вашем часовом поясе. Новые значения
