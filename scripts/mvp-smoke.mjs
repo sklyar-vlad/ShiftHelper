@@ -602,12 +602,43 @@ try {
       [worker, 4],
     ]) {
       await page.goto(path);
-      await page
-        .getByLabel("Оценка", { exact: true })
-        .selectOption(String(score));
+      const rating = page.getByRole("radiogroup", {
+        name: "Оценка",
+        exact: true,
+      });
+      assert.equal(await button(page, "Отправить оценку").isDisabled(), true);
+      if (score === 5) {
+        const first = rating.getByRole("radio", { name: /^1 из 5/ });
+        await first.focus();
+        await page.keyboard.press("Space");
+        for (let n = 1; n < score; n++) await page.keyboard.press("ArrowRight");
+      } else
+        await page
+          .locator("label.star-rating-option")
+          .nth(score - 1)
+          .tap();
+      assert.equal(
+        await rating
+          .getByRole("radio", { name: new RegExp(`^${score} из 5`) })
+          .isChecked(),
+        true,
+      );
+      if (score === 5) await page.keyboard.press("ArrowLeft");
+      if (score === 5) {
+        assert.equal(
+          await rating.getByRole("radio", { name: /^4 из 5/ }).isChecked(),
+          true,
+        );
+        await page.keyboard.press("ArrowRight");
+      }
+
       await page
         .getByLabel("Отзыв (необязательно)", { exact: true })
         .fill("Спасибо за работу");
+      await page.screenshot({
+        path: `/state/review-${score === 5 ? "desktop" : "mobile"}.png`,
+        fullPage: true,
+      });
       await button(page, "Отправить оценку").click();
       await visible(page, `Ваша оценка: ${score} из 5`);
       assert.equal(

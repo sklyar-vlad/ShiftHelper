@@ -1,3 +1,4 @@
+import { StarRating } from "@/shared/ui/StarRating";
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,6 +10,7 @@ import {
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
+import "./review-panel.css";
 
 export function ReviewPanel({
   gigId,
@@ -24,13 +26,14 @@ export function ReviewPanel({
   });
   const busy = useRef(false);
   const [working, setWorking] = useState(false);
-  const [score, setScore] = useState("");
+  const [score, setScore] = useState<number | null>(null);
+  const [saved, setSaved] = useState(false);
   const [comment, setComment] = useState("");
   const [message, setMessage] = useState("");
 
   async function send() {
     if (busy.current) return;
-    if (!/^[1-5]$/.test(score)) {
+    if (score === null || !Number.isInteger(score) || score < 1 || score > 5) {
       setMessage("Выберите оценку от 1 до 5.");
       return;
     }
@@ -43,7 +46,7 @@ export function ReviewPanel({
     setMessage("");
     try {
       const review = await createGigReview(gigId, {
-        score: Number(score),
+        score,
         comment: comment.trim(),
       });
       if (
@@ -60,6 +63,7 @@ export function ReviewPanel({
         ],
       });
       setComment("");
+      setSaved(true);
       await client.invalidateQueries();
     } catch (error) {
       setMessage(
@@ -85,6 +89,11 @@ export function ReviewPanel({
       aria-busy={working}
     >
       <h2>Оценки за работу</h2>
+      {saved && (
+        <p className="review-success" role="status">
+          Спасибо! Оценка сохранена.
+        </p>
+      )}
       {query.isPending ? (
         <StatusPanel title="Загружаем отзывы" pending />
       ) : query.isError ? (
@@ -110,6 +119,8 @@ export function ReviewPanel({
           {!query.data.items.some((review) => review.authorId === user.id) && (
             <form
               aria-label="Оценить вторую сторону"
+              className="review-form"
+              noValidate
               onSubmit={(event) => {
                 event.preventDefault();
                 void send();
@@ -120,32 +131,30 @@ export function ReviewPanel({
                   Оцените вторую сторону. Отзыв нельзя изменить или отправить
                   повторно.
                 </p>
-                <div className="form-field">
-                  <label htmlFor="review-score">Оценка</label>
-                  <select
-                    id="review-score"
-                    value={score}
-                    onChange={(event) => setScore(event.target.value)}
-                  >
-                    <option value="">Выберите оценку</option>
-                    {[1, 2, 3, 4, 5].map((value) => (
-                      <option key={value} value={value}>
-                        {value} из 5
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <StarRating
+                  value={score}
+                  onChange={setScore}
+                  disabled={working}
+                />
                 <div className="form-field">
                   <label htmlFor="review-comment">Отзыв (необязательно)</label>
                   <textarea
                     id="review-comment"
                     rows={3}
                     maxLength={1000}
+                    aria-describedby="review-comment-hint"
                     value={comment}
                     onChange={(event) => setComment(event.target.value)}
                   />
+                  <p id="review-comment-hint" className="small muted">
+                    Расскажите, как прошла работа. До 1000 символов.
+                  </p>
                 </div>
-                <button className="button" type="submit" disabled={working}>
+                <button
+                  className="button"
+                  type="submit"
+                  disabled={working || score === null}
+                >
                   {working ? "Отправляем…" : "Отправить оценку"}
                 </button>
               </fieldset>

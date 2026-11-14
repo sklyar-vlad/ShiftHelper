@@ -336,6 +336,11 @@ it("edits existing terms without losing past dates, cents or legacy cities", asy
   expect((screen.getByLabelText("Категория") as HTMLSelectElement).value).toBe(
     "repair",
   );
+  for (const label of ["Время начала", "Время окончания"]) {
+    const input = screen.getByLabelText(label) as HTMLInputElement;
+    expect(input.value).toMatch(/^\d{2}:\d{2}$/);
+    expect(input.step).toBe("60");
+  }
   fireEvent.change(screen.getByLabelText("Описание"), {
     target: { value: "Новая версия описания" },
   });
