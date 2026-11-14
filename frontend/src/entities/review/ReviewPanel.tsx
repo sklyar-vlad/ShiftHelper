@@ -9,6 +9,7 @@ import {
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
+import { StarRating } from "@/shared/ui/StarRating";
 
 export function ReviewPanel({
   gigId,
@@ -120,21 +121,11 @@ export function ReviewPanel({
                   Оцените вторую сторону. Отзыв нельзя изменить или отправить
                   повторно.
                 </p>
-                <div className="form-field">
-                  <label htmlFor="review-score">Оценка</label>
-                  <select
-                    id="review-score"
-                    value={score}
-                    onChange={(event) => setScore(event.target.value)}
-                  >
-                    <option value="">Выберите оценку</option>
-                    {[1, 2, 3, 4, 5].map((value) => (
-                      <option key={value} value={value}>
-                        {value} из 5
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <StarRating
+                  value={score ? Number(score) : null}
+                  onChange={(value) => setScore(String(value))}
+                  disabled={working}
+                />
                 <div className="form-field">
                   <label htmlFor="review-comment">Отзыв (необязательно)</label>
                   <textarea

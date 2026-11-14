@@ -154,6 +154,67 @@
 .form-field {
   margin-bottom: 20px;
 }
+.star-rating {
+  min-width: 0;
+  padding: 0;
+  margin: 0 0 20px;
+  border: 0;
+}
+.star-rating legend {
+  margin-bottom: 9px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.star-rating-options {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.star-rating-options label {
+  position: relative;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: #67717c;
+  cursor: pointer;
+  font-size: 25px;
+}
+.star-rating-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.star-rating-options label:hover,
+.star-rating-options label:hover ~ label,
+.star-rating-options label:has(input:checked),
+.star-rating-options label:has(input:checked) ~ label {
+  color: #000;
+  background: var(--mint);
+}
+.star-rating-options label:has(input:focus-visible) {
+  outline: 3px solid var(--green);
+  outline-offset: 3px;
+}
+.star-rating-caption {
+  min-height: 22px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
 .form-field > label,
 .role-picker > legend {
   display: block;
