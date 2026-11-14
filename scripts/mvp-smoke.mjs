@@ -11,12 +11,12 @@ const button = (page, name) => page.getByRole("button", { name, exact: true });
 const link = (page, name) => page.getByRole("link", { name, exact: true });
 const visible = (page, text) => page.getByText(text, { exact: true }).waitFor();
 
-async function session(index, mobile = false) {
+async function session(index, mobile = false, timezoneId = "UTC") {
   const context = await browsers[index].newContext({
     baseURL,
     hasTouch: mobile,
     viewport: { width: mobile ? 375 : 1280, height: 900 },
-    timezoneId: "UTC",
+    timezoneId,
   });
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
@@ -223,6 +223,58 @@ try {
     await worker.waitForURL(
       (url) => url.searchParams.get("city") === "Киров, Калужская область",
     );
+    await button(worker, "Фильтры +").click();
+    await worker
+      .getByLabel("Категория", { exact: true })
+      .selectOption("moving");
+    await worker.getByLabel("Оплата от, ₽", { exact: true }).fill("1500,50");
+    await worker.getByLabel("Оплата до, ₽", { exact: true }).fill("1500.50");
+    await worker
+      .getByLabel("Начало от", { exact: true })
+      .fill(original.startsAt.slice(0, 10));
+    await worker
+      .getByLabel("Начало до, включительно", { exact: true })
+      .fill(original.startsAt.slice(0, 10));
+    await worker
+      .getByLabel("Длительность", { exact: true })
+      .selectOption("120");
+    await worker
+      .getByLabel("Сортировка", { exact: true })
+      .selectOption("nearest");
+    await button(worker, "Применить").click();
+    await link(worker, title).waitFor();
+    assert.equal(new URL(worker.url()).searchParams.get("category"), "moving");
+    assert.equal(
+      await worker.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+    );
+    await button(worker, "Фильтры +").click();
+    await worker.screenshot({
+      path: "/state/catalog-mobile.png",
+      fullPage: true,
+    });
+    await worker.reload();
+    await link(worker, title).waitFor();
+    assert.equal(
+      await worker.getByLabel("Категория", { exact: true }).isVisible(),
+      false,
+    );
+    assert.equal(
+      await worker.getByLabel("Оплата от, ₽", { exact: true }).inputValue(),
+      "1500,50",
+    );
+    await worker
+      .getByRole("link", {
+        name: "Убрать фильтр «Категория: Переезды и погрузка»",
+        exact: true,
+      })
+      .click();
+    await worker.waitForURL((url) => !url.searchParams.has("category"));
+    assert.equal(new URL(worker.url()).searchParams.get("duration"), "120");
+    await worker.goBack();
+    await link(worker, title).waitFor();
     await link(worker, title).click();
     await link(worker, "← К подработкам").click();
     assert.equal(
@@ -509,6 +561,50 @@ try {
       "rejected",
       "selected",
     ]);
+    for (let n = 1; n <= 21; n++) await create(`Проверка фильтров ${n}`);
+    const filters = new URLSearchParams({
+      q: "Проверка фильтров",
+      category: "other",
+      minPay: "100",
+      maxPay: "100",
+      duration: "120",
+      sort: "amount_asc",
+    });
+    await customer.goto(`/catalog?${filters}`);
+    await visible(customer, "Найдено заданий: 21");
+    assert.equal(await customer.locator(".gig-card").count(), 20);
+    assert.equal(await button(customer, "Фильтры +").isVisible(), false);
+    assert.equal(await button(customer, "Применить").isVisible(), false);
+    await customer.screenshot({
+      path: "/state/catalog-desktop.png",
+      fullPage: true,
+    });
+    await link(customer, "Далее").click();
+    await visible(customer, "Страница 2");
+    await customer.locator(".gig-card").first().waitFor();
+    assert.equal(await customer.locator(".gig-card").count(), 1);
+    assert.equal(new URL(customer.url()).searchParams.get("category"), "other");
+    await customer.reload();
+    await visible(customer, "Страница 2");
+    await customer.goBack();
+    await visible(customer, "Страница 1");
+    const dst = await session(0, false, "America/New_York");
+    const request = dst.waitForRequest(
+      (req) => new URL(req.url()).pathname === "/api/v1/gigs",
+    );
+    await dst.goto("/catalog?dateFrom=2027-03-14&dateTo=2027-03-14");
+    const bounds = new URL((await request).url()).searchParams;
+    assert.equal(bounds.get("startsFrom"), "2027-03-14T05:00:00.000Z");
+    assert.equal(bounds.get("startsBefore"), "2027-03-15T04:00:00.000Z");
+    let invalidRequests = 0;
+    dst.on("request", (req) => {
+      if (new URL(req.url()).pathname === "/api/v1/gigs") invalidRequests++;
+    });
+    await dst.goto("/catalog?minPay=10&maxPay=1");
+    await dst.getByRole("alert").waitFor();
+    await dst.waitForLoadState("networkidle");
+    assert.equal(invalidRequests, 0);
+    await dst.close();
     const completed = await (
       await customer.request.get(`/api/v1${path}`)
     ).json();

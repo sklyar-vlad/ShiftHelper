@@ -32,6 +32,21 @@ const json = (data: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
+function stubFetch(
+  fetch: (url: string, init?: RequestInit) => Promise<Response>,
+) {
+  vi.stubGlobal("fetch", (url: string, init?: RequestInit) =>
+    url === "/api/v1/gig-categories"
+      ? Promise.resolve(
+          json([
+            { code: "moving", name: "Переезды и погрузка" },
+            { code: "other", name: "Другое" },
+          ]),
+        )
+      : fetch(url, init),
+  );
+}
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -71,8 +86,7 @@ function mount(url = "/catalog", withSession = false) {
 
 it("finishes the initial public catalog request when the session resolves as guest", async () => {
   let finish: (response: Response) => void = () => {};
-  vi.stubGlobal(
-    "fetch",
+  stubFetch(
     vi.fn(async (url: string) => {
       if (url === "/api/v1/me")
         return json(
@@ -95,8 +109,7 @@ it("finishes the initial public catalog request when the session resolves as gue
 
 it("combines URL filters, resets the page on search and restores it on browser back", async () => {
   const requests: URLSearchParams[] = [];
-  vi.stubGlobal(
-    "fetch",
+  stubFetch(
     vi.fn(async (url: string) => {
       const params = new URL(url, "http://localhost").searchParams;
       requests.push(params);
@@ -138,8 +151,7 @@ it("combines URL filters, resets the page on search and restores it on browser b
 });
 
 it("opens API details and returns to the same filtered page", async () => {
-  vi.stubGlobal(
-    "fetch",
+  stubFetch(
     vi.fn(async (url: string) =>
       url === "/api/v1/me"
         ? json({ error: { code: "UNAUTHORIZED", message: "Войдите" } }, 401)
@@ -177,15 +189,21 @@ it("shows loading, retries errors, and offers reset for an empty result", async 
     .mockResolvedValueOnce(
       json({ items: [], page: 1, pageSize: 20, total: 0 }),
     );
-  vi.stubGlobal("fetch", fetch);
+  stubFetch(fetch);
   mount("/catalog?q=ничего");
   await screen.findByRole("heading", { name: "Загружаем подработки" });
+  fireEvent.change(screen.getByLabelText("Оплата от, ₽"), {
+    target: { value: "12,34" },
+  });
   finish(json({ error: { code: "INTERNAL_ERROR", message: "Ошибка" } }, 500));
   fireEvent.click(
     await screen.findByRole("button", { name: "Попробовать ещё раз" }),
   );
   await screen.findByText("Заданий пока нет");
   expect(fetch).toHaveBeenCalledTimes(2);
+  expect(
+    (screen.getByLabelText("Оплата от, ₽") as HTMLInputElement).value,
+  ).toBe("12,34");
   expect(
     screen.getByRole("link", { name: "Все подработки" }).getAttribute("href"),
   ).toBe("/catalog");
@@ -199,7 +217,7 @@ it("normalizes an invalid page and handles unavailable details", async () => {
         ? json({ items: [gig], page: 1, pageSize: 20, total: 1 })
         : json({ error: { code: "NOT_FOUND", message: "Нет задания" } }, 404),
   );
-  vi.stubGlobal("fetch", fetch);
+  stubFetch(fetch);
   mount("/catalog?page=-10");
   fireEvent.click(await screen.findByRole("link", { name: gig.title }));
   await screen.findByRole("heading", { name: "Задание недоступно" });
@@ -208,4 +226,83 @@ it("normalizes an invalid page and handles unavailable details", async () => {
       "page",
     ),
   ).toBe("1");
+});
+
+it("applies drafts together, validates ranges, keeps filters on paging and removes one chip", async () => {
+  const requests: URLSearchParams[] = [];
+  stubFetch(
+    vi.fn(async (url: string) => {
+      const params = new URL(url, "http://localhost").searchParams;
+      requests.push(params);
+      return json({
+        items: [gig],
+        page: Number(params.get("page")),
+        pageSize: 20,
+        total: 45,
+      });
+    }),
+  );
+  const router = mount(
+    "/catalog?category=moving&minPay=1,23&maxPay=10&dateFrom=2028-02-29&dateTo=2028-02-29&duration=120&sort=nearest&page=2",
+  );
+  await screen.findByRole("link", { name: gig.title });
+  expect(requests[0].get("minAmountKopecks")).toBe("123");
+  expect(requests[0].get("maxDurationMinutes")).toBe("120");
+  expect(new Date(requests[0].get("startsBefore")!).getDate()).toBe(1);
+  fireEvent.change(screen.getByLabelText("Оплата от, ₽"), {
+    target: { value: "20,01" },
+  });
+  expect(requests).toHaveLength(1);
+  fireEvent.submit(screen.getByRole("form", { name: "Поиск подработок" }));
+  await screen.findByRole("alert");
+  expect(requests).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText(/Оплата до, ₽/), {
+    target: { value: "30" },
+  });
+  fireEvent.submit(screen.getByRole("form", { name: "Поиск подработок" }));
+  await waitFor(() =>
+    expect(requests.at(-1)?.get("minAmountKopecks")).toBe("2001"),
+  );
+  expect(requests.at(-1)?.get("page")).toBe("1");
+  fireEvent.click(await screen.findByRole("link", { name: "Далее" }));
+  await screen.findByText("Страница 2");
+  expect(requests.at(-1)?.get("sort")).toBe("nearest");
+  expect(requests.at(-1)?.get("maxAmountKopecks")).toBe("3000");
+  fireEvent.click(
+    screen.getByRole("link", {
+      name: "Убрать фильтр «Категория: Переезды и погрузка»",
+    }),
+  );
+  await waitFor(() => expect(requests.at(-1)?.has("category")).toBe(false));
+  expect(requests.at(-1)?.get("minAmountKopecks")).toBe("2001");
+  expect(requests.at(-1)?.get("page")).toBe("1");
+  fireEvent.click(screen.getByRole("link", { name: "Сбросить всё" }));
+  await waitFor(() => expect(router.state.location.search).toBe(""));
+  expect(
+    (screen.getByLabelText("Оплата от, ₽") as HTMLInputElement).value,
+  ).toBe("");
+  expect((screen.getByLabelText("Сортировка") as HTMLSelectElement).value).toBe(
+    "newest",
+  );
+});
+
+it.each([
+  "minPay=10&maxPay=1",
+  "dateFrom=2028-03-01&dateTo=2028-02-29",
+  "sort=bad",
+  "duration=constructor",
+  "category=missing",
+  "q=a&q=b",
+])("does not request gigs for an invalid link: %s", async (search) => {
+  const fetch = vi.fn(async () =>
+    json({ items: [], page: 1, pageSize: 20, total: 0 }),
+  );
+  stubFetch(fetch);
+  const router = mount(`/catalog?${search}`);
+  await screen.findByRole("alert");
+  expect(fetch).not.toHaveBeenCalled();
+  expect(router.state.location.search).toBe(`?${search}`);
+  fireEvent.click(screen.getByRole("link", { name: "Сбросить всё" }));
+  await screen.findByText("Заданий пока нет");
+  expect(fetch).toHaveBeenCalledTimes(1);
 });

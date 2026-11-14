@@ -1,21 +1,29 @@
 .catalog-filters {
-  display: flex;
-  align-items: end;
-  gap: 16px;
   padding: 24px;
   margin-bottom: 16px;
   background: var(--mint);
   border-radius: 24px;
 }
+.catalog-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+.catalog-search-row > .button {
+  margin-top: 30px;
+}
 .catalog-filters label {
-  flex: 1;
+  display: block;
   min-width: 0;
   font-size: 13px;
   font-weight: 600;
 }
-.catalog-filters input {
+.catalog-filters input,
+.catalog-filters select {
   display: block;
   width: 100%;
+  min-width: 0;
   min-height: 48px;
   margin-top: 10px;
   padding: 12px 14px;
@@ -23,9 +31,53 @@
   border-radius: 12px;
   color: inherit;
   background: #fff;
+  font: inherit;
 }
-.catalog-filters .text-link {
-  padding-block: 16px;
+.catalog-filters [aria-invalid="true"] {
+  border-color: #b42318;
+}
+.catalog-filter-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 16px;
+  padding-top: 24px;
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.catalog-filter-help {
+  align-self: end;
+  margin: 0;
+  line-height: 1.7;
+}
+.catalog-filters .catalog-filter-apply {
+  display: none;
+}
+.catalog-filters .catalog-filter-toggle {
+  display: none;
+}
+.catalog-active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-block: 20px;
+}
+.catalog-chip {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--mint);
+  color: #000;
+  font-size: 13px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.catalog-chip:hover {
+  border-color: #000;
 }
 .catalog-count {
   margin-block: 32px 20px;
@@ -144,11 +196,31 @@
 }
 @media (max-width: 767px) {
   .catalog-filters {
-    flex-direction: column;
-    align-items: stretch;
     padding: 20px;
   }
-  .catalog-filters input {
+  .catalog-search-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .catalog-search-row > .button {
+    margin-top: 0;
+  }
+  .catalog-filters .catalog-filter-apply {
+    display: inline-flex;
+    justify-content: center;
+  }
+  .catalog-filters .catalog-filter-toggle {
+    display: block;
+    margin-top: 16px;
+    width: 100%;
+  }
+  .catalog-filter-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .catalog-filter-options[data-expanded="false"] {
+    display: none;
+  }
+  .catalog-filters input,
+  .catalog-filters select {
     font-size: 16px;
   }
   .catalog-filters .text-link {
