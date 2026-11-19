@@ -203,7 +203,7 @@ it("saves and clears the optional private contact", async () => {
 });
 
 it("limits selection to five and preserves the draft when saving fails", async () => {
-  const send = vi.fn(async (_init: RequestInit) =>
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
     json(
       {
         error: {
@@ -239,7 +239,7 @@ it("limits selection to five and preserves the draft when saving fails", async (
 });
 
 it("shows saved specialties and sends an empty list when clearing", async () => {
-  const send = vi.fn(async (_init: RequestInit) =>
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
     json({ ...user, specialties: [] }),
   );
   await mount(send, { ...user, specialties: ["moving"] });
