@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -94,7 +95,7 @@ func TestAuthentication(t *testing.T) {
 			t.Fatal(err)
 		}
 		if user.Role != role || user.Email != role+"@example.test" || user.Name != "Алексей" || user.ID == "" ||
-			user.CompletedGigsCount != 0 || user.CreatedAt.Location() != time.UTC {
+			user.CompletedGigsCount != 0 || user.Specialties == nil || len(user.Specialties) != 0 || user.CreatedAt.Location() != time.UTC {
 			t.Fatal("incorrect current user response")
 		}
 		if bytes.Contains(response.Body.Bytes(), []byte(password)) || bytes.Contains(response.Body.Bytes(), []byte(cookie.Value)) ||
@@ -135,7 +136,7 @@ func TestAuthentication(t *testing.T) {
 		response = send("GET", "/api/v1/users/"+users[i].ID, "", nil)
 		expect(response, 200, "")
 		var public map[string]any
-		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 7 ||
+		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 8 ||
 			public["id"] != users[i].ID || public["name"] != "Новое имя" || public["bio"] != "Обо мне" ||
 			public["role"] != users[i].Role || public["completedGigsCount"] != float64(0) ||
 			public["ratingAverage"] != nil || public["reviewsCount"] != float64(0) {
@@ -147,6 +148,26 @@ func TestAuthentication(t *testing.T) {
 			t.Fatal("profile changes were not persisted")
 		}
 	}
+	const profile = `{"name":"Новое имя","bio":"Обо мне"`
+	expect(send("PATCH", "/api/v1/me", profile+`,"specialties":[]}`, cookies[0]), 403, "FORBIDDEN")
+	for _, invalid := range []string{`null`, `"moving"`, `[null]`, `["unknown"]`, `["moving","moving"]`, `["moving","repair","other","cleaning","retail","events"]`} {
+		expect(send("PATCH", "/api/v1/me", profile+`,"specialties":`+invalid+`}`, cookies[1]), 400, "VALIDATION_ERROR")
+	}
+	want := []string{"other", "moving", "repair", "cleaning", "retail"}
+	checkSpecialties := func(response *httptest.ResponseRecorder, want []string) {
+		t.Helper()
+		expect(response, 200, "")
+		var result struct{ Specialties []string }
+		if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || result.Specialties == nil || !slices.Equal(result.Specialties, want) {
+			t.Fatalf("unexpected specialties: %v", result.Specialties)
+		}
+	}
+	checkSpecialties(send("PATCH", "/api/v1/me", profile+`,"specialties":["other","moving","repair","cleaning","retail"]}`, cookies[1]), want)
+	checkSpecialties(send("PATCH", "/api/v1/me", profile+`}`, cookies[1]), want)
+	checkSpecialties(send("GET", "/api/v1/me", "", cookies[1]), want)
+	checkSpecialties(send("GET", "/api/v1/users/"+users[1].ID, "", nil), want)
+	checkSpecialties(send("PATCH", "/api/v1/me", profile+`,"specialties":[]}`, cookies[1]), []string{})
+	checkSpecialties(send("GET", "/api/v1/me", "", cookies[1]), []string{})
 	for _, invalid := range []string{
 		`{}`, `null`, `{"name":"Name"}`, `{"bio":""}`, `{"name":null,"bio":""}`, `{"name":"Name","bio":null}`,
 		`{"name":" ","bio":""}`, `{"name":"Name","bio":1}`, `{} {}`,
@@ -198,7 +219,7 @@ func TestAuthentication(t *testing.T) {
 		response = send("GET", "/api/v1/users/"+users[i].ID, "", cookies[1-i])
 		expect(response, 200, "")
 		var public map[string]any
-		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 7 || public["completedGigsCount"] != float64(1) {
+		if err := json.Unmarshal(response.Body.Bytes(), &public); err != nil || len(public) != 8 || public["completedGigsCount"] != float64(1) {
 			t.Fatal("public completed work count is incorrect or private fields were exposed")
 		}
 	}

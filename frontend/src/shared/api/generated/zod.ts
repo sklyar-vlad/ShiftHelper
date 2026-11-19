@@ -72,6 +72,8 @@ export const RegisterBody = zod.object({
     ),
 });
 
+export const registerResponseSpecialtiesMax = 5;
+
 export const registerResponseContactMax = 200;
 
 export const registerResponseNameMax = 100;
@@ -92,6 +94,30 @@ export const registerResponseCreatedAtRegExp = new RegExp(
 );
 
 export const RegisterResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(registerResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
   contact: zod
     .string()
     .max(registerResponseContactMax)
@@ -148,6 +174,8 @@ export const LoginBody = zod.object({
     ),
 });
 
+export const loginResponseSpecialtiesMax = 5;
+
 export const loginResponseContactMax = 200;
 
 export const loginResponseNameMax = 100;
@@ -168,6 +196,30 @@ export const loginResponseCreatedAtRegExp = new RegExp(
 );
 
 export const LoginResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(loginResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
   contact: zod
     .string()
     .max(loginResponseContactMax)
@@ -209,6 +261,8 @@ export const LogoutResponse = zod.void();
  * Email доступен только владельцу. completedGigsCount считается по completed: собственные публикации для customer, назначенные работы для worker.
  * @summary Текущий пользователь
  */
+export const getCurrentUserResponseSpecialtiesMax = 5;
+
 export const getCurrentUserResponseContactMax = 200;
 
 export const getCurrentUserResponseNameMax = 100;
@@ -229,6 +283,30 @@ export const getCurrentUserResponseCreatedAtRegExp = new RegExp(
 );
 
 export const GetCurrentUserResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(getCurrentUserResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
   contact: zod
     .string()
     .max(getCurrentUserResponseContactMax)
@@ -266,9 +344,11 @@ export const GetCurrentUserResponse = zod.object({
 });
 
 /**
- * Оба поля обязательны. Пустой bio очищает описание. Email и роль не редактируются.
+ * Поля name и bio обязательны. Пустой bio очищает описание. Специализации может менять только исполнитель. Email и роль не редактируются.
  * @summary Изменить свой профиль
  */
+export const updateProfileBodySpecialtiesMax = 5;
+
 export const updateProfileBodyContactMax = 200;
 
 export const updateProfileBodyNameMax = 100;
@@ -277,6 +357,30 @@ export const updateProfileBodyBioMin = 0;
 export const updateProfileBodyBioMax = 1000;
 
 export const UpdateProfileBody = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(updateProfileBodySpecialtiesMax)
+    .optional()
+    .describe(
+      "Только для исполнителя. Отсутствие сохраняет список, пустой список очищает.",
+    ),
   contact: zod
     .string()
     .max(updateProfileBodyContactMax)
@@ -287,6 +391,8 @@ export const UpdateProfileBody = zod.object({
   name: zod.string().min(1).max(updateProfileBodyNameMax),
   bio: zod.string().min(updateProfileBodyBioMin).max(updateProfileBodyBioMax),
 });
+
+export const updateProfileResponseSpecialtiesMax = 5;
 
 export const updateProfileResponseContactMax = 200;
 
@@ -308,6 +414,30 @@ export const updateProfileResponseCreatedAtRegExp = new RegExp(
 );
 
 export const UpdateProfileResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(updateProfileResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
   contact: zod
     .string()
     .max(updateProfileResponseContactMax)
@@ -350,6 +480,8 @@ export const GetPublicUserParams = zod.object({
   userId: zod.uuid(),
 });
 
+export const getPublicUserResponseSpecialtiesMax = 5;
+
 export const getPublicUserResponseNameMax = 100;
 
 export const getPublicUserResponseBioMin = 0;
@@ -362,6 +494,30 @@ export const getPublicUserResponseRatingAverageMax = 5;
 export const getPublicUserResponseReviewsCountMin = 0;
 
 export const GetPublicUserResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(getPublicUserResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(getPublicUserResponseNameMax),
   bio: zod
@@ -511,6 +667,8 @@ export const listGigsResponseItemsItemEndsAtRegExp = new RegExp(
 );
 export const listGigsResponseItemsItemAmountKopecksMax = 10000000000;
 
+export const listGigsResponseItemsItemCustomerSpecialtiesMax = 5;
+
 export const listGigsResponseItemsItemCustomerNameMax = 100;
 
 export const listGigsResponseItemsItemCustomerBioMin = 0;
@@ -602,6 +760,30 @@ export const ListGigsResponse = zod.object({
           "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
         ),
       customer: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(listGigsResponseItemsItemCustomerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod.string().min(1).max(listGigsResponseItemsItemCustomerNameMax),
         bio: zod
@@ -779,6 +961,8 @@ export const createGigResponseEndsAtRegExp = new RegExp(
 );
 export const createGigResponseAmountKopecksMax = 10000000000;
 
+export const createGigResponseCustomerSpecialtiesMax = 5;
+
 export const createGigResponseCustomerNameMax = 100;
 
 export const createGigResponseCustomerBioMin = 0;
@@ -826,6 +1010,8 @@ export const createGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const createGigResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const createGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const createGigResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -972,6 +1158,30 @@ export const CreateGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(createGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(createGigResponseCustomerNameMax),
     bio: zod
@@ -1062,6 +1272,30 @@ export const CreateGigResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(createGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -1155,6 +1389,8 @@ export const getGigResponseEndsAtRegExp = new RegExp(
 );
 export const getGigResponseAmountKopecksMax = 10000000000;
 
+export const getGigResponseCustomerSpecialtiesMax = 5;
+
 export const getGigResponseCustomerNameMax = 100;
 
 export const getGigResponseCustomerBioMin = 0;
@@ -1202,6 +1438,8 @@ export const getGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const getGigResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const getGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const getGigResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -1343,6 +1581,30 @@ export const GetGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(getGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(getGigResponseCustomerNameMax),
     bio: zod
@@ -1431,6 +1693,30 @@ export const GetGigResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(getGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -1524,6 +1810,8 @@ export const cancelGigResponseEndsAtRegExp = new RegExp(
 );
 export const cancelGigResponseAmountKopecksMax = 10000000000;
 
+export const cancelGigResponseCustomerSpecialtiesMax = 5;
+
 export const cancelGigResponseCustomerNameMax = 100;
 
 export const cancelGigResponseCustomerBioMin = 0;
@@ -1571,6 +1859,8 @@ export const cancelGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const cancelGigResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const cancelGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const cancelGigResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -1717,6 +2007,30 @@ export const CancelGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(cancelGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(cancelGigResponseCustomerNameMax),
     bio: zod
@@ -1807,6 +2121,30 @@ export const CancelGigResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(cancelGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -1900,6 +2238,8 @@ export const submitGigResponseEndsAtRegExp = new RegExp(
 );
 export const submitGigResponseAmountKopecksMax = 10000000000;
 
+export const submitGigResponseCustomerSpecialtiesMax = 5;
+
 export const submitGigResponseCustomerNameMax = 100;
 
 export const submitGigResponseCustomerBioMin = 0;
@@ -1947,6 +2287,8 @@ export const submitGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const submitGigResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const submitGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const submitGigResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -2093,6 +2435,30 @@ export const SubmitGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(submitGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(submitGigResponseCustomerNameMax),
     bio: zod
@@ -2183,6 +2549,30 @@ export const SubmitGigResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(submitGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -2276,6 +2666,8 @@ export const confirmGigResponseEndsAtRegExp = new RegExp(
 );
 export const confirmGigResponseAmountKopecksMax = 10000000000;
 
+export const confirmGigResponseCustomerSpecialtiesMax = 5;
+
 export const confirmGigResponseCustomerNameMax = 100;
 
 export const confirmGigResponseCustomerBioMin = 0;
@@ -2323,6 +2715,8 @@ export const confirmGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const confirmGigResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const confirmGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const confirmGigResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -2469,6 +2863,30 @@ export const ConfirmGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(confirmGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(confirmGigResponseCustomerNameMax),
     bio: zod
@@ -2559,6 +2977,30 @@ export const ConfirmGigResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(confirmGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -2639,6 +3081,8 @@ export const CreateApplicationBody = zod.object({
 
 export const createApplicationResponseTermsVersionDefault = 1;
 
+export const createApplicationResponseWorkerSpecialtiesMax = 5;
+
 export const createApplicationResponseWorkerNameMax = 100;
 
 export const createApplicationResponseWorkerBioMin = 0;
@@ -2671,6 +3115,30 @@ export const CreateApplicationResponse = zod.object({
   id: zod.uuid(),
   gigId: zod.uuid(),
   worker: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(createApplicationResponseWorkerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(createApplicationResponseWorkerNameMax),
     bio: zod
@@ -2742,6 +3210,8 @@ export const ListGigApplicationsQueryParams = zod.object({
 
 export const listGigApplicationsResponseItemsItemTermsVersionDefault = 1;
 
+export const listGigApplicationsResponseItemsItemWorkerSpecialtiesMax = 5;
+
 export const listGigApplicationsResponseItemsItemWorkerNameMax = 100;
 
 export const listGigApplicationsResponseItemsItemWorkerBioMin = 0;
@@ -2780,6 +3250,30 @@ export const ListGigApplicationsResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(listGigApplicationsResponseItemsItemWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -2878,6 +3372,8 @@ export const selectApplicationResponseEndsAtRegExp = new RegExp(
 );
 export const selectApplicationResponseAmountKopecksMax = 10000000000;
 
+export const selectApplicationResponseCustomerSpecialtiesMax = 5;
+
 export const selectApplicationResponseCustomerNameMax = 100;
 
 export const selectApplicationResponseCustomerBioMin = 0;
@@ -2925,6 +3421,8 @@ export const selectApplicationResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const selectApplicationResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const selectApplicationResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const selectApplicationResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -3076,6 +3574,30 @@ export const SelectApplicationResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(selectApplicationResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(selectApplicationResponseCustomerNameMax),
     bio: zod
@@ -3171,6 +3693,30 @@ export const SelectApplicationResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(selectApplicationResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -3233,6 +3779,8 @@ export const WithdrawApplicationParams = zod.object({
 
 export const withdrawApplicationResponseTermsVersionDefault = 1;
 
+export const withdrawApplicationResponseWorkerSpecialtiesMax = 5;
+
 export const withdrawApplicationResponseWorkerNameMax = 100;
 
 export const withdrawApplicationResponseWorkerBioMin = 0;
@@ -3265,6 +3813,30 @@ export const WithdrawApplicationResponse = zod.object({
   id: zod.uuid(),
   gigId: zod.uuid(),
   worker: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(withdrawApplicationResponseWorkerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(withdrawApplicationResponseWorkerNameMax),
     bio: zod
@@ -3416,6 +3988,8 @@ export const listMyGigsResponseItemsItemEndsAtRegExp = new RegExp(
 );
 export const listMyGigsResponseItemsItemAmountKopecksMax = 10000000000;
 
+export const listMyGigsResponseItemsItemCustomerSpecialtiesMax = 5;
+
 export const listMyGigsResponseItemsItemCustomerNameMax = 100;
 
 export const listMyGigsResponseItemsItemCustomerBioMin = 0;
@@ -3507,6 +4081,30 @@ export const ListMyGigsResponse = zod.object({
           "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
         ),
       customer: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(listMyGigsResponseItemsItemCustomerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -3614,6 +4212,8 @@ export const ListMyApplicationsQueryParams = zod.object({
 
 export const listMyApplicationsResponseItemsItemApplicationTermsVersionDefault = 1;
 
+export const listMyApplicationsResponseItemsItemApplicationWorkerSpecialtiesMax = 5;
+
 export const listMyApplicationsResponseItemsItemApplicationWorkerNameMax = 100;
 
 export const listMyApplicationsResponseItemsItemApplicationWorkerBioMin = 0;
@@ -3650,6 +4250,8 @@ export const listMyApplicationsResponseItemsItemGigEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const listMyApplicationsResponseItemsItemGigAmountKopecksMax = 10000000000;
+
+export const listMyApplicationsResponseItemsItemGigCustomerSpecialtiesMax = 5;
 
 export const listMyApplicationsResponseItemsItemGigCustomerNameMax = 100;
 
@@ -3702,6 +4304,32 @@ export const ListMyApplicationsResponse = zod.object({
         id: zod.uuid(),
         gigId: zod.uuid(),
         worker: zod.object({
+          specialties: zod
+            .array(
+              zod
+                .enum([
+                  "repair",
+                  "electrical",
+                  "plumbing",
+                  "cleaning",
+                  "moving",
+                  "delivery",
+                  "retail",
+                  "warehouse",
+                  "events",
+                  "other",
+                ])
+                .describe(
+                  "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+                ),
+            )
+            .max(
+              listMyApplicationsResponseItemsItemApplicationWorkerSpecialtiesMax,
+            )
+            .optional()
+            .describe(
+              "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+            ),
           id: zod.uuid(),
           name: zod
             .string()
@@ -3815,6 +4443,30 @@ export const ListMyApplicationsResponse = zod.object({
             "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
           ),
         customer: zod.object({
+          specialties: zod
+            .array(
+              zod
+                .enum([
+                  "repair",
+                  "electrical",
+                  "plumbing",
+                  "cleaning",
+                  "moving",
+                  "delivery",
+                  "retail",
+                  "warehouse",
+                  "events",
+                  "other",
+                ])
+                .describe(
+                  "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+                ),
+            )
+            .max(listMyApplicationsResponseItemsItemGigCustomerSpecialtiesMax)
+            .optional()
+            .describe(
+              "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+            ),
           id: zod.uuid(),
           name: zod
             .string()
@@ -4013,6 +4665,8 @@ export const editGigTermsResponseEndsAtRegExp = new RegExp(
 );
 export const editGigTermsResponseAmountKopecksMax = 10000000000;
 
+export const editGigTermsResponseCustomerSpecialtiesMax = 5;
+
 export const editGigTermsResponseCustomerNameMax = 100;
 
 export const editGigTermsResponseCustomerBioMin = 0;
@@ -4060,6 +4714,8 @@ export const editGigTermsResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const editGigTermsResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const editGigTermsResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const editGigTermsResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -4206,6 +4862,30 @@ export const EditGigTermsResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(editGigTermsResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(editGigTermsResponseCustomerNameMax),
     bio: zod
@@ -4296,6 +4976,30 @@ export const EditGigTermsResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(editGigTermsResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -4396,6 +5100,8 @@ export const confirmApplicationTermsResponseEndsAtRegExp = new RegExp(
 );
 export const confirmApplicationTermsResponseAmountKopecksMax = 10000000000;
 
+export const confirmApplicationTermsResponseCustomerSpecialtiesMax = 5;
+
 export const confirmApplicationTermsResponseCustomerNameMax = 100;
 
 export const confirmApplicationTermsResponseCustomerBioMin = 0;
@@ -4443,6 +5149,8 @@ export const confirmApplicationTermsResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const confirmApplicationTermsResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const confirmApplicationTermsResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const confirmApplicationTermsResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -4598,6 +5306,30 @@ export const ConfirmApplicationTermsResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(confirmApplicationTermsResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod
       .string()
@@ -4703,6 +5435,32 @@ export const ConfirmApplicationTermsResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(
+            confirmApplicationTermsResponseMyApplicationOneWorkerSpecialtiesMax,
+          )
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -4804,6 +5562,8 @@ export const acceptGigChangeResponseEndsAtRegExp = new RegExp(
 );
 export const acceptGigChangeResponseAmountKopecksMax = 10000000000;
 
+export const acceptGigChangeResponseCustomerSpecialtiesMax = 5;
+
 export const acceptGigChangeResponseCustomerNameMax = 100;
 
 export const acceptGigChangeResponseCustomerBioMin = 0;
@@ -4851,6 +5611,8 @@ export const acceptGigChangeResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const acceptGigChangeResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const acceptGigChangeResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const acceptGigChangeResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -4999,6 +5761,30 @@ export const AcceptGigChangeResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(acceptGigChangeResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(acceptGigChangeResponseCustomerNameMax),
     bio: zod
@@ -5092,6 +5878,30 @@ export const AcceptGigChangeResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(acceptGigChangeResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -5189,6 +5999,8 @@ export const rejectGigChangeResponseEndsAtRegExp = new RegExp(
 );
 export const rejectGigChangeResponseAmountKopecksMax = 10000000000;
 
+export const rejectGigChangeResponseCustomerSpecialtiesMax = 5;
+
 export const rejectGigChangeResponseCustomerNameMax = 100;
 
 export const rejectGigChangeResponseCustomerBioMin = 0;
@@ -5236,6 +6048,8 @@ export const rejectGigChangeResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const rejectGigChangeResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const rejectGigChangeResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const rejectGigChangeResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -5384,6 +6198,30 @@ export const RejectGigChangeResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(rejectGigChangeResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(rejectGigChangeResponseCustomerNameMax),
     bio: zod
@@ -5477,6 +6315,30 @@ export const RejectGigChangeResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(rejectGigChangeResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -5575,6 +6437,8 @@ export const withdrawGigChangeResponseEndsAtRegExp = new RegExp(
 );
 export const withdrawGigChangeResponseAmountKopecksMax = 10000000000;
 
+export const withdrawGigChangeResponseCustomerSpecialtiesMax = 5;
+
 export const withdrawGigChangeResponseCustomerNameMax = 100;
 
 export const withdrawGigChangeResponseCustomerBioMin = 0;
@@ -5622,6 +6486,8 @@ export const withdrawGigChangeResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const withdrawGigChangeResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const withdrawGigChangeResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
 export const withdrawGigChangeResponseMyApplicationOneWorkerNameMax = 100;
 
@@ -5773,6 +6639,30 @@ export const WithdrawGigChangeResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(withdrawGigChangeResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(withdrawGigChangeResponseCustomerNameMax),
     bio: zod
@@ -5868,6 +6758,30 @@ export const WithdrawGigChangeResponse = zod.object({
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(withdrawGigChangeResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()

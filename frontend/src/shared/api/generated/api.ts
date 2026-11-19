@@ -123,7 +123,30 @@ export interface GigReviews {
   items: Review[];
 }
 
+/**
+ * Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.
+ */
+export type CategoryCode = (typeof CategoryCode)[keyof typeof CategoryCode];
+
+export const CategoryCode = {
+  repair: "repair",
+  electrical: "electrical",
+  plumbing: "plumbing",
+  cleaning: "cleaning",
+  moving: "moving",
+  delivery: "delivery",
+  retail: "retail",
+  warehouse: "warehouse",
+  events: "events",
+  other: "other",
+} as const;
+
 export interface PublicUser {
+  /**
+   * Коды направлений исполнителя в порядке выбора. У заказчика пустой список.
+   * @maxItems 5
+   */
+  specialties?: CategoryCode[];
   id: string;
   /**
    * @minLength 1
@@ -150,6 +173,11 @@ export interface PublicUser {
 }
 
 export interface CurrentUser {
+  /**
+   * Коды направлений исполнителя в порядке выбора. У заказчика пустой список.
+   * @maxItems 5
+   */
+  specialties?: CategoryCode[];
   /**
    * Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
    * @maxLength 200
@@ -220,6 +248,11 @@ export interface LoginRequest {
 
 export interface UpdateProfileRequest {
   /**
+   * Только для исполнителя. Отсутствие сохраняет список, пустой список очищает.
+   * @maxItems 5
+   */
+  specialties?: CategoryCode[];
+  /**
    * Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
    * @maxLength 200
    */
@@ -235,24 +268,6 @@ export interface UpdateProfileRequest {
    */
   bio: string;
 }
-
-/**
- * Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.
- */
-export type CategoryCode = (typeof CategoryCode)[keyof typeof CategoryCode];
-
-export const CategoryCode = {
-  repair: "repair",
-  electrical: "electrical",
-  plumbing: "plumbing",
-  cleaning: "cleaning",
-  moving: "moving",
-  delivery: "delivery",
-  retail: "retail",
-  warehouse: "warehouse",
-  events: "events",
-  other: "other",
-} as const;
 
 export interface GigCategory {
   code: CategoryCode;
@@ -1736,7 +1751,7 @@ export const getUpdateProfileUrl = () => {
 };
 
 /**
- * Оба поля обязательны. Пустой bio очищает описание. Email и роль не редактируются.
+ * Поля name и bio обязательны. Пустой bio очищает описание. Специализации может менять только исполнитель. Email и роль не редактируются.
  * @summary Изменить свой профиль
  */
 export const updateProfile = async (

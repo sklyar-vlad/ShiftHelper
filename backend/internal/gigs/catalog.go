@@ -22,7 +22,7 @@ type GigPage struct {
 }
 
 const profilesSQL = `WITH profiles AS NOT MATERIALIZED (
-    SELECT u.id, u.name, u.bio, u.role,
+    SELECT u.id, u.name, u.bio, u.role, u.specialties,
         (SELECT count(*) FROM gigs done WHERE done.status = 'completed'
          AND ((u.role = 'customer' AND done.customer_id = u.id)
            OR (u.role = 'worker' AND done.selected_worker_id = u.id))) AS "completedGigsCount",

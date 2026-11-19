@@ -207,7 +207,7 @@ paths:
       tags:
       - Users
       summary: Изменить свой профиль
-      description: Оба поля обязательны. Пустой bio очищает описание. Email и роль не редактируются.
+      description: Поля name и bio обязательны. Пустой bio очищает описание. Специализации может менять только исполнитель. Email и роль не редактируются.
       security:
       - sessionCookie: []
       responses:
@@ -1011,6 +1011,13 @@ components:
       - ratingAverage
       - reviewsCount
       properties:
+        specialties:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CategoryCode'
+          description: Коды направлений исполнителя в порядке выбора. У заказчика пустой список.
         id:
           type: string
           format: uuid
@@ -1050,6 +1057,13 @@ components:
       - email
       - createdAt
       properties:
+        specialties:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CategoryCode'
+          description: Коды направлений исполнителя в порядке выбора. У заказчика пустой список.
         contact:
           type: string
           maxLength: 200
@@ -1138,6 +1152,13 @@ components:
       - name
       - bio
       properties:
+        specialties:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CategoryCode'
+          description: Только для исполнителя. Отсутствие сохраняет список, пустой список очищает.
         contact:
           type: string
           maxLength: 200
