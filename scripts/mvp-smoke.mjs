@@ -132,6 +132,7 @@ try {
       assert.equal(gig.submittedAt, state.submittedAt);
       assert.equal(gig.customer.ratingAverage, 4);
       assert.equal(gig.selectedWorker.ratingAverage, 5);
+      assert.deepEqual(gig.selectedWorker.specialties, ["electrical"]);
       await page.goto(`/gigs/${state.gigId}`);
       const own = page.getByRole("article", { name: "Ваш отзыв", exact: true });
       await visible(own, `${isWorker ? 4 : 5} из 5`);
@@ -159,6 +160,11 @@ try {
       );
       await page.goto("/profile");
       await visible(page, `Рейтинг: ${isWorker ? 5 : 4} из 5 · Отзывов: 1`);
+      if (isWorker)
+        await visible(
+          page.getByRole("list", { name: "Специализации", exact: true }),
+          "Электрика",
+        );
     }
     console.log(
       "PASS: accounts, completed work and history survive service restart.",
@@ -228,18 +234,18 @@ try {
 
     const title = "Перенести коробки для показа";
     await customer.goto("/gigs/new");
+    const scenarioStart = Date.now();
     const date = (offset) =>
-      new Date(Date.now() + offset).toISOString().slice(0, 16);
+      new Date(scenarioStart + offset).toISOString().slice(0, 16);
     for (const [label, value] of Object.entries({
       Название: title,
       Описание: "Помочь перенести коробки",
       Город: "Москва",
       Адрес: "Мира, 1",
       "Начало работы": date(86400000),
-      "Окончание работы": date(90000000),
       "Сумма за всё задание, ₽": "1500,50",
     }))
-      if (label === "Начало работы" || label === "Окончание работы")
+      if (label === "Начало работы")
         await chooseDateTime(customer, label, value);
       else await customer.getByLabel(label, { exact: true }).fill(value);
     const cityField = customer.getByRole("combobox", {
@@ -278,18 +284,9 @@ try {
       (id) => document.activeElement?.id === id,
       await calendarTrigger.getAttribute("id"),
     );
-    await button(customer, "На 2 часа").click();
-    assert.equal(
-      await button(customer, "На 2 часа").getAttribute("aria-pressed"),
-      "true",
-    );
-    await customer
-      .getByLabel("Время окончания", { exact: true })
-      .fill(date(90000000).split("T")[1]);
-    assert.equal(
-      await button(customer, "Свой период").getAttribute("aria-pressed"),
-      "true",
-    );
+    const fourHours = button(customer, "На 4 часа");
+    await fourHours.click();
+    assert.equal(await fourHours.getAttribute("aria-pressed"), "true");
     await button(customer, "Опубликовать").click();
     await customer.waitForURL(/\/gigs\/[0-9a-f-]+$/);
     const gigId = customer.url().split("/").at(-1);
@@ -307,6 +304,10 @@ try {
       await customer.request.get(`/api/v1${path}`)
     ).json();
     assert.equal(original.category, "moving");
+    assert.equal(
+      Date.parse(original.endsAt) - Date.parse(original.startsAt),
+      4 * 3600000,
+    );
     const categorized = original;
     await visible(customer, "Переезды и погрузка");
     await customer.screenshot({
@@ -333,7 +334,14 @@ try {
     await worker.waitForURL(
       (url) => url.searchParams.get("city") === "Киров, Калужская область",
     );
+    await worker.emulateMedia({ reducedMotion: "reduce" });
     await button(worker, "Фильтры +").click();
+    assert.equal(
+      await worker
+        .locator(".catalog-filter-options")
+        .evaluate((el) => getComputedStyle(el).animationName),
+      "none",
+    );
     await worker
       .getByLabel("Категория", { exact: true })
       .selectOption("moving");
@@ -349,6 +357,10 @@ try {
     await mobileCalendar.click();
     const calendarPanel = worker.locator(".date-picker-popover");
     await calendarPanel.waitFor();
+    assert.equal(
+      await calendarPanel.evaluate((el) => getComputedStyle(el).animationName),
+      "none",
+    );
     const calendarBounds = await calendarPanel.boundingBox();
     assert.ok(
       calendarBounds.x >= 0 && calendarBounds.x + calendarBounds.width <= 375,
@@ -369,11 +381,23 @@ try {
     await calendarPanel.waitFor({ state: "hidden" });
     await worker
       .getByLabel("Длительность", { exact: true })
-      .selectOption("120");
+      .selectOption("240");
     await worker
       .getByLabel("Сортировка", { exact: true })
       .selectOption("nearest");
+    const filteredResponse = worker.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        url.pathname === "/api/v1/gigs" &&
+        url.searchParams.get("category") === "moving" &&
+        url.searchParams.get("maxDurationMinutes") === "240" &&
+        url.searchParams.get("sort") === "nearest"
+      );
+    });
     await button(worker, "Применить").click();
+    const filtered = await filteredResponse;
+    assert.equal(filtered.status(), 200);
+    assert.ok((await filtered.json()).items.some((item) => item.id === gigId));
     await link(worker, title).waitFor();
     assert.equal(new URL(worker.url()).searchParams.get("category"), "moving");
     assert.equal(
@@ -404,7 +428,7 @@ try {
       })
       .click();
     await worker.waitForURL((url) => !url.searchParams.has("category"));
-    assert.equal(new URL(worker.url()).searchParams.get("duration"), "120");
+    assert.equal(new URL(worker.url()).searchParams.get("duration"), "240");
     await worker.goBack();
     await link(worker, title).waitFor();
     await link(worker, title).click();
@@ -440,6 +464,20 @@ try {
       .getByText("Кандидат ещё не подтвердил новые условия.", { exact: true })
       .first()
       .waitFor();
+    const staleApplication = await (
+      await worker.request.get(`/api/v1${path}`)
+    ).json();
+    assert.equal(
+      staleApplication.myApplication.termsVersion,
+      original.termsVersion,
+    );
+    const staleAgreement = await post(
+      worker,
+      `${path}/applications/${staleApplication.myApplication.id}/confirm-terms`,
+      { termsVersion: original.termsVersion },
+      409,
+    );
+    assert.equal((await staleAgreement.json()).error.code, "STATE_CONFLICT");
     for (const page of [worker, second]) {
       await page.goto(path);
       await visible(page, "Ремонт и сборка");
@@ -687,11 +725,61 @@ try {
         path: `/state/review-${score === 5 ? "desktop" : "mobile"}.png`,
         fullPage: true,
       });
+      if (page === worker) {
+        const reviewsURL = `**/api/v1${path}/reviews`;
+        const failSave = (route) =>
+          route.request().method() === "POST"
+            ? route.fulfill({
+                status: 503,
+                json: {
+                  error: {
+                    code: "INTERNAL_ERROR",
+                    message: "Сервис временно недоступен.",
+                  },
+                },
+              })
+            : route.continue();
+        await page.route(reviewsURL, failSave);
+        await button(page, "Отправить оценку").click();
+        await page
+          .getByRole("alert")
+          .filter({ hasText: "Сервис временно недоступен." })
+          .waitFor();
+        assert.equal(
+          await page
+            .getByLabel("Отзыв (необязательно)", { exact: true })
+            .inputValue(),
+          "Спасибо за работу",
+        );
+        assert.equal(
+          await rating.getByRole("radio", { name: /^4 из 5/ }).isChecked(),
+          true,
+        );
+        assert.equal(await page.locator(".review-success").count(), 0);
+        await page.unroute(reviewsURL, failSave);
+      }
       await button(page, "Отправить оценку").click();
       await visible(
         page.getByRole("article", { name: "Ваш отзыв", exact: true }),
         `${score} из 5`,
       );
+      if (page === worker) {
+        const confirmation = page.locator(".review-success");
+        await confirmation.waitFor();
+        assert.equal(
+          await confirmation.evaluate(
+            (el) => getComputedStyle(el).animationName,
+          ),
+          "none",
+        );
+        const duplicate = await post(
+          page,
+          `${path}/reviews`,
+          { score, comment: "Повтор" },
+          409,
+        );
+        assert.equal((await duplicate.json()).error.code, "ALREADY_REVIEWED");
+      }
       assert.equal(
         await page
           .getByRole("form", { name: "Оценить вторую сторону" })
