@@ -216,6 +216,9 @@
   .catalog-filter-options {
     grid-template-columns: minmax(0, 1fr);
   }
+  .catalog-filter-options[data-expanded="true"] {
+    animation: ui-reveal 180ms ease-out;
+  }
   .catalog-filter-options[data-expanded="false"] {
     display: none;
   }
