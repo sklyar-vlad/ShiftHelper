@@ -179,3 +179,7 @@
   align-items: center;
   justify-content: center;
 }
+
+.date-picker-popover[data-entering] {
+  animation: ui-reveal 160ms ease-out;
+}
