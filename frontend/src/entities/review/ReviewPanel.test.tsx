@@ -134,9 +134,9 @@ it("requires a score, prevents duplicate sends and shows the saved result", asyn
   expect(screen.queryByText("Спасибо! Оценка сохранена.")).toBeNull();
   finish(json(review, 201));
   await screen.findByText("Спасибо! Оценка сохранена.");
-  await within(screen.getByRole("article", { name: "Ваш отзыв" })).findByText(
-    "5 из 5",
-  );
+  await within(
+    await screen.findByRole("article", { name: "Ваш отзыв" }),
+  ).findByText("5 из 5");
   expect(screen.getByText(review.comment)).toBeTruthy();
   expect(screen.queryByRole("form")).toBeNull();
 });
@@ -166,9 +166,9 @@ it("keeps the entered values after an error and allows retry", async () => {
       .checked,
   ).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Отправить оценку" }));
-  await within(screen.getByRole("article", { name: "Ваш отзыв" })).findByText(
-    "5 из 5",
-  );
+  await within(
+    await screen.findByRole("article", { name: "Ваш отзыв" }),
+  ).findByText("5 из 5");
   expect(attempts).toBe(2);
 });
 
@@ -187,9 +187,9 @@ it("loads an existing review after a conflict and removes the form", async () =>
   await screen.findByRole("form");
   fireEvent.click(screen.getByRole("radio", { name: /^4 из 5/ }));
   fireEvent.click(screen.getByRole("button", { name: "Отправить оценку" }));
-  await within(screen.getByRole("article", { name: "Ваш отзыв" })).findByText(
-    "5 из 5",
-  );
+  await within(
+    await screen.findByRole("article", { name: "Ваш отзыв" }),
+  ).findByText("5 из 5");
   expect(screen.queryByRole("form")).toBeNull();
 });
 
@@ -216,9 +216,9 @@ it("waits for review loading before allowing a new review and supports retry", a
   expect(screen.queryByRole("form")).toBeNull();
   fail = false;
   fireEvent.click(screen.getByRole("button", { name: "Попробовать ещё раз" }));
-  await within(screen.getByRole("article", { name: "Ваш отзыв" })).findByText(
-    "5 из 5",
-  );
+  await within(
+    await screen.findByRole("article", { name: "Ваш отзыв" }),
+  ).findByText("5 из 5");
   const received = within(
     screen.getByRole("article", { name: "Отзыв другой стороны" }),
   );
