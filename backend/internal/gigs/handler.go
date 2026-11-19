@@ -120,7 +120,7 @@ func scanGig(row pgx.Row, customer *auth.User) (Gig, error) {
 		&gig.StartsAt, &gig.EndsAt, &gig.AmountKopecks, &gig.Status, &gig.CreatedAt, &gig.UpdatedAt,
 		&gig.SubmittedAt, &gig.CompletedAt, &gig.CancelledAt, &gig.TermsVersion, &gig.Category)
 	gig.Customer = users.PublicUser{ID: customer.ID, Name: customer.Name, Bio: customer.Bio,
-		Role: customer.Role, CompletedGigsCount: customer.CompletedGigsCount}
+		Role: customer.Role, Specialties: customer.Specialties, CompletedGigsCount: customer.CompletedGigsCount}
 	for _, stamp := range []*time.Time{&gig.StartsAt, &gig.EndsAt, &gig.CreatedAt, &gig.UpdatedAt,
 		gig.SubmittedAt, gig.CompletedAt, gig.CancelledAt} {
 		if stamp != nil {

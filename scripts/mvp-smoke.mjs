@@ -190,8 +190,32 @@ try {
       await page
         .getByLabel("Как со мной связаться", { exact: true })
         .fill(contact);
+      if (page === worker)
+        await page
+          .getByRole("checkbox", { name: "Электрика", exact: true })
+          .check();
+      else
+        assert.equal(
+          await page
+            .getByRole("group", { name: "Специализации", exact: true })
+            .count(),
+          0,
+        );
       await button(page, "Сохранить").click();
       await visible(page, "Профиль сохранён.");
+      if (page === worker) {
+        await page.reload();
+        await visible(
+          page.getByRole("list", { name: "Специализации", exact: true }),
+          "Электрика",
+        );
+        assert.equal(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+          true,
+        );
+      }
     }
     await customer.goto("/my-gigs");
     await visible(customer, "Заданий пока нет");
@@ -425,9 +449,14 @@ try {
       });
     }
     await customer.reload();
-    await customer
+    const applicant = customer
       .locator(".application-card")
-      .filter({ hasText: "Первый исполнитель" })
+      .filter({ hasText: "Первый исполнитель" });
+    await visible(
+      applicant.getByRole("list", { name: "Специализации", exact: true }),
+      "Электрика",
+    );
+    await applicant
       .getByRole("button", { name: "Выбрать исполнителя", exact: true })
       .click();
     await visible(customer, "В работе");

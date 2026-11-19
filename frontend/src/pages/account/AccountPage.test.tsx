@@ -6,10 +6,14 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/shared/model/session";
-import { getGetCurrentUserQueryKey } from "@/shared/api/generated/api";
+import {
+  type CurrentUser,
+  getGetCurrentUserQueryKey,
+} from "@/shared/api/generated/api";
 import { UserCard } from "@/entities/user/UserCard";
 import { AccountPage } from "./AccountPage";
 
@@ -34,11 +38,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function mount(send: (init: RequestInit) => Promise<Response>) {
+const categories = [
+  { code: "moving", name: "Переезды" },
+  { code: "repair", name: "Ремонт" },
+  { code: "cleaning", name: "Уборка" },
+  { code: "electrical", name: "Электрика" },
+  { code: "delivery", name: "Доставка" },
+  { code: "other", name: "Другое" },
+];
+
+async function mount(
+  send: (init: RequestInit) => Promise<Response>,
+  profile: CurrentUser = user,
+) {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (_url: string, init: RequestInit) =>
-      init.method === "PATCH" ? send(init) : json(user),
+    vi.fn(async (url: string, init: RequestInit) =>
+      url === "/api/v1/gig-categories"
+        ? json(categories)
+        : init.method === "PATCH"
+          ? send(init)
+          : json(profile),
     ),
   );
   const client = new QueryClient({
@@ -180,4 +200,63 @@ it("saves and clears the optional private contact", async () => {
   submit();
   await screen.findByText("Профиль сохранён.");
   expect(JSON.parse(send.mock.calls[1][0].body as string).contact).toBe("");
+});
+
+it("limits selection to five and preserves the draft when saving fails", async () => {
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
+    json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Ошибка",
+          fields: { specialties: ["Проверьте направления"] },
+        },
+      },
+      400,
+    ),
+  );
+  await mount(send);
+  const group = within(
+    await screen.findByRole("group", { name: "Специализации" }),
+  );
+  await group.findByRole("checkbox", { name: "Переезды" });
+  const controls = group.getAllByRole<HTMLInputElement>("checkbox");
+  controls.slice(0, 5).forEach((control) => fireEvent.click(control));
+  expect(controls[5].disabled).toBe(true);
+  fireEvent.click(controls[0]);
+  expect(controls[5].disabled).toBe(false);
+  fireEvent.click(controls[5]);
+  submit();
+  await screen.findByText("Проверьте направления");
+  expect(controls[5].checked).toBe(true);
+  expect(JSON.parse(send.mock.calls[0][0].body as string).specialties).toEqual([
+    "repair",
+    "cleaning",
+    "electrical",
+    "delivery",
+    "other",
+  ]);
+});
+
+it("shows saved specialties and sends an empty list when clearing", async () => {
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
+    json({ ...user, specialties: [] }),
+  );
+  await mount(send, { ...user, specialties: ["moving"] });
+  const list = await screen.findByRole("list", { name: "Специализации" });
+  expect(await within(list).findByText("Переезды")).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Очистить специализации" }),
+  );
+  submit();
+  await screen.findByText("Профиль сохранён.");
+  expect(JSON.parse(send.mock.calls[0][0].body as string).specialties).toEqual(
+    [],
+  );
+  expect(screen.queryByRole("list", { name: "Специализации" })).toBeNull();
+});
+
+it("does not offer a specialty editor for customers", async () => {
+  await mount(async () => json(user), { ...user, role: "customer" });
+  expect(screen.queryByRole("group", { name: "Специализации" })).toBeNull();
 });

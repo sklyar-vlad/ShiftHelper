@@ -1,3 +1,5 @@
+import { SpecialtyBadges } from "@/entities/user/SpecialtyBadges";
+import { SpecialtyFields } from "./SpecialtyFields";
 import { RatingSummary } from "@/entities/user/RatingSummary";
 import { roleNames, useSession } from "@/shared/model/session";
 import { useRef, useState } from "react";
@@ -7,6 +9,7 @@ import {
   getGetCurrentUserQueryKey,
   updateProfile,
   type CurrentUser,
+  type CategoryCode,
   type UpdateProfileRequest,
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
@@ -56,6 +59,18 @@ export function AccountPage() {
             <dt>О себе</dt>
             <dd>{user.bio || "Описание пока не добавлено"}</dd>
           </div>
+          {user.role === "worker" && (
+            <div>
+              <dt>Специализации</dt>
+              <dd>
+                {user.specialties?.length ? (
+                  <SpecialtyBadges codes={user.specialties} />
+                ) : (
+                  "Направления пока не выбраны"
+                )}
+              </dd>
+            </div>
+          )}
         </dl>
         {editing ? (
           <ProfileForm
@@ -97,6 +112,8 @@ function ProfileForm({
   const busy = useRef(false);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
+  const [specialties, setSpecialties] = useState<CategoryCode[]>();
+  const [specialtyError, setSpecialtyError] = useState("");
   const {
     register,
     handleSubmit,
@@ -114,11 +131,15 @@ function ProfileForm({
     busy.current = true;
     setWorking(true);
     setMessage("");
+    setSpecialtyError("");
     try {
       const updated = await updateProfile({
         name: values.name.trim(),
         bio: values.bio.trim(),
         contact: values.contact?.trim() ?? "",
+        ...(user.role === "worker" && specialties !== undefined
+          ? { specialties }
+          : {}),
       });
       const key = getGetCurrentUserQueryKey();
       await client.cancelQueries({ queryKey: key });
@@ -129,7 +150,12 @@ function ProfileForm({
       });
       onClose(true);
     } catch (error) {
-      let matched = false;
+      const specialtyMessage =
+        error instanceof ApiError
+          ? error.details?.fields?.specialties?.[0]
+          : undefined;
+      if (specialtyMessage) setSpecialtyError(specialtyMessage);
+      let matched = !!specialtyMessage;
       for (const name of ["name", "bio", "contact"] as const) {
         const text =
           error instanceof ApiError
@@ -222,6 +248,16 @@ function ProfileForm({
             {errors.contact?.message}
           </p>
         </div>
+        {user.role === "worker" && (
+          <SpecialtyFields
+            value={specialties ?? user.specialties ?? []}
+            onChange={(codes) => {
+              setSpecialties(codes);
+              setSpecialtyError("");
+            }}
+            error={specialtyError}
+          />
+        )}
         {message && (
           <p className="notice notice-error" role="alert">
             {message}

@@ -31,7 +31,7 @@ func scanApplication(row pgx.Row, worker *auth.User) (Application, error) {
 	var application Application
 	err := row.Scan(&application.ID, &application.GigID, &application.Comment, &application.Status, &application.CreatedAt, &application.UpdatedAt, &application.TermsVersion)
 	application.Worker = users.PublicUser{ID: worker.ID, Name: worker.Name, Bio: worker.Bio,
-		Role: worker.Role, CompletedGigsCount: worker.CompletedGigsCount,
+		Role: worker.Role, Specialties: worker.Specialties, CompletedGigsCount: worker.CompletedGigsCount,
 		RatingAverage: worker.RatingAverage, ReviewsCount: worker.ReviewsCount}
 	application.CreatedAt = application.CreatedAt.UTC()
 	application.UpdatedAt = application.UpdatedAt.UTC()
