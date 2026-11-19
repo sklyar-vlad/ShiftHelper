@@ -1,3 +1,4 @@
+import { RatingSummary } from "./RatingSummary";
 import type { PublicUser } from "@/shared/api/generated/api";
 import { roleNames } from "@/shared/model/session";
 
@@ -9,9 +10,7 @@ export function UserCard({ user }: { user: PublicUser }) {
         {roleNames[user.role]} · Завершено заданий: {user.completedGigsCount}
       </p>
       <p className="small muted">
-        {user.ratingAverage == null || !user.reviewsCount
-          ? "Пока нет оценок"
-          : `Рейтинг: ${user.ratingAverage.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} из 5 · Отзывов: ${user.reviewsCount}`}
+        <RatingSummary user={user} />
       </p>
       <p className="user-bio small">
         {user.bio || "Описание пока не добавлено"}

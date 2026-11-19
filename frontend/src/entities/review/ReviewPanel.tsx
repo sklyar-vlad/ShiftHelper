@@ -1,4 +1,4 @@
-import { StarRating } from "@/shared/ui/StarRating";
+import { ReadonlyStars, StarRating } from "@/shared/ui/StarRating";
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -7,17 +7,21 @@ import {
   getListGigReviewsQueryKey,
   useListGigReviews,
   type CurrentUser,
+  type PublicUser,
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
-import { StatusPanel } from "@/shared/ui/StatusPanel";
+import { roleNames } from "@/shared/model/session";
+import { formatDateTime } from "@/shared/lib/format";
 import "./review-panel.css";
 
 export function ReviewPanel({
   gigId,
   user,
+  counterpart,
 }: {
   gigId: string;
   user: CurrentUser;
+  counterpart?: PublicUser | null;
 }) {
   const client = useQueryClient();
   const key = [...getListGigReviewsQueryKey(gigId), user.id];
@@ -95,27 +99,61 @@ export function ReviewPanel({
         </p>
       )}
       {query.isPending ? (
-        <StatusPanel title="Загружаем отзывы" pending />
+        <p className="muted" role="status">
+          Загружаем отзывы
+        </p>
       ) : query.isError ? (
-        <StatusPanel
-          title="Не удалось загрузить отзывы"
-          retry={() => void query.refetch()}
-        />
+        <div className="notice notice-error">
+          <p role="alert">Не удалось загрузить отзывы</p>
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => void query.refetch()}
+          >
+            Попробовать ещё раз
+          </button>
+        </div>
       ) : (
         <>
-          {query.data.items.map((review) => (
-            <div key={review.id}>
-              <p>
-                <strong>
-                  {review.authorId === user.id
-                    ? "Ваша оценка"
-                    : "Оценка второй стороны"}
-                  : {review.score} из 5
-                </strong>
-              </p>
-              {review.comment && <p className="gig-text">{review.comment}</p>}
-            </div>
-          ))}
+          <div className="review-cards">
+            {[true, false].map((own) => {
+              const title = own ? "Ваш отзыв" : "Отзыв другой стороны";
+              const review = query.data.items.find(
+                (item) => (item.authorId === user.id) === own,
+              );
+              const author = own
+                ? user
+                : counterpart?.id === review?.authorId
+                  ? counterpart
+                  : null;
+              return (
+                <article className="review-card" aria-label={title} key={title}>
+                  <h3>{title}</h3>
+                  {review ? (
+                    <>
+                      {author && (
+                        <p>
+                          <strong>{author.name}</strong> ·{" "}
+                          {roleNames[author.role]}
+                        </p>
+                      )}
+                      <time className="small muted" dateTime={review.createdAt}>
+                        {formatDateTime(review.createdAt)}
+                      </time>
+                      <ReadonlyStars score={review.score} />
+                      <p className="review-comment">
+                        {review.comment.trim()
+                          ? review.comment
+                          : "Без комментария"}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="small muted">Отзыв ещё не оставлен</p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
           {!query.data.items.some((review) => review.authorId === user.id) && (
             <form
               aria-label="Оценить вторую сторону"

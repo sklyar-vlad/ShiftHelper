@@ -21,14 +21,16 @@
   border-radius: 12px;
   cursor: pointer;
 }
-.star-rating-option svg {
+.star-rating-option svg,
+.star-rating-mark svg {
   width: 32px;
   height: 32px;
   fill: white;
   stroke: #67717c;
   stroke-width: 1.5;
 }
-.star-rating-option[data-filled="true"] svg {
+.star-rating-option[data-filled="true"] svg,
+.star-rating-mark[data-filled="true"] svg {
   fill: #00f0a0;
   stroke: #007c54;
 }
@@ -47,4 +49,16 @@
   min-height: 22px;
   font-size: 14px;
   color: #00583c;
+}
+
+.readonly-stars {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.star-rating-mark svg {
+  display: block;
+  width: 20px;
+  height: 20px;
 }

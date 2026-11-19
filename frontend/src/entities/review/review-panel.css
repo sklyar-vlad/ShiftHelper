@@ -18,3 +18,25 @@
     padding: 20px 16px;
   }
 }
+
+.review-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+}
+.review-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow-wrap: anywhere;
+}
+.review-card h3,
+.review-card p {
+  margin: 0;
+}
+.review-comment {
+  white-space: pre-wrap;
+}

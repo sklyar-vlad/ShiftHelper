@@ -1,3 +1,4 @@
+import { RatingSummary } from "@/entities/user/RatingSummary";
 import { roleNames, useSession } from "@/shared/model/session";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -33,6 +34,12 @@ export function AccountPage() {
           </div>
         </div>
         <dl className="profile-details">
+          <div>
+            <dt>Оценки</dt>
+            <dd>
+              <RatingSummary user={user} />
+            </dd>
+          </div>
           <div>
             <dt>Email</dt>
             <dd>{user.email}</dd>
