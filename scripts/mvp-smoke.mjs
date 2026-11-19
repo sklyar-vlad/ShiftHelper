@@ -133,13 +133,32 @@ try {
       assert.equal(gig.customer.ratingAverage, 4);
       assert.equal(gig.selectedWorker.ratingAverage, 5);
       await page.goto(`/gigs/${state.gigId}`);
-      await visible(page, `Ваша оценка: ${isWorker ? 4 : 5} из 5`);
+      const own = page.getByRole("article", { name: "Ваш отзыв", exact: true });
+      await visible(own, `${isWorker ? 4 : 5} из 5`);
+      const other = page.getByRole("article", {
+        name: "Отзыв другой стороны",
+        exact: true,
+      });
+      await visible(other, `${isWorker ? 5 : 4} из 5`);
+      assert.equal(await other.locator("time").count(), 1);
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        true,
+      );
+      await page.screenshot({
+        path: `/state/review-cards-${isWorker ? "mobile" : "desktop"}.png`,
+        fullPage: true,
+      });
       assert.equal(
         await page
           .getByRole("form", { name: "Оценить вторую сторону" })
           .count(),
         0,
       );
+      await page.goto("/profile");
+      await visible(page, `Рейтинг: ${isWorker ? 5 : 4} из 5 · Отзывов: 1`);
     }
     console.log(
       "PASS: accounts, completed work and history survive service restart.",
@@ -640,7 +659,10 @@ try {
         fullPage: true,
       });
       await button(page, "Отправить оценку").click();
-      await visible(page, `Ваша оценка: ${score} из 5`);
+      await visible(
+        page.getByRole("article", { name: "Ваш отзыв", exact: true }),
+        `${score} из 5`,
+      );
       assert.equal(
         await page
           .getByRole("form", { name: "Оценить вторую сторону" })

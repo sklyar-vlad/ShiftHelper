@@ -118,6 +118,11 @@ export function GigPage() {
                 key={`review:${gigId}:${session.user.id}`}
                 gigId={gigId}
                 user={session.user}
+                counterpart={
+                  session.user.id === query.data.customer.id
+                    ? query.data.selectedWorker
+                    : query.data.customer
+                }
               />
             )}
         </article>

@@ -45,9 +45,7 @@ export function StarRating({
               }}
               onHoverEnd={() => setPreview(0)}
             >
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.4l6.3-.9Z" />
-              </svg>
+              <StarIcon />
             </Radio>
           );
         })}
@@ -56,5 +54,32 @@ export function StarRating({
         {value === null ? "Выберите оценку от 1 до 5" : descriptions[value - 1]}
       </Text>
     </RadioGroup>
+  );
+}
+
+function StarIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.4l6.3-.9Z" />
+    </svg>
+  );
+}
+
+export function ReadonlyStars({ score }: { score: number }) {
+  return (
+    <div className="readonly-stars">
+      <span aria-hidden="true" className="star-rating-options">
+        {descriptions.map((description, index) => (
+          <span
+            key={description}
+            className="star-rating-mark"
+            data-filled={index < score}
+          >
+            <StarIcon />
+          </span>
+        ))}
+      </span>
+      <span className="small muted">{score} из 5</span>
+    </div>
   );
 }
