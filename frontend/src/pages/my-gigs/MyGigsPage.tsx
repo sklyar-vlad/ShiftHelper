@@ -136,7 +136,7 @@ function PersonalGigs({ user }: { user: CurrentUser }) {
                       {gig.title}
                     </Link>
                   </h2>
-                  <GigFacts gig={gig} />
+                  <GigFacts gig={gig} viewerId={user.id} />
                   {gig.hasPendingChange &&
                     (!worker || gig.selectedWorker?.id === user.id) && (
                       <p className="notice">

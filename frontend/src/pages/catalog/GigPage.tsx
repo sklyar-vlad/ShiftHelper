@@ -5,6 +5,7 @@ import { getGetGigQueryKey, useGetGig } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { GigFacts, gigStatusNames } from "@/entities/gig/GigFacts";
+import { ReportAction } from "@/entities/report/ReportAction";
 import { UserCard } from "@/entities/user/UserCard";
 import { ReviewPanel } from "@/entities/review/ReviewPanel";
 import { useSession } from "@/shared/model/session";
@@ -97,11 +98,11 @@ export function GigPage() {
           retry={() => void query.refetch()}
         />
       ) : (
-        <article className="gig-card gig-detail">
+        <article className="gig-card gig-detail" key={gigId}>
           <span className="badge">{gigStatusNames[query.data.status]}</span>
           <h1>{query.data.title}</h1>
           <CopyGigLink key={gigId} gigId={query.data.id} />
-          <GigFacts gig={query.data} />
+          <GigFacts gig={query.data} viewerId={session.user?.id} />
           <p className="small muted">
             Даты и время указаны в вашем часовом поясе.
           </p>
@@ -118,7 +119,10 @@ export function GigPage() {
           {query.data.selectedWorker && (
             <section>
               <h2>Выбранный исполнитель</h2>
-              <UserCard user={query.data.selectedWorker} />
+              <UserCard
+                user={query.data.selectedWorker}
+                viewerId={session.user?.id}
+              />
             </section>
           )}
           {query.data.counterpartyContact !== undefined && (
@@ -138,6 +142,16 @@ export function GigPage() {
           <p className="notice">
             Оплата — напрямую между заказчиком и исполнителем по договорённости.
           </p>
+          {session.user?.id !== query.data.customer.id && (
+            <ReportAction
+              viewerId={session.user?.id}
+              target={{
+                type: "gig",
+                id: query.data.id,
+                name: query.data.title,
+              }}
+            />
+          )}
           <TermsPanel
             key={`terms:${gigId}:${session.user?.id ?? "guest"}`}
             gig={query.data}

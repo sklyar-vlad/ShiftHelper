@@ -1,9 +1,16 @@
+import { ReportAction } from "@/entities/report/ReportAction";
 import { SpecialtyBadges } from "./SpecialtyBadges";
 import { RatingSummary } from "./RatingSummary";
 import type { PublicUser } from "@/shared/api/generated/api";
 import { roleNames } from "@/shared/model/session";
 
-export function UserCard({ user }: { user: PublicUser }) {
+export function UserCard({
+  user,
+  viewerId,
+}: {
+  user: PublicUser;
+  viewerId?: string;
+}) {
   return (
     <div className="user-card">
       <strong>{user.name}</strong>
@@ -19,6 +26,12 @@ export function UserCard({ user }: { user: PublicUser }) {
       <p className="user-bio small">
         {user.bio || "Описание пока не добавлено"}
       </p>
+      {viewerId !== user.id && (
+        <ReportAction
+          viewerId={viewerId}
+          target={{ type: "user", id: user.id, name: user.name }}
+        />
+      )}
     </div>
   );
 }

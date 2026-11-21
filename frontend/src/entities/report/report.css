@@ -1,0 +1,51 @@
+.report-trigger {
+  width: fit-content;
+  min-height: 44px;
+  text-align: start;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.report-overlay {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 45%);
+}
+
+.report-modal {
+  width: min(100%, 480px);
+  max-height: 100%;
+  overflow: auto;
+  padding: clamp(16px, 5vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 12%);
+}
+
+.report-dialog h2 {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.report-target {
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-dialog form {
+  margin-top: 20px;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}

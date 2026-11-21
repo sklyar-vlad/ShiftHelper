@@ -33,7 +33,13 @@ export function applicationStatusText(
   return applicationStatuses[status];
 }
 
-export function GigFacts({ gig }: { gig: GigSummary }) {
+export function GigFacts({
+  gig,
+  viewerId,
+}: {
+  gig: GigSummary;
+  viewerId?: string;
+}) {
   return (
     <>
       <GigCategory code={gig.category} />
@@ -60,7 +66,7 @@ export function GigFacts({ gig }: { gig: GigSummary }) {
         <div>
           <dt>Заказчик</dt>
           <dd>
-            <UserCard user={gig.customer} />
+            <UserCard user={gig.customer} viewerId={viewerId} />
           </dd>
         </div>
       </dl>

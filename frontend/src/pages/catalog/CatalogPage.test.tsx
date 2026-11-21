@@ -43,7 +43,11 @@ function stubFetch(
             { code: "other", name: "Другое" },
           ]),
         )
-      : fetch(url, init),
+      : url === "/api/v1/me"
+        ? Promise.resolve(
+            json({ error: { code: "UNAUTHORIZED", message: "Войдите" } }, 401),
+          )
+        : fetch(url, init),
   );
 }
 
@@ -52,33 +56,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mount(url = "/catalog", withSession = false) {
+function mount(url = "/catalog") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   const router = createMemoryRouter(
     [
       { path: "/catalog", element: <CatalogPage /> },
-      {
-        path: "/gigs/:gigId",
-        element: (
-          <SessionProvider>
-            <GigPage />
-          </SessionProvider>
-        ),
-      },
+      { path: "/gigs/:gigId", element: <GigPage /> },
     ],
     { initialEntries: [url] },
   );
   render(
     <QueryClientProvider client={client}>
-      {withSession ? (
-        <SessionProvider>
-          <RouterProvider router={router} />
-        </SessionProvider>
-      ) : (
+      <SessionProvider>
         <RouterProvider router={router} />
-      )}
+      </SessionProvider>
     </QueryClientProvider>,
   );
   return router;
@@ -87,18 +80,13 @@ function mount(url = "/catalog", withSession = false) {
 it("finishes the initial public catalog request when the session resolves as guest", async () => {
   let finish: (response: Response) => void = () => {};
   stubFetch(
-    vi.fn(async (url: string) => {
-      if (url === "/api/v1/me")
-        return json(
-          { error: { code: "UNAUTHORIZED", message: "Войдите" } },
-          401,
-        );
+    vi.fn(async () => {
       return new Promise<Response>((resolve) => {
         finish = resolve;
       });
     }),
   );
-  mount("/catalog", true);
+  mount("/catalog");
   await screen.findByRole("heading", { name: "Загружаем подработки" });
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 20));

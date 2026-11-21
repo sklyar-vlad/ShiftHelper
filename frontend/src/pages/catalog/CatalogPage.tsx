@@ -1,6 +1,7 @@
 import { Link, useSearchParams, useNavigate } from "react-router";
 import { useListGigs } from "@/shared/api/generated/api";
 import { useGigCategories } from "@/entities/gig/GigCategory";
+import { useSession } from "@/shared/model/session";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { GigFacts } from "@/entities/gig/GigFacts";
 import { CatalogFilters } from "./CatalogFilters";
@@ -17,6 +18,7 @@ import {
 import "./catalog.css";
 
 export function CatalogPage() {
+  const { user } = useSession();
   const [search] = useSearchParams();
   const navigate = useNavigate();
   const filters = readFilters(search);
@@ -152,7 +154,7 @@ export function CatalogPage() {
                       {gig.title}
                     </Link>
                   </h2>
-                  <GigFacts gig={gig} />
+                  <GigFacts gig={gig} viewerId={user?.id} />
                 </article>
               ))}
             </div>
