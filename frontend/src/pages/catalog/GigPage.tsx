@@ -1,4 +1,5 @@
 import { TermsPanel } from "./TermsPanel";
+import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { getGetGigQueryKey, useGetGig } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
@@ -9,6 +10,43 @@ import { ReviewPanel } from "@/entities/review/ReviewPanel";
 import { useSession } from "@/shared/model/session";
 import { ApplicationPanel } from "./ApplicationPanel";
 import "./catalog.css";
+
+function CopyGigLink({ gigId }: { gigId: string }) {
+  const [status, setStatus] = useState<"idle" | "copying" | "copied" | "error">(
+    "idle",
+  );
+
+  async function copyLink() {
+    if (status === "copying") return;
+    setStatus("copying");
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/gigs/${encodeURIComponent(gigId)}`,
+      );
+      setStatus("copied");
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  return (
+    <div className="gig-copy-link">
+      <button
+        type="button"
+        className="button button-secondary button-small"
+        disabled={status === "copying"}
+        onClick={() => void copyLink()}
+      >
+        Скопировать ссылку
+      </button>
+      <span className="small muted" role="status">
+        {status === "copied" && "Ссылка скопирована"}
+        {status === "error" &&
+          "Не удалось скопировать ссылку. Скопируйте адрес из строки браузера"}
+      </span>
+    </div>
+  );
+}
 
 export function GigPage() {
   const { gigId = "" } = useParams();
@@ -62,6 +100,7 @@ export function GigPage() {
         <article className="gig-card gig-detail">
           <span className="badge">{gigStatusNames[query.data.status]}</span>
           <h1>{query.data.title}</h1>
+          <CopyGigLink key={gigId} gigId={query.data.id} />
           <GigFacts gig={query.data} />
           <p className="small muted">
             Даты и время указаны в вашем часовом поясе.
