@@ -159,6 +159,12 @@
   font-size: 42px;
   margin-block: 24px;
 }
+.gig-copy-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
 .gig-detail h2 {
   margin-top: 32px;
   font-size: 28px;

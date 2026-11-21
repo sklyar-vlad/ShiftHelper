@@ -71,6 +71,7 @@ afterEach(() => {
 function mount(
   handler: (url: string, init: RequestInit) => Promise<Response>,
   user: CurrentUser | null = worker,
+  initialEntry = "/gigs/gig-1",
 ) {
   vi.stubGlobal(
     "fetch",
@@ -93,7 +94,7 @@ function mount(
   });
   const router = createMemoryRouter(
     [{ path: "/gigs/:gigId", element: <GigPage /> }],
-    { initialEntries: ["/gigs/gig-1"] },
+    { initialEntries: [initialEntry] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -102,8 +103,92 @@ function mount(
       </SessionProvider>
     </QueryClientProvider>,
   );
-  return client;
+  return { client, router };
 }
+
+const copyButton = { name: "Скопировать ссылку" };
+const copySuccess = "Ссылка скопирована";
+const copyError =
+  "Не удалось скопировать ссылку. Скопируйте адрес из строки браузера";
+
+it("copies the canonical link once and confirms only after the write", async () => {
+  let finish!: () => void;
+  const writeText = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  vi.stubGlobal("navigator", { clipboard: { writeText } });
+  mount(async () => json(gig), worker, "/gigs/gig-1?city=Moscow#address");
+  const button = (await screen.findByRole(
+    "button",
+    copyButton,
+  )) as HTMLButtonElement;
+
+  fireEvent.click(button);
+  fireEvent.click(button);
+
+  expect(writeText).toHaveBeenCalledExactlyOnceWith(
+    `${window.location.origin}/gigs/${gig.id}`,
+  );
+  expect(button.disabled).toBe(true);
+  expect(screen.queryByText(copySuccess)).toBeNull();
+
+  finish();
+  await screen.findByText(copySuccess);
+  expect(button.disabled).toBe(false);
+
+  fireEvent.click(button);
+  expect(screen.queryByText(copySuccess)).toBeNull();
+  await act(async () => finish());
+});
+
+it.each([undefined, { writeText: () => Promise.reject(new Error("Denied")) }])(
+  "offers manual copying when clipboard writing is unavailable (%s)",
+  async (clipboard) => {
+    vi.stubGlobal("navigator", { clipboard });
+    mount(async () => json(gig));
+    fireEvent.click(await screen.findByRole("button", copyButton));
+    await screen.findByText(copyError);
+    expect(screen.queryByText(copySuccess)).toBeNull();
+  },
+);
+
+it("ignores an earlier write after navigating away and back", async () => {
+  const writes: Array<() => void> = [];
+  const writeText = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        writes.push(resolve);
+      }),
+  );
+  vi.stubGlobal("navigator", { clipboard: { writeText } });
+  const { router } = mount(async (url) =>
+    json(
+      url.endsWith("/gig-2")
+        ? { ...gig, id: "gig-2", title: "Другое задание" }
+        : gig,
+    ),
+  );
+
+  fireEvent.click(await screen.findByRole("button", copyButton));
+  await act(async () => router.navigate("/gigs/gig-2"));
+  await screen.findByRole("heading", { name: "Другое задание" });
+  await act(async () => router.navigate("/gigs/gig-1"));
+  const button = (await screen.findByRole(
+    "button",
+    copyButton,
+  )) as HTMLButtonElement;
+  fireEvent.click(button);
+
+  await act(async () => writes[0]());
+  expect(button.disabled).toBe(true);
+  expect(screen.queryByText(copySuccess)).toBeNull();
+
+  await act(async () => writes[1]());
+  await screen.findByText(copySuccess);
+});
 
 it("offers login to guests and no application form to customers", async () => {
   mount(async () => json(gig), null);
@@ -210,7 +295,7 @@ it("shows the selected worker without allowing withdrawal", async () => {
 });
 
 it("hides the private application after logout", async () => {
-  const client = mount(async () =>
+  const { client } = mount(async () =>
     json({ ...gig, myApplication: application }),
   );
   await screen.findByText(application.comment);
@@ -279,7 +364,7 @@ it.each(["<b>@private-contact</b>", ""])(
 );
 
 it("does not keep a private contact when the account changes", async () => {
-  const client = mount(async () =>
+  const { client } = mount(async () =>
     json({
       ...gig,
       counterpartyContact:
