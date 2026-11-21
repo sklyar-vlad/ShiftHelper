@@ -84,7 +84,7 @@ export function CustomerActions({ gig }: { gig: Gig }) {
                     className="step-card application-card"
                     key={application.id}
                   >
-                    <UserCard user={application.worker} />
+                    <UserCard user={application.worker} viewerId={user?.id} />
                     <p className="gig-text">
                       {application.comment || "Без комментария"}
                     </p>

@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -102,7 +103,7 @@ function mount(
       </SessionProvider>
     </QueryClientProvider>,
   );
-  return client;
+  return { client, router };
 }
 
 it("offers login to guests and no application form to customers", async () => {
@@ -111,6 +112,7 @@ it("offers login to guests and no application form to customers", async () => {
     (await screen.findByRole("link", { name: "Войти" })).getAttribute("href"),
   ).toBe("/login");
   expect(screen.queryByRole("form")).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Пожаловаться/ })).toBeNull();
   cleanup();
   mount(
     async (url) =>
@@ -123,6 +125,7 @@ it("offers login to guests and no application form to customers", async () => {
   );
   await screen.findByText("Это ваше задание.");
   expect(screen.queryByRole("form")).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Пожаловаться/ })).toBeNull();
 });
 
 it("creates and withdraws an application, blocking duplicate sends and reapplication", async () => {
@@ -207,10 +210,13 @@ it("shows the selected worker without allowing withdrawal", async () => {
   expect(screen.getByText("В работе")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Отозвать отклик" })).toBeNull();
   expect(screen.queryByText(worker.email)).toBeNull();
+  expect(
+    screen.getAllByRole("button", { name: "Пожаловаться на пользователя" }),
+  ).toHaveLength(1);
 });
 
 it("hides the private application after logout", async () => {
-  const client = mount(async () =>
+  const { client } = mount(async () =>
     json({ ...gig, myApplication: application }),
   );
   await screen.findByText(application.comment);
@@ -279,7 +285,7 @@ it.each(["<b>@private-contact</b>", ""])(
 );
 
 it("does not keep a private contact when the account changes", async () => {
-  const client = mount(async () =>
+  const { client } = mount(async () =>
     json({
       ...gig,
       counterpartyContact:
@@ -378,4 +384,135 @@ it("shows a real comparison and sends the immutable proposal ID", async () => {
   await waitFor(() =>
     expect(screen.queryByRole("button", { name: "Согласиться" })).toBeNull(),
   );
+});
+
+const gigReport = "Пожаловаться на задание";
+const userReport = "Пожаловаться на пользователя";
+const demoResult = "Демо: жалоба не отправлена и не сохранена.";
+
+async function openReport(name: string) {
+  fireEvent.click(await screen.findByRole("button", { name }));
+  return screen.findByRole("dialog", { name });
+}
+
+it("validates the reason and Unicode limit and completes a gig report without a request", async () => {
+  mount(async () => json(gig));
+  const dialog = await openReport(gigReport);
+  const report = within(dialog);
+  expect(report.getByText(`Задание — ${gig.title}`)).toBeTruthy();
+  expect(
+    report.getByText("Демо-режим: жалобы пока не отправляются модераторам."),
+  ).toBeTruthy();
+  const form = report.getByRole<HTMLFormElement>("form");
+  const reason = report.getByLabelText<HTMLSelectElement>("Причина");
+  const comment = report.getByLabelText<HTMLTextAreaElement>(
+    "Комментарий к жалобе (необязательно)",
+  );
+  expect(form.checkValidity()).toBe(false);
+  const fetch = vi.mocked(globalThis.fetch);
+  const requestsBefore = fetch.mock.calls.length;
+  fireEvent.submit(form);
+  expect(report.queryByText(demoResult)).toBeNull();
+
+  fireEvent.change(reason, { target: { value: "spam" } });
+  const limit = "😀".repeat(1000);
+  fireEvent.change(comment, { target: { value: limit + "😀" } });
+  fireEvent.submit(form);
+  expect(
+    report.getByText("Сократите комментарий до 1000 символов."),
+  ).toBeTruthy();
+  expect(report.queryByText(demoResult)).toBeNull();
+
+  fireEvent.change(comment, { target: { value: limit } });
+  fireEvent.submit(form);
+  expect(report.getByRole("status").textContent).toBe(demoResult);
+  expect(fetch).toHaveBeenCalledTimes(requestsBefore);
+  fireEvent.click(report.getByRole("button", { name: "Закрыть" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+it("targets the displayed user and clears the draft on cancellation", async () => {
+  mount(async () => json(gig));
+  const report = within(await openReport(userReport));
+  expect(report.getByText(`Пользователь — ${gig.customer.name}`)).toBeTruthy();
+  fireEvent.change(report.getByLabelText("Причина"), {
+    target: { value: "fraud" },
+  });
+  fireEvent.change(
+    report.getByLabelText("Комментарий к жалобе (необязательно)"),
+    {
+      target: { value: "Черновик" },
+    },
+  );
+  fireEvent.click(report.getByRole("button", { name: "Отмена" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  const reopened = within(await openReport(userReport));
+  expect(reopened.getByLabelText<HTMLSelectElement>("Причина").value).toBe("");
+  expect(
+    reopened.getByLabelText<HTMLTextAreaElement>(
+      "Комментарий к жалобе (необязательно)",
+    ).value,
+  ).toBe("");
+  fireEvent.change(reopened.getByLabelText("Причина"), {
+    target: { value: "other" },
+  });
+  fireEvent.submit(reopened.getByRole("form"));
+  expect(reopened.getByRole("status").textContent).toBe(demoResult);
+});
+
+it("closes and clears the report when the signed-in account changes", async () => {
+  const { client } = mount(async () => json(gig));
+  const report = within(await openReport(userReport));
+  fireEvent.change(report.getByLabelText("Причина"), {
+    target: { value: "incorrect" },
+  });
+  fireEvent.change(
+    report.getByLabelText("Комментарий к жалобе (необязательно)"),
+    {
+      target: { value: "Старый аккаунт" },
+    },
+  );
+  await act(async () => {
+    client.setQueryData(getGetCurrentUserQueryKey(), {
+      ...worker,
+      id: "another-worker",
+    });
+  });
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  const reopened = within(await openReport(userReport));
+  expect(reopened.getByLabelText<HTMLSelectElement>("Причина").value).toBe("");
+  expect(
+    reopened.getByLabelText<HTMLTextAreaElement>(
+      "Комментарий к жалобе (необязательно)",
+    ).value,
+  ).toBe("");
+});
+
+it("closes a draft on navigation and opens a clean report for the new gig", async () => {
+  const next = { ...gig, id: "gig-2", title: "Другое задание" };
+  const { router } = mount(async (url) =>
+    json(url.endsWith(next.id) ? next : gig),
+  );
+  const report = within(await openReport(gigReport));
+  fireEvent.change(report.getByLabelText("Причина"), {
+    target: { value: "other" },
+  });
+  fireEvent.change(
+    report.getByLabelText("Комментарий к жалобе (необязательно)"),
+    {
+      target: { value: "Для первого задания" },
+    },
+  );
+  await act(async () => {
+    await router.navigate(`/gigs/${next.id}`);
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  const reopened = within(await openReport(gigReport));
+  expect(reopened.getByText(`Задание — ${next.title}`)).toBeTruthy();
+  expect(reopened.getByLabelText<HTMLSelectElement>("Причина").value).toBe("");
+  expect(
+    reopened.getByLabelText<HTMLTextAreaElement>(
+      "Комментарий к жалобе (необязательно)",
+    ).value,
+  ).toBe("");
 });
