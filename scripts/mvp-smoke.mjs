@@ -111,6 +111,74 @@ async function history(page, worker, title) {
   );
 }
 
+async function notificationFeed(page) {
+  const response = await page.request.get(
+    "/api/v1/me/notifications?pageSize=100",
+  );
+  assert.equal(response.status(), 200);
+  const feed = await response.json();
+  assert.equal(feed.nextCursor, null);
+  return feed;
+}
+
+async function gigNotifications(page, gigId, types) {
+  const { items } = await notificationFeed(page);
+  const relevant = items.filter((item) => item.gigId === gigId);
+  assert.deepEqual(relevant.map((item) => item.type).sort(), [...types].sort());
+  return relevant;
+}
+
+async function checkDemoReports(page, path, gigTitle, customerName) {
+  const writes = [];
+  const recordWrite = (request) => {
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method()))
+      writes.push(`${request.method()} ${new URL(request.url()).pathname}`);
+  };
+  page.on("request", recordWrite);
+  const comment = "Черновик демо-жалобы для smoke";
+  try {
+    await page.goto(path);
+    for (const [label, target] of [
+      ["Пожаловаться на задание", `Задание — ${gigTitle}`],
+      ["Пожаловаться на пользователя", `Пользователь — ${customerName}`],
+    ]) {
+      const trigger = button(page, label);
+      await trigger.click();
+      const dialog = page.getByRole("dialog", { name: label, exact: true });
+      await visible(dialog, target);
+      await visible(
+        dialog,
+        "Демо-режим: жалобы пока не отправляются модераторам.",
+      );
+      await dialog.getByLabel("Причина", { exact: true }).selectOption("other");
+      const field = dialog.getByLabel("Комментарий к жалобе (необязательно)", {
+        exact: true,
+      });
+      await field.fill(comment);
+      await button(dialog, "Отправить (демо)").click();
+      await visible(dialog, "Демо: жалоба не отправлена и не сохранена.");
+      await button(dialog, "Закрыть").click();
+      await trigger.click();
+      assert.equal(await field.inputValue(), "");
+      await page.keyboard.press("Escape");
+      await dialog.waitFor({ state: "hidden" });
+    }
+    assert.deepEqual(writes, []);
+    assert.equal(
+      await page.evaluate(
+        (text) =>
+          [localStorage, sessionStorage].some((storage) =>
+            JSON.stringify(storage).includes(text),
+          ),
+        comment,
+      ),
+      false,
+    );
+  } finally {
+    page.off("request", recordWrite);
+  }
+}
+
 try {
   const customer = await session(0);
   const worker = await session(1, true);
@@ -121,6 +189,10 @@ try {
       [worker, state.worker, true],
     ]) {
       await login(page, credentials);
+      assert.deepEqual(
+        await notificationFeed(page),
+        state.notifications[isWorker ? "worker" : "customer"],
+      );
       await history(page, isWorker, state.title);
       const response = await page.request.get(`/api/v1/gigs/${state.gigId}`);
       assert.equal(response.status(), 200);
@@ -487,6 +559,23 @@ try {
       .first()
       .waitFor();
     await worker.goto("/profile");
+    await button(worker, "Редактировать профиль").click();
+    const bio = worker.getByLabel("О себе", { exact: true });
+    const savedBio = "Описание, сохранённое после повтора";
+    await bio.fill(savedBio);
+    const profileAPI = "**/api/v1/me";
+    const disconnectSave = (route) =>
+      route.request().method() === "PATCH"
+        ? route.abort("failed")
+        : route.continue();
+    await worker.route(profileAPI, disconnectSave);
+    try {
+      await button(worker, "Сохранить").click();
+      await visible(worker, "Сервис временно недоступен. Попробуйте ещё раз.");
+      assert.equal(await bio.inputValue(), savedBio);
+    } finally {
+      await worker.unroute(profileAPI, disconnectSave);
+    }
     const workerBell = button(worker, "Уведомления");
     await workerBell.getByText("1", { exact: true }).waitFor();
     await workerBell.focus();
@@ -511,6 +600,27 @@ try {
     );
     await termsNotification.focus();
     await worker.keyboard.press("Enter");
+    const unsaved = worker.getByRole("alertdialog", {
+      name: "Останутся несохранённые изменения",
+    });
+    const stay = button(unsaved, "Остаться");
+    await stay.waitFor();
+    assert.ok(
+      await stay.evaluate((element) => element === document.activeElement),
+    );
+    await worker.keyboard.press("Enter");
+    await unsaved.waitFor({ state: "hidden" });
+    assert.equal(new URL(worker.url()).pathname, "/profile");
+    assert.equal(await bio.inputValue(), savedBio);
+    assert.equal((await notificationFeed(worker)).unreadCount, 1);
+    await button(worker, "Сохранить").click();
+    await visible(worker, "Профиль сохранён.");
+    await button(worker, "Редактировать профиль").click();
+    assert.equal(await bio.inputValue(), savedBio);
+    await bio.fill("Черновик, который не должен сохраниться");
+    await workerBell.click();
+    await termsNotification.click();
+    await button(unsaved, "Уйти без сохранения").click();
     await worker.waitForURL("**" + path);
     await workerBell
       .getByText("1", { exact: true })
@@ -549,8 +659,17 @@ try {
       .getByRole("button", { name: "Выбрать исполнителя", exact: true })
       .click();
     await visible(customer, "В работе");
+    await gigNotifications(worker, gigId, [
+      "gig_terms_changed",
+      "application_selected",
+    ]);
+    await gigNotifications(second, gigId, [
+      "gig_terms_changed",
+      "application_rejected",
+    ]);
     assert.equal((await guest.request.get(`/api/v1${path}`)).status(), 404);
     assert.equal((await foreign.request.get(`/api/v1${path}`)).status(), 404);
+    await checkDemoReports(worker, path, title, "Заказчик проверки");
     for (const [page, contact] of [
       [customer, "@smoke-worker"],
       [worker, "@smoke-customer"],
@@ -734,6 +853,23 @@ try {
     await button(customer, "Подтвердить выполнение").click();
     await visible(customer, "Завершено");
     await post(customer, `${path}/confirm`, undefined, 409);
+    await gigNotifications(customer, gigId, [
+      "application_created",
+      "application_created",
+      "gig_change_accepted",
+      "gig_change_rejected",
+      "gig_submitted",
+    ]);
+    await gigNotifications(worker, gigId, [
+      "gig_terms_changed",
+      "application_selected",
+      "gig_change_proposed",
+      "gig_change_proposed",
+      "gig_change_proposed",
+      "gig_change_proposed",
+      "gig_change_withdrawn",
+      "gig_completed",
+    ]);
     for (const [page, score] of [
       [customer, 5],
       [worker, 4],
@@ -930,6 +1066,30 @@ try {
       );
     }
     await post(second, `${cancelPath}/applications`, {}, 409);
+    await post(customer, `${cancelPath}/cancel`, { reason: "other" }, 409);
+    await post(foreign, `${cancelPath}/cancel`, undefined, 404);
+    assert.equal(
+      (await foreign.request.get(`/api/v1${cancelPath}`)).status(),
+      404,
+    );
+    await gigNotifications(worker, cancelled.id, []);
+    await gigNotifications(foreign, cancelled.id, []);
+    const [cancellationNotice] = await gigNotifications(second, cancelled.id, [
+      "gig_cancelled",
+    ]);
+    assert.equal(cancellationNotice.cancellationReason, "schedule_changed");
+    assert.equal(
+      JSON.stringify(cancellationNotice).includes("Перенесли переезд"),
+      false,
+    );
+    await button(second, "Уведомления").click();
+    const cancellationLink = second
+      .getByRole("dialog", { name: "Уведомления" })
+      .getByRole("link", { name: /Заказчик отменил задание/ });
+    await visible(cancellationLink, "Изменились сроки");
+    await cancellationLink.click();
+    await second.waitForURL("**/my-gigs?view=applications&scope=history");
+    await link(second, cancelled.title).waitFor();
     const race = await create("Конкурентный выбор");
     const racePath = `/gigs/${race.id}`;
     const firstApp = await (
@@ -1036,6 +1196,19 @@ try {
     const completed = await (
       await customer.request.get(`/api/v1${path}`)
     ).json();
+    await worker.goto("/profile");
+    await button(worker, "Редактировать профиль").click();
+    await bio.fill("Несохранённое описание перед выходом");
+    await button(worker, "Открыть меню").click();
+    await button(worker, "Выйти").click();
+    await worker.waitForURL("**/");
+    await button(worker, "Уведомления").waitFor({ state: "hidden" });
+    assert.equal(
+      (await worker.request.get("/api/v1/me/notifications")).status(),
+      401,
+    );
+    await login(worker, credentials.worker);
+    await visible(worker, savedBio);
     writeFileSync(
       "/state/result.json",
       JSON.stringify({
@@ -1044,6 +1217,10 @@ try {
         gigId,
         submittedAt: completed.submittedAt,
         completedAt: completed.completedAt,
+        notifications: {
+          customer: await notificationFeed(customer),
+          worker: await notificationFeed(worker),
+        },
       }),
       { mode: 0o600 },
     );
