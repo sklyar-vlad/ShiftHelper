@@ -29,6 +29,7 @@ type Application struct {
 }
 
 type GigSummary struct {
+	Cancellation             *Cancellation     `json:"cancellation,omitempty"`
 	Category                 string            `json:"category"`
 	TermsVersion             int               `json:"termsVersion"`
 	HasPendingChange         bool              `json:"hasPendingChange"`
@@ -44,6 +45,11 @@ type GigSummary struct {
 	PendingApplicationsCount int64             `json:"pendingApplicationsCount"`
 	CreatedAt                time.Time         `json:"createdAt"`
 	UpdatedAt                time.Time         `json:"updatedAt"`
+}
+
+type Cancellation struct {
+	Reason  string `json:"reason,omitempty"`
+	Comment string `json:"comment"`
 }
 
 type Gig struct {
@@ -136,6 +142,10 @@ func (h *Handler) cancel(c *gin.Context) {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Некорректный идентификатор задания.")
 		return
 	}
+	cancellation, valid := decodeCancellation(c)
+	if !valid {
+		return
+	}
 	ctx := c.Request.Context()
 	tx, err := h.pool.Begin(ctx)
 	if err != nil {
@@ -169,7 +179,9 @@ func (h *Handler) cancel(c *gin.Context) {
 		httpapi.InternalError(c)
 		return
 	}
-	gig, err := scanGig(tx.QueryRow(ctx, "UPDATE gigs SET status = 'cancelled', cancelled_at = now(), updated_at = now() WHERE id = $1 RETURNING "+gigColumns, id), auth.UserFromContext(c))
+	gig, err := scanGig(tx.QueryRow(ctx, `UPDATE gigs SET status = 'cancelled', cancelled_at = now(), updated_at = now(),
+		cancellation_reason = NULLIF($2, ''), cancellation_comment = $3 WHERE id = $1 RETURNING `+gigColumns,
+		id, cancellation.Reason, cancellation.Comment), auth.UserFromContext(c))
 	if err != nil {
 		httpapi.InternalError(c)
 		return
@@ -178,7 +190,42 @@ func (h *Handler) cancel(c *gin.Context) {
 		httpapi.InternalError(c)
 		return
 	}
+	gig.Cancellation = &cancellation
 	c.JSON(http.StatusOK, gig)
+}
+
+func decodeCancellation(c *gin.Context) (Cancellation, bool) {
+	var input *struct {
+		Reason  json.RawMessage `json:"reason"`
+		Comment json.RawMessage `json:"comment"`
+	}
+	var result Cancellation
+	if c.Request.ContentLength == 0 {
+		return result, true
+	}
+	if !httpapi.DecodeJSON(c, &input, 16*1024) {
+		return result, false
+	}
+	if input == nil {
+		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Укажите параметры отмены объектом.")
+		return result, false
+	}
+	fields := make(map[string][]string)
+	if len(input.Reason) != 0 {
+		_ = json.Unmarshal(input.Reason, &result.Reason)
+		switch result.Reason {
+		case "no_longer_needed", "schedule_changed", "terms_changed", "posted_by_mistake", "other":
+		default:
+			fields["reason"] = []string{"Выберите причину отмены."}
+		}
+	}
+	if len(input.Comment) != 0 &&
+		(input.Comment[0] != '"' || json.Unmarshal(input.Comment, &result.Comment) != nil ||
+			utf8.RuneCountInString(result.Comment) > 500 || strings.ContainsRune(result.Comment, 0)) {
+		fields["comment"] = []string{"Укажите пояснение до 500 символов."}
+	}
+	result.Comment = strings.TrimSpace(result.Comment)
+	return result, !httpapi.ValidationError(c, fields)
 }
 
 type termsInput struct {

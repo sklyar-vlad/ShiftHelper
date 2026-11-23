@@ -652,6 +652,8 @@ export const ListGigsQueryParams = zod.object({
     .default(listGigsQuerySortDefault),
 });
 
+export const listGigsResponseItemsItemCancellationCommentMax = 500;
+
 export const listGigsResponseItemsItemTermsVersionDefault = 1;
 
 export const listGigsResponseItemsItemHasPendingChangeDefault = false;
@@ -707,6 +709,25 @@ export const listGigsResponseTotalMin = 0;
 export const ListGigsResponse = zod.object({
   items: zod.array(
     zod.object({
+      cancellation: zod
+        .object({
+          reason: zod
+            .enum([
+              "no_longer_needed",
+              "schedule_changed",
+              "terms_changed",
+              "posted_by_mistake",
+              "other",
+            ])
+            .optional(),
+          comment: zod
+            .string()
+            .max(listGigsResponseItemsItemCancellationCommentMax),
+        })
+        .optional()
+        .describe(
+          "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+        ),
       category: zod
         .enum([
           "repair",
@@ -925,6 +946,8 @@ export const CreateGigBody = zod.object({
     ),
 });
 
+export const createGigResponseCancellationCommentMax = 500;
+
 export const createGigResponseTermsVersionDefault = 1;
 
 export const createGigResponseHasPendingChangeDefault = false;
@@ -1035,6 +1058,23 @@ export const createGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CreateGigResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(createGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -1353,6 +1393,8 @@ export const GetGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const getGigResponseCancellationCommentMax = 500;
+
 export const getGigResponseTermsVersionDefault = 1;
 
 export const getGigResponseHasPendingChangeDefault = false;
@@ -1463,6 +1505,23 @@ export const getGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const GetGigResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(getGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -1767,12 +1826,29 @@ export const GetGigResponse = zod.object({
 });
 
 /**
- * Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected. Конкурентный выбор и отмена: успешно только одно действие.
+ * Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected. Конкурентный выбор и отмена: успешно только одно действие. Запрос без тела или без reason сохраняется без указанной причины.
  * @summary Отменить задание
  */
 export const CancelGigParams = zod.object({
   gigId: zod.uuid(),
 });
+
+export const cancelGigBodyCommentMax = 500;
+
+export const CancelGigBody = zod.object({
+  reason: zod
+    .enum([
+      "no_longer_needed",
+      "schedule_changed",
+      "terms_changed",
+      "posted_by_mistake",
+      "other",
+    ])
+    .optional(),
+  comment: zod.string().max(cancelGigBodyCommentMax).optional(),
+});
+
+export const cancelGigResponseCancellationCommentMax = 500;
 
 export const cancelGigResponseTermsVersionDefault = 1;
 
@@ -1884,6 +1960,23 @@ export const cancelGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CancelGigResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(cancelGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -2202,6 +2295,8 @@ export const SubmitGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const submitGigResponseCancellationCommentMax = 500;
+
 export const submitGigResponseTermsVersionDefault = 1;
 
 export const submitGigResponseHasPendingChangeDefault = false;
@@ -2312,6 +2407,23 @@ export const submitGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const SubmitGigResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(submitGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -2630,6 +2742,8 @@ export const ConfirmGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const confirmGigResponseCancellationCommentMax = 500;
+
 export const confirmGigResponseTermsVersionDefault = 1;
 
 export const confirmGigResponseHasPendingChangeDefault = false;
@@ -2740,6 +2854,23 @@ export const confirmGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const ConfirmGigResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(confirmGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -3334,6 +3465,8 @@ export const SelectApplicationParams = zod.object({
   applicationId: zod.uuid(),
 });
 
+export const selectApplicationResponseCancellationCommentMax = 500;
+
 export const selectApplicationResponseTermsVersionDefault = 1;
 
 export const selectApplicationResponseHasPendingChangeDefault = false;
@@ -3448,6 +3581,25 @@ export const selectApplicationResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const SelectApplicationResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod
+        .string()
+        .max(selectApplicationResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -3973,6 +4125,8 @@ export const ListMyGigsQueryParams = zod.object({
     .default(listMyGigsQueryScopeDefault),
 });
 
+export const listMyGigsResponseItemsItemCancellationCommentMax = 500;
+
 export const listMyGigsResponseItemsItemTermsVersionDefault = 1;
 
 export const listMyGigsResponseItemsItemHasPendingChangeDefault = false;
@@ -4028,6 +4182,25 @@ export const listMyGigsResponseTotalMin = 0;
 export const ListMyGigsResponse = zod.object({
   items: zod.array(
     zod.object({
+      cancellation: zod
+        .object({
+          reason: zod
+            .enum([
+              "no_longer_needed",
+              "schedule_changed",
+              "terms_changed",
+              "posted_by_mistake",
+              "other",
+            ])
+            .optional(),
+          comment: zod
+            .string()
+            .max(listMyGigsResponseItemsItemCancellationCommentMax),
+        })
+        .optional()
+        .describe(
+          "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+        ),
       category: zod
         .enum([
           "repair",
@@ -4236,6 +4409,8 @@ export const listMyApplicationsResponseItemsItemApplicationUpdatedAtRegExp =
   new RegExp(
     "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
   );
+export const listMyApplicationsResponseItemsItemGigCancellationCommentMax = 500;
+
 export const listMyApplicationsResponseItemsItemGigTermsVersionDefault = 1;
 
 export const listMyApplicationsResponseItemsItemGigHasPendingChangeDefault = false;
@@ -4382,6 +4557,27 @@ export const ListMyApplicationsResponse = zod.object({
           .regex(listMyApplicationsResponseItemsItemApplicationUpdatedAtRegExp),
       }),
       gig: zod.object({
+        cancellation: zod
+          .object({
+            reason: zod
+              .enum([
+                "no_longer_needed",
+                "schedule_changed",
+                "terms_changed",
+                "posted_by_mistake",
+                "other",
+              ])
+              .optional(),
+            comment: zod
+              .string()
+              .max(
+                listMyApplicationsResponseItemsItemGigCancellationCommentMax,
+              ),
+          })
+          .optional()
+          .describe(
+            "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+          ),
         category: zod
           .enum([
             "repair",
@@ -4629,6 +4825,8 @@ export const EditGigTermsBody = zod.object({
   termsVersion: zod.int().min(1),
 });
 
+export const editGigTermsResponseCancellationCommentMax = 500;
+
 export const editGigTermsResponseTermsVersionDefault = 1;
 
 export const editGigTermsResponseHasPendingChangeDefault = false;
@@ -4739,6 +4937,23 @@ export const editGigTermsResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const EditGigTermsResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(editGigTermsResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -5062,6 +5277,8 @@ export const ConfirmApplicationTermsBody = zod.object({
   termsVersion: zod.int().min(1),
 });
 
+export const confirmApplicationTermsResponseCancellationCommentMax = 500;
+
 export const confirmApplicationTermsResponseTermsVersionDefault = 1;
 
 export const confirmApplicationTermsResponseHasPendingChangeDefault = false;
@@ -5176,6 +5393,25 @@ export const confirmApplicationTermsResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const ConfirmApplicationTermsResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod
+        .string()
+        .max(confirmApplicationTermsResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -5525,6 +5761,8 @@ export const AcceptGigChangeParams = zod.object({
   changeId: zod.uuid(),
 });
 
+export const acceptGigChangeResponseCancellationCommentMax = 500;
+
 export const acceptGigChangeResponseTermsVersionDefault = 1;
 
 export const acceptGigChangeResponseHasPendingChangeDefault = false;
@@ -5638,6 +5876,23 @@ export const acceptGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const AcceptGigChangeResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(acceptGigChangeResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -5962,6 +6217,8 @@ export const RejectGigChangeParams = zod.object({
   changeId: zod.uuid(),
 });
 
+export const rejectGigChangeResponseCancellationCommentMax = 500;
+
 export const rejectGigChangeResponseTermsVersionDefault = 1;
 
 export const rejectGigChangeResponseHasPendingChangeDefault = false;
@@ -6075,6 +6332,23 @@ export const rejectGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const RejectGigChangeResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(rejectGigChangeResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -6399,6 +6673,8 @@ export const WithdrawGigChangeParams = zod.object({
   changeId: zod.uuid(),
 });
 
+export const withdrawGigChangeResponseCancellationCommentMax = 500;
+
 export const withdrawGigChangeResponseTermsVersionDefault = 1;
 
 export const withdrawGigChangeResponseHasPendingChangeDefault = false;
@@ -6513,6 +6789,25 @@ export const withdrawGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const WithdrawGigChangeResponse = zod.object({
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod
+        .string()
+        .max(withdrawGigChangeResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
   category: zod
     .enum([
       "repair",

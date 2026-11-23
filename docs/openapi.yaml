@@ -433,9 +433,14 @@ paths:
       - Gigs
       summary: Отменить задание
       description: 'Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected.
-        Конкурентный выбор и отмена: успешно только одно действие.'
+        Конкурентный выбор и отмена: успешно только одно действие. Запрос без тела или без reason сохраняется без указанной причины.'
       security:
       - sessionCookie: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelGigRequest'
       responses:
         '200':
           description: Успешный ответ
@@ -1235,6 +1240,28 @@ components:
           minimum: 1
           maximum: 10000000000
           description: Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).
+    CancellationReason:
+      type: string
+      enum: [no_longer_needed, schedule_changed, terms_changed, posted_by_mistake, other]
+    CancelGigRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          $ref: '#/components/schemas/CancellationReason'
+        comment:
+          type: string
+          maxLength: 500
+    GigCancellation:
+      type: object
+      additionalProperties: false
+      required: [comment]
+      properties:
+        reason:
+          $ref: '#/components/schemas/CancellationReason'
+        comment:
+          type: string
+          maxLength: 500
     GigSummary:
       type: object
       additionalProperties: false
@@ -1252,6 +1279,9 @@ components:
       - createdAt
       - updatedAt
       properties:
+        cancellation:
+          $ref: '#/components/schemas/GigCancellation'
+          description: Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.
         category:
           $ref: '#/components/schemas/CategoryCode'
         termsVersion:
@@ -1402,6 +1432,9 @@ components:
       - cancelledAt
       - myApplication
       properties:
+        cancellation:
+          $ref: '#/components/schemas/GigCancellation'
+          description: Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.
         category:
           $ref: '#/components/schemas/CategoryCode'
         termsVersion:

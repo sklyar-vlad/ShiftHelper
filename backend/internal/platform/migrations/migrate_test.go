@@ -125,6 +125,27 @@ func TestMVPMigration(t *testing.T) {
 		t.Fatalf("valid lifecycle: %v", err)
 	}
 	run("down")
+	if _, err := pool.Exec(ctx, `INSERT INTO gigs (customer_id, title, description, city, address, starts_at,
+		ends_at, amount_kopecks, status, cancelled_at)
+		VALUES ('00000000-0000-0000-0000-000000000001', 'Legacy cancellation', 'Old gig', 'Moscow', 'Example 1',
+		now(), now() + interval '1 day', 10000, 'cancelled', now())`); err != nil {
+		t.Fatal(err)
+	}
+	run("up")
+	var legacyCancellation bool
+	if err := pool.QueryRow(ctx, `SELECT cancellation_reason IS NULL AND cancellation_comment = ''
+		FROM gigs WHERE title = 'Legacy cancellation'`).Scan(&legacyCancellation); err != nil || !legacyCancellation {
+		t.Fatalf("legacy cancellation was not preserved: %v", err)
+	}
+	run("down")
+	var cancellationColumnsRemoved bool
+	if err := pool.QueryRow(ctx, `SELECT NOT EXISTS (
+		SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'gigs'
+		AND column_name IN ('cancellation_reason', 'cancellation_comment')
+	)`).Scan(&cancellationColumnsRemoved); err != nil || !cancellationColumnsRemoved {
+		t.Fatalf("cancellation columns were not removed: %v", err)
+	}
+	run("down")
 	var specialties []string
 	if err := pool.QueryRow(ctx, "SELECT specialties FROM users LIMIT 1").Scan(&specialties); err == nil {
 		t.Fatal("specialties column was not removed")

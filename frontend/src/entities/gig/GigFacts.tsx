@@ -1,6 +1,7 @@
 import { GigCategory } from "./GigCategory";
 import type {
   ApplicationStatus,
+  CancellationReason,
   GigStatus,
   GigSummary,
 } from "@/shared/api/generated/api";
@@ -13,6 +14,14 @@ export const gigStatusNames = {
   awaiting_confirmation: "Ожидает подтверждения",
   completed: "Завершено",
   cancelled: "Отменено",
+};
+
+export const cancellationReasonNames: Record<CancellationReason, string> = {
+  no_longer_needed: "Помощь больше не нужна",
+  schedule_changed: "Изменились сроки",
+  terms_changed: "Изменились условия или бюджет",
+  posted_by_mistake: "Разместили по ошибке",
+  other: "Другое",
 };
 
 const applicationStatuses = {
@@ -69,6 +78,19 @@ export function GigFacts({
             <UserCard user={gig.customer} viewerId={viewerId} />
           </dd>
         </div>
+        {gig.cancellation && (
+          <div>
+            <dt>Причина отмены</dt>
+            <dd>
+              {gig.cancellation.reason
+                ? cancellationReasonNames[gig.cancellation.reason]
+                : "Причина не указана"}
+              {gig.cancellation.comment && (
+                <p className="gig-text">{gig.cancellation.comment}</p>
+              )}
+            </dd>
+          </div>
+        )}
       </dl>
     </>
   );

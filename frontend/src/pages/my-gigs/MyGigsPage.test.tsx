@@ -186,39 +186,81 @@ it("requires explicit selection confirmation and blocks duplicate requests", asy
   ).toBeTruthy();
 });
 
-it.each([
-  ["open", "Отменить задание", "/cancel", "cancelled", "Отменено"],
-  [
-    "awaiting_confirmation",
-    "Подтвердить выполнение",
-    "/confirm",
-    "completed",
-    "Завершено",
-  ],
-] as const)(
-  "handles the owner action for %s",
-  async (initial, label, endpoint, final, status) => {
-    let current = { ...gig, status: initial } as Gig;
-    const post = vi.fn(async (url: string) => {
-      expect(url.endsWith(endpoint)).toBe(true);
-      current = { ...current, status: final };
-      return json(current);
+it("confirms completed work for the owner", async () => {
+  let current: Gig = { ...gig, status: "awaiting_confirmation" };
+  const post = vi.fn(async (url: string) => {
+    expect(url.endsWith("/confirm")).toBe(true);
+    current = { ...current, status: "completed" };
+    return json(current);
+  });
+  mount("/gigs/gig-1", async (url, init) =>
+    init.method === "POST" ? post(url) : json(current),
+  );
+  vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Подтвердить выполнение" }),
+  );
+  await screen.findByText("Завершено");
+  expect(post).toHaveBeenCalledTimes(1);
+});
+
+it("keeps cancellation input after failure and blocks duplicate submissions", async () => {
+  let current = gig;
+  let reject!: () => void;
+  const post = vi.fn(async (url: string, init: RequestInit) => {
+    expect(url.endsWith("/cancel")).toBe(true);
+    const cancellation = JSON.parse(init.body as string);
+    expect(cancellation).toEqual({
+      reason: "schedule_changed",
+      comment: "Перенесли переезд",
     });
-    mount("/gigs/gig-1", async (url, init) =>
-      init.method === "POST"
-        ? post(url)
-        : json(
-            url.includes("/applications?")
-              ? { items: [], total: 0, page: 1, pageSize: 20 }
-              : current,
-          ),
-    );
-    vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
-    fireEvent.click(await screen.findByRole("button", { name: label }));
-    await screen.findByText(status);
-    expect(post).toHaveBeenCalledTimes(1);
-  },
-);
+    if (post.mock.calls.length === 1) {
+      return new Promise<Response>((resolve) => {
+        reject = () => resolve(json({}, 500));
+      });
+    }
+    current = { ...current, status: "cancelled", cancellation };
+    return json(current);
+  });
+  mount("/gigs/gig-1", async (url, init) =>
+    init.method === "POST"
+      ? post(url, init)
+      : json(
+          url.includes("/applications?")
+            ? { items: [], total: 0, page: 1, pageSize: 20 }
+            : current,
+        ),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Отменить задание" }),
+  );
+  const form = screen.getByRole("form", { name: "Отмена задания" });
+  const reason = screen.getByLabelText<HTMLSelectElement>("Причина отмены");
+  const comment = screen.getByLabelText<HTMLTextAreaElement>(
+    "Пояснение (необязательно)",
+  );
+  fireEvent.change(reason, { target: { value: "schedule_changed" } });
+  fireEvent.change(comment, { target: { value: "😀".repeat(501) } });
+  fireEvent.submit(form);
+  expect(
+    await screen.findByText("Укажите пояснение до 500 символов."),
+  ).toBeTruthy();
+  expect(post).not.toHaveBeenCalled();
+  fireEvent.change(comment, { target: { value: "Перенесли переезд" } });
+  fireEvent.submit(form);
+  fireEvent.submit(form);
+  expect(post).toHaveBeenCalledTimes(1);
+  expect(form.querySelector("fieldset")?.disabled).toBe(true);
+  reject();
+  await screen.findByText("Сервис временно недоступен. Попробуйте ещё раз.");
+  expect(reason.value).toBe("schedule_changed");
+  expect(comment.value).toBe("Перенесли переезд");
+  fireEvent.submit(form);
+  await screen.findByText("Отменено");
+  expect(screen.getByText("Изменились сроки")).toBeTruthy();
+  expect(screen.getByText("Перенесли переезд")).toBeTruthy();
+  expect(post).toHaveBeenCalledTimes(2);
+});
 
 it("refreshes a stale gig after a selection conflict", async () => {
   let current = gig;

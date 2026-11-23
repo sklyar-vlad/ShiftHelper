@@ -43,7 +43,12 @@ const summaryJSON = `jsonb_build_object(
 const profileJoins = `JOIN profiles customer ON customer.id = g.customer_id
     LEFT JOIN profiles worker ON worker.id = g.selected_worker_id`
 
+const cancellationJSON = `jsonb_build_object('reason', g.cancellation_reason, 'comment', g.cancellation_comment)`
+
 const detailSQL = profilesSQL + ` SELECT ` + summaryJSON + ` || jsonb_build_object(
+    'cancellation', CASE WHEN g.status = 'cancelled' AND (g.customer_id = $2::uuid OR EXISTS (
+        SELECT 1 FROM applications a WHERE a.gig_id = g.id AND a.worker_id = $2::uuid AND a.status = 'rejected'
+    )) THEN ` + cancellationJSON + ` END,
     'pendingChange', CASE WHEN g.customer_id = $2::uuid OR g.selected_worker_id = $2::uuid THEN
  (SELECT jsonb_build_object('id', change.id, 'termsVersion', change.base_version, 'terms', change.terms)
  FROM gig_changes change WHERE change.gig_id = g.id AND change.status = 'pending') END,

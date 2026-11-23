@@ -50,7 +50,9 @@ func (h *Handler) myGigs(c *gin.Context) {
           OR ($2 = 'history' AND status IN ('completed', 'cancelled')))
     ) SELECT COALESCE(jsonb_agg(page.item ORDER BY page.created_at DESC, page.id DESC), '[]'::jsonb),
         (SELECT count(*) FROM filtered)
-    FROM (SELECT `+summaryJSON+` AS item, g.created_at, g.id FROM filtered g `+profileJoins+`
+    FROM (SELECT `+summaryJSON+` || jsonb_build_object('cancellation', CASE
+        WHEN g.status = 'cancelled' AND g.customer_id = $1 THEN `+cancellationJSON+` END
+    ) AS item, g.created_at, g.id FROM filtered g `+profileJoins+`
           ORDER BY g.created_at DESC, g.id DESC LIMIT $3 OFFSET $4) page`,
 		user.ID, scope, pageSize, (page-1)*pageSize).Scan(&result.Items, &result.Total)
 	if err != nil {
@@ -74,7 +76,9 @@ func (h *Handler) myApplications(c *gin.Context) {
           OR ($2 = 'history' AND (a.status IN ('rejected', 'withdrawn') OR g.status IN ('completed', 'cancelled'))))
     ) SELECT COALESCE(jsonb_agg(page.item ORDER BY page.created_at DESC, page.id DESC), '[]'::jsonb),
         (SELECT count(*) FROM filtered)
-    FROM (SELECT jsonb_build_object('application', `+applicationJSON+`, 'gig', `+summaryJSON+`) AS item,
+    FROM (SELECT jsonb_build_object('application', `+applicationJSON+`, 'gig', `+summaryJSON+` ||
+          jsonb_build_object('cancellation', CASE WHEN g.status = 'cancelled' AND a.status = 'rejected'
+              THEN `+cancellationJSON+` END)) AS item,
           a.created_at, a.id FROM filtered a JOIN gigs g ON g.id = a.gig_id `+profileJoins+`
           JOIN profiles applicant ON applicant.id = a.worker_id
           ORDER BY a.created_at DESC, a.id DESC LIMIT $3 OFFSET $4) page`,
