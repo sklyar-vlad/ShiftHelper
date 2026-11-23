@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/auth"
+	"github.com/sklyar-vlad/ShiftHelper/backend/internal/notifications"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/platform/httpapi"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/users"
 )
@@ -80,9 +81,9 @@ func (h *Handler) apply(c *gin.Context) {
 		return
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var status string
+	var owner, title, status string
 	var version int
-	err = tx.QueryRow(ctx, "SELECT status, terms_version FROM gigs WHERE id = $1 FOR UPDATE", id).Scan(&status, &version)
+	err = tx.QueryRow(ctx, "SELECT customer_id::text, title, status, terms_version FROM gigs WHERE id = $1 FOR UPDATE", id).Scan(&owner, &title, &status, &version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
 		return
@@ -118,6 +119,11 @@ func (h *Handler) apply(c *gin.Context) {
 	}
 	if err != nil {
 		httpapi.InternalError(c)
+		return
+	}
+	if !notify(c, tx, notifications.Event{
+		Type: "application_created", Key: application.ID, GigID: id, GigTitle: title,
+	}, owner) {
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -221,9 +227,11 @@ func (h *Handler) selectWorker(c *gin.Context) {
 		termsConflict(c)
 		return
 	}
-	if _, err := tx.Exec(ctx, `UPDATE applications SET status = CASE WHEN id = $1 THEN 'selected' ELSE 'rejected' END,
-        updated_at = now() WHERE gig_id = $2 AND status = 'pending'`, id, gigID); err != nil {
-		httpapi.InternalError(c)
+	rejected, ok := notificationRecipients(c, tx, `WITH updated AS (
+		UPDATE applications SET status = CASE WHEN id = $1 THEN 'selected' ELSE 'rejected' END,
+		updated_at = now() WHERE gig_id = $2 AND status = 'pending' RETURNING id, worker_id
+	) SELECT worker_id::text FROM updated WHERE id <> $1`, id, gigID)
+	if !ok {
 		return
 	}
 	if _, err := tx.Exec(ctx, "UPDATE gigs SET selected_worker_id = $1, status = 'in_progress', updated_at = now() WHERE id = $2", workerID, gigID); err != nil {
@@ -233,6 +241,14 @@ func (h *Handler) selectWorker(c *gin.Context) {
 	var gig Gig
 	if err := tx.QueryRow(ctx, detailSQL+" WHERE g.id = $1", gigID, owner).Scan(&gig); err != nil {
 		httpapi.InternalError(c)
+		return
+	}
+	event := notifications.Event{Type: "application_selected", Key: id, GigID: gigID, GigTitle: gig.Title}
+	if !notify(c, tx, event, workerID) {
+		return
+	}
+	event.Type = "application_rejected"
+	if !notify(c, tx, event, rejected...) {
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {

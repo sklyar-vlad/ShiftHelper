@@ -68,7 +68,7 @@ func TestPersonalNotifications(t *testing.T) {
 		}
 		return page
 	}
-	record := func(commit bool, events ...notifications.Event) {
+	record := func(commit bool, recipient string, events ...notifications.Event) {
 		t.Helper()
 		tx, err := pool.Begin(ctx)
 		if err != nil {
@@ -76,7 +76,7 @@ func TestPersonalNotifications(t *testing.T) {
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
 		for _, event := range events {
-			if err := notifications.Record(ctx, tx, event); err != nil {
+			if err := notifications.Record(ctx, tx, event, recipient); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -86,8 +86,8 @@ func TestPersonalNotifications(t *testing.T) {
 			}
 		}
 	}
-	event := func(user, key, title string) notifications.Event {
-		return notifications.Event{RecipientID: user, Key: key, Type: "gig_changed", GigID: gigID, GigTitle: title}
+	event := func(key, title string) notifications.Event {
+		return notifications.Event{Key: key, Type: "gig_changed", GigID: gigID, GigTitle: title}
 	}
 	send(http.MethodGet, path, nil, http.StatusUnauthorized)
 	send(http.MethodPost, path+"/read-all", nil, http.StatusUnauthorized)
@@ -96,13 +96,13 @@ func TestPersonalNotifications(t *testing.T) {
 		send(http.MethodGet, path+"?"+query, ownerCookie, http.StatusBadRequest)
 	}
 	list(ownerCookie, "", 0, 0)
-	record(false, event(owner, "rolled-back", "Отменённое событие"))
-	record(true,
-		event(owner, "v1", "Первая редакция"),
-		event(owner, "v1", "Повтор"),
-		event(owner, "v2", "Вторая редакция"),
-		event(worker, "v1", "Событие исполнителя"),
+	record(false, owner, event("rolled-back", "Отменённое событие"))
+	record(true, owner,
+		event("v1", "Первая редакция"),
+		event("v1", "Повтор"),
+		event("v2", "Вторая редакция"),
 	)
+	record(true, worker, event("v1", "Событие исполнителя"))
 	if _, err := pool.Exec(ctx, "UPDATE notifications SET created_at = '2025-01-01T00:00:00.123456Z'"); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestPersonalNotifications(t *testing.T) {
 		first.Items[0].ReadAt != nil || first.Items[0].Type != "gig_changed" {
 		t.Fatal("incorrect first notification page")
 	}
-	record(true, event(owner, "v3", "Новая редакция"))
+	record(true, owner, event("v3", "Новая редакция"))
 	second := list(ownerCookie, "?pageSize=1&cursor="+*first.NextCursor, 3, 1)
 	titles := []string{first.Items[0].GigTitle, second.Items[0].GigTitle}
 	slices.Sort(titles)
@@ -140,7 +140,7 @@ func TestPersonalNotifications(t *testing.T) {
 		}
 	}
 	list(workerCookie, "", 1, 1)
-	record(true, event(owner, "v4", "Следующее событие"))
+	record(true, owner, event("v4", "Следующее событие"))
 	send(http.MethodPost, "/api/v1/auth/logout", ownerCookie, http.StatusNoContent)
 	send(http.MethodGet, path, ownerCookie, http.StatusUnauthorized)
 	router = handler.NewRouter(zap.NewNop(), pool, "", origin)

@@ -4790,7 +4790,9 @@ export const ListMyNotificationsResponse = zod.object({
       type: zod
         .string()
         .regex(listMyNotificationsResponseItemsItemTypeRegExp)
-        .describe("Код события для выбора текста и действия."),
+        .describe(
+          "Код события для выбора текста и действия. application_created, application_selected, application_rejected, gig_cancelled, gig_terms_changed, gig_change_proposed, gig_change_accepted, gig_change_rejected, gig_change_withdrawn, gig_submitted, gig_completed. Для application_rejected и gig_cancelled целевой экран — /my-gigs?view=applications&scope=history.",
+        ),
       gigId: zod
         .uuid()
         .nullable()
@@ -4802,6 +4804,18 @@ export const ListMyNotificationsResponse = zod.object({
         .min(1)
         .max(listMyNotificationsResponseItemsItemGigTitleMax)
         .describe("Название задания на момент события, обычный текст."),
+      cancellationReason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional()
+        .describe(
+          "Код причины только у gig_cancelled, если причина была указана.",
+        ),
       createdAt: zod.iso.datetime({ offset: true }),
       readAt: zod.iso.datetime({ offset: true }).nullable(),
     }),

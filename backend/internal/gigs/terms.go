@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/auth"
+	"github.com/sklyar-vlad/ShiftHelper/backend/internal/notifications"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/platform/httpapi"
 )
 
@@ -19,14 +21,16 @@ type TermsChange struct {
 }
 
 type lockedTerms struct {
-	owner, worker, status, category string
-	version                         int
-	startsAt                        time.Time
+	owner, worker, status, category, title string
+	version                                int
+	startsAt                               time.Time
 }
 
 func lockTerms(c *gin.Context, tx pgx.Tx, id string) (lockedTerms, bool) {
 	var state lockedTerms
-	err := tx.QueryRow(c.Request.Context(), `SELECT customer_id::text, COALESCE(selected_worker_id::text,''), status, terms_version, starts_at, category FROM gigs WHERE id=$1 FOR UPDATE`, id).Scan(&state.owner, &state.worker, &state.status, &state.version, &state.startsAt, &state.category)
+	err := tx.QueryRow(c.Request.Context(), `SELECT customer_id::text, COALESCE(selected_worker_id::text,''), status,
+		terms_version, starts_at, category, title FROM gigs WHERE id=$1 FOR UPDATE`, id).
+		Scan(&state.owner, &state.worker, &state.status, &state.version, &state.startsAt, &state.category, &state.title)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, 404, "NOT_FOUND", "Задание не найдено.")
 		return state, false
@@ -108,6 +112,14 @@ func (h *Handler) editTerms(c *gin.Context) {
 		if !saveTerms(c, tx, id, input.termsInput) {
 			return
 		}
+		version := state.version + 1
+		recipients, ok := notificationRecipients(c, tx, `SELECT worker_id::text FROM applications
+			WHERE gig_id=$1 AND status='pending' AND terms_version < $2`, id, version)
+		if !ok || !notify(c, tx, notifications.Event{
+			Type: "gig_terms_changed", Key: id + ":" + strconv.Itoa(version), GigID: id, GigTitle: input.Title,
+		}, recipients...) {
+			return
+		}
 	} else {
 		var pending bool
 		if err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM gig_changes WHERE gig_id=$1 AND status='pending')", id).Scan(&pending); err != nil {
@@ -123,8 +135,14 @@ func (h *Handler) editTerms(c *gin.Context) {
 			httpapi.InternalError(c)
 			return
 		}
-		if _, err := tx.Exec(ctx, "INSERT INTO gig_changes(gig_id,base_version,terms) VALUES($1,$2,$3)", id, state.version, json.RawMessage(data)); err != nil {
+		var changeID string
+		if err := tx.QueryRow(ctx, "INSERT INTO gig_changes(gig_id,base_version,terms) VALUES($1,$2,$3) RETURNING id::text", id, state.version, json.RawMessage(data)).Scan(&changeID); err != nil {
 			httpapi.InternalError(c)
+			return
+		}
+		if !notify(c, tx, notifications.Event{
+			Type: "gig_change_proposed", Key: changeID, GigID: id, GigTitle: state.title,
+		}, state.worker) {
 			return
 		}
 	}
@@ -221,9 +239,10 @@ func (h *Handler) resolveChange(c *gin.Context, action string) {
 		termsConflict(c)
 		return
 	}
-	outcome := "rejected"
+	outcome, recipient, title := "rejected", state.owner, state.title
 	if action == "withdraw" {
 		outcome = "withdrawn"
+		recipient = state.worker
 	}
 	if action == "accept" {
 		if _, _, valid := change.Terms.validate(c, &state.startsAt); !valid {
@@ -236,6 +255,7 @@ func (h *Handler) resolveChange(c *gin.Context, action string) {
 			return
 		}
 		outcome = "accepted"
+		title = change.Terms.Title
 		if _, err := tx.Exec(ctx, "UPDATE applications SET terms_version=$3,updated_at=clock_timestamp() WHERE gig_id=$1 AND worker_id=$2", id, state.worker, state.version+1); err != nil {
 			httpapi.InternalError(c)
 			return
@@ -243,6 +263,11 @@ func (h *Handler) resolveChange(c *gin.Context, action string) {
 	}
 	if _, err := tx.Exec(ctx, "UPDATE gig_changes SET status=$2 WHERE id=$1", changeID, outcome); err != nil {
 		httpapi.InternalError(c)
+		return
+	}
+	if !notify(c, tx, notifications.Event{
+		Type: "gig_change_" + outcome, Key: changeID, GigID: id, GigTitle: title,
+	}, recipient) {
 		return
 	}
 	respondTerms(c, tx, id)

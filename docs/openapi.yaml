@@ -1783,7 +1783,11 @@ components:
         type:
           type: string
           pattern: '^[a-z][a-z0-9_]{0,63}$'
-          description: Код события для выбора текста и действия.
+          description: >-
+            Код события для выбора текста и действия. application_created, application_selected,
+            application_rejected, gig_cancelled, gig_terms_changed, gig_change_proposed,
+            gig_change_accepted, gig_change_rejected, gig_change_withdrawn, gig_submitted, gig_completed.
+            Для application_rejected и gig_cancelled целевой экран — /my-gigs?view=applications&scope=history.
         gigId:
           type: string
           format: uuid
@@ -1794,6 +1798,9 @@ components:
           minLength: 1
           maxLength: 150
           description: Название задания на момент события, обычный текст.
+        cancellationReason:
+          $ref: '#/components/schemas/CancellationReason'
+          description: Код причины только у gig_cancelled, если причина была указана.
         createdAt:
           type: string
           format: date-time

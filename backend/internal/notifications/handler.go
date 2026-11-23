@@ -15,27 +15,32 @@ import (
 )
 
 type Event struct {
-	RecipientID string
-	Key         string
-	Type        string
-	GigID       string
-	GigTitle    string
+	Key                string
+	Type               string
+	GigID              string
+	GigTitle           string
+	CancellationReason string
 }
 
-func Record(ctx context.Context, tx pgx.Tx, event Event) error {
-	_, err := tx.Exec(ctx, `INSERT INTO notifications (recipient_id, event_key, type, gig_id, gig_title)
-		VALUES ($1, $2, $3, $4, $5) ON CONFLICT (recipient_id, event_key) DO NOTHING`,
-		event.RecipientID, event.Key, event.Type, event.GigID, event.GigTitle)
+func Record(ctx context.Context, tx pgx.Tx, event Event, recipients ...string) error {
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO notifications (recipient_id, event_key, type, gig_id, gig_title, cancellation_reason)
+		SELECT recipient::uuid, $2, $3, $4, $5, NULLIF($6, '') FROM unnest($1::text[]) AS recipient
+		ON CONFLICT (recipient_id, event_key) DO NOTHING`,
+		recipients, event.Type+":"+event.Key, event.Type, event.GigID, event.GigTitle, event.CancellationReason)
 	return err
 }
 
 type Notification struct {
-	ID        string     `json:"id"`
-	Type      string     `json:"type"`
-	GigID     *string    `json:"gigId"`
-	GigTitle  string     `json:"gigTitle"`
-	CreatedAt time.Time  `json:"createdAt"`
-	ReadAt    *time.Time `json:"readAt"`
+	CancellationReason *string    `json:"cancellationReason,omitempty"`
+	ID                 string     `json:"id"`
+	Type               string     `json:"type"`
+	GigID              *string    `json:"gigId"`
+	GigTitle           string     `json:"gigTitle"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	ReadAt             *time.Time `json:"readAt"`
 }
 
 type Page struct {
@@ -87,7 +92,8 @@ func (h *Handler) list(c *gin.Context) {
 		COALESCE(jsonb_agg(to_jsonb(page) ORDER BY page."createdAt" DESC, page.id DESC), '[]'::jsonb),
 		(SELECT count(*) FROM notifications WHERE recipient_id = $1 AND read_at IS NULL)
 		FROM (SELECT id, type, gig_id AS "gigId", gig_title AS "gigTitle",
-			created_at AS "createdAt", read_at AS "readAt" FROM notifications
+			created_at AS "createdAt", read_at AS "readAt", cancellation_reason AS "cancellationReason"
+			FROM notifications
 			WHERE recipient_id = $1 AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3::uuid))
 			ORDER BY created_at DESC, id DESC LIMIT $4) page`,
 		auth.UserFromContext(c).ID, before, beforeID, limit+1).Scan(&result.Items, &result.UnreadCount)

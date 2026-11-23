@@ -666,7 +666,7 @@ export interface ErrorResponse {
 export interface Notification {
   id: string;
   /**
-   * Код события для выбора текста и действия.
+   * Код события для выбора текста и действия. application_created, application_selected, application_rejected, gig_cancelled, gig_terms_changed, gig_change_proposed, gig_change_accepted, gig_change_rejected, gig_change_withdrawn, gig_submitted, gig_completed. Для application_rejected и gig_cancelled целевой экран — /my-gigs?view=applications&scope=history.
    * @pattern ^[a-z][a-z0-9_]{0,63}$
    */
   type: string;
@@ -681,6 +681,8 @@ export interface Notification {
    * @maxLength 150
    */
   gigTitle: string;
+  /** Код причины только у gig_cancelled, если причина была указана. */
+  cancellationReason?: CancellationReason;
   createdAt: string;
   /** @nullable */
   readAt: string | null;
