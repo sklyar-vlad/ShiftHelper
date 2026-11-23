@@ -46,7 +46,10 @@ func termsConflict(c *gin.Context) {
 }
 
 func saveTerms(c *gin.Context, tx pgx.Tx, id string, input termsInput) bool {
-	_, err := tx.Exec(c.Request.Context(), `UPDATE gigs SET title=$2,description=$3,requirements=$4,city=$5,address=$6,starts_at=$7::timestamptz,ends_at=$8::timestamptz,amount_kopecks=$9,category=($10::jsonb #>> '{}'),terms_version=terms_version+1,updated_at=clock_timestamp() WHERE id=$1`, id, input.Title, input.Description, *input.Requirements, input.City, input.Address, input.StartsAt, input.EndsAt, *input.AmountKopecks, input.Category)
+	_, err := tx.Exec(c.Request.Context(), `UPDATE gigs SET title=$2,description=$3,requirements=$4,city=$5::text,address=$6::text,starts_at=$7::timestamptz,ends_at=$8::timestamptz,amount_kopecks=$9,category=($10::jsonb #>> '{}'),
+		point=CASE WHEN $11::jsonb IS NOT NULL THEN NULLIF($11::jsonb, 'null'::jsonb)
+		           WHEN city=$5 AND address=$6 THEN point END,
+		terms_version=terms_version+1,updated_at=clock_timestamp() WHERE id=$1`, id, input.Title, input.Description, *input.Requirements, input.City, input.Address, input.StartsAt, input.EndsAt, *input.AmountKopecks, input.Category, input.Point)
 	if err != nil {
 		httpapi.InternalError(c)
 		return false

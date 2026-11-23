@@ -54,8 +54,9 @@ type Cancellation struct {
 }
 
 type Gig struct {
-	PendingChange       *TermsChange `json:"pendingChange,omitempty"`
-	CounterpartyContact *string      `json:"counterpartyContact,omitempty"`
+	Point               json.RawMessage `json:"point,omitempty"`
+	PendingChange       *TermsChange    `json:"pendingChange,omitempty"`
+	CounterpartyContact *string         `json:"counterpartyContact,omitempty"`
 	GigSummary
 	Description   string       `json:"description"`
 	Requirements  string       `json:"requirements"`
@@ -107,10 +108,10 @@ func (h *Handler) create(c *gin.Context) {
 		return
 	}
 	gig, err := scanGig(h.pool.QueryRow(c.Request.Context(), `INSERT INTO gigs
-        (customer_id, title, description, requirements, city, address, starts_at, ends_at, amount_kopecks, category)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,($10::jsonb #>> '{}')) RETURNING `+gigColumns,
+        (customer_id, title, description, requirements, city, address, starts_at, ends_at, amount_kopecks, category, point)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,($10::jsonb #>> '{}'),NULLIF($11::jsonb, 'null'::jsonb)) RETURNING `+gigColumns,
 		auth.UserFromContext(c).ID, input.Title, input.Description, *input.Requirements, input.City,
-		input.Address, startsAt, endsAt, *input.AmountKopecks, input.Category), auth.UserFromContext(c))
+		input.Address, startsAt, endsAt, *input.AmountKopecks, input.Category, input.Point), auth.UserFromContext(c))
 	if err != nil {
 		httpapi.InternalError(c)
 		return
@@ -119,13 +120,13 @@ func (h *Handler) create(c *gin.Context) {
 }
 
 const gigColumns = `id::text, title, description, requirements, city, address, starts_at, ends_at,
-    amount_kopecks, status, created_at, updated_at, submitted_at, completed_at, cancelled_at, terms_version, category`
+    amount_kopecks, status, created_at, updated_at, submitted_at, completed_at, cancelled_at, terms_version, category, point`
 
 func scanGig(row pgx.Row, customer *auth.User) (Gig, error) {
 	var gig Gig
 	err := row.Scan(&gig.ID, &gig.Title, &gig.Description, &gig.Requirements, &gig.City, &gig.Address,
 		&gig.StartsAt, &gig.EndsAt, &gig.AmountKopecks, &gig.Status, &gig.CreatedAt, &gig.UpdatedAt,
-		&gig.SubmittedAt, &gig.CompletedAt, &gig.CancelledAt, &gig.TermsVersion, &gig.Category)
+		&gig.SubmittedAt, &gig.CompletedAt, &gig.CancelledAt, &gig.TermsVersion, &gig.Category, &gig.Point)
 	gig.Customer = users.PublicUser{ID: customer.ID, Name: customer.Name, Bio: customer.Bio,
 		Role: customer.Role, Specialties: customer.Specialties, CompletedGigsCount: customer.CompletedGigsCount}
 	for _, stamp := range []*time.Time{&gig.StartsAt, &gig.EndsAt, &gig.CreatedAt, &gig.UpdatedAt,
@@ -236,6 +237,7 @@ func decodeCancellation(c *gin.Context) (Cancellation, bool) {
 }
 
 type termsInput struct {
+	Point         json.RawMessage `json:"point,omitempty"`
 	Category      json.RawMessage `json:"category,omitempty"`
 	Title         string          `json:"title"`
 	Description   string          `json:"description"`
@@ -277,6 +279,9 @@ func (input *termsInput) validate(c *gin.Context, previousStart *time.Time) (tim
 	}
 	if input.AmountKopecks == nil || *input.AmountKopecks < 1 || *input.AmountKopecks > 10000000000 {
 		fields["amountKopecks"] = []string{"Укажите сумму от 1 до 10000000000 целых копеек."}
+	}
+	if !input.normalizePoint() {
+		fields["point"] = []string{"Укажите допустимую пару координат и источник точки."}
 	}
 	if httpapi.ValidationError(c, fields) {
 		return startsAt, endsAt, false

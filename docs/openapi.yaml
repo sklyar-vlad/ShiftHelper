@@ -1268,6 +1268,28 @@ components:
           $ref: '#/components/schemas/CategoryCode'
         name:
           type: string
+    GigPoint:
+      type: object
+      nullable: true
+      additionalProperties: false
+      description: Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        source:
+          type: string
+          enum: [manual, geoapify]
+          default: manual
+        attribution:
+          type: string
+          maxLength: 300
     CreateGigRequest:
       type: object
       additionalProperties: false
@@ -1281,6 +1303,9 @@ components:
       - endsAt
       - amountKopecks
       properties:
+        point:
+          allOf:
+            - $ref: '#/components/schemas/GigPoint'
         category:
           $ref: '#/components/schemas/CategoryCode'
         title:
@@ -1511,6 +1536,10 @@ components:
       - cancelledAt
       - myApplication
       properties:
+        point:
+          allOf:
+            - $ref: '#/components/schemas/GigPoint'
+          description: Текущая точка, доступна в тех же ответах, что и адрес задания.
         cancellation:
           $ref: '#/components/schemas/GigCancellation'
           description: Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.
@@ -1652,6 +1681,10 @@ components:
       - amountKopecks
       - termsVersion
       properties:
+        point:
+          allOf:
+            - $ref: '#/components/schemas/GigPoint'
+          description: null очищает точку. Пропуск сохраняет её только при неизменных городе и адресе.
         category:
           $ref: '#/components/schemas/CategoryCode'
         title:
