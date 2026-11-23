@@ -8,10 +8,12 @@ import {
 } from "@/shared/lib/dates";
 import { useGigCategories } from "@/entities/gig/GigCategory";
 import { CityInput } from "@/shared/ui/CityInput";
+import { useSession } from "@/shared/model/session";
+import { useUnsavedChanges } from "@/shared/ui/useUnsavedChanges";
 import { useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import {
   createGig,
   editGigTerms,
@@ -59,7 +61,9 @@ export function parseRubles(value: string): number | null {
 }
 
 export function CreateGigPage() {
-  return <GigForm />;
+  const { user } = useSession();
+  const { key } = useLocation();
+  return <GigForm key={`${user?.id}:${key}`} />;
 }
 
 export function GigForm({
@@ -92,9 +96,10 @@ export function GigForm({
     control,
     handleSubmit,
     getValues,
+    reset,
     setError,
     setValue,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<Values>({
     defaultValues: gig
       ? {
@@ -108,8 +113,19 @@ export function GigForm({
           endsAt: localDate(gig.endsAt),
           amount: `${Math.floor(gig.amountKopecks / 100)},${String(gig.amountKopecks % 100).padStart(2, "0")}`,
         }
-      : { category: "other" },
+      : {
+          category: "other",
+          title: "",
+          description: "",
+          requirements: "",
+          city: "",
+          address: "",
+          startsAt: "",
+          endsAt: "",
+          amount: "",
+        },
   });
+  const guard = useUnsavedChanges(isDirty, onCancel);
   const startValue = watch("startsAt") ?? "";
   const endValue = watch("endsAt") ?? "";
   const startISO = apiDate(startValue, gig?.startsAt);
@@ -178,6 +194,8 @@ export function GigForm({
         userId
       )
         return;
+      if (!guard.allowSavedExit()) return;
+      reset(values);
       if (gig) {
         await client.invalidateQueries();
         onSaved?.();
@@ -353,6 +371,7 @@ export function GigForm({
                         id={field.name}
                         label={field.label}
                         value={binding.value}
+                        initialValue={gig ? localDate(gig[field.name]) : ""}
                         onChange={(next) => {
                           binding.onChange(next);
                           if (field.name === "endsAt") {
@@ -484,13 +503,14 @@ export function GigForm({
             <button
               type="button"
               className="button button-secondary"
-              onClick={onCancel}
+              onClick={guard.requestClose}
             >
               Отмена
             </button>
           )}
         </fieldset>
       </form>
+      {guard.dialog}
     </section>
   );
 }

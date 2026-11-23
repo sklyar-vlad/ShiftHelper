@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { SessionProvider } from "@/shared/model/session";
 import {
   type CurrentUser,
@@ -67,7 +68,9 @@ async function mount(
   render(
     <QueryClientProvider client={client}>
       <SessionProvider>
-        <AccountPage />
+        <RouterProvider
+          router={createMemoryRouter([{ path: "/", element: <AccountPage /> }])}
+        />
       </SessionProvider>
     </QueryClientProvider>,
   );
@@ -80,6 +83,42 @@ const submit = () =>
   fireEvent.submit(
     screen.getByRole("form", { name: "Редактирование профиля" }),
   );
+
+it("compares edits against the opening snapshot and discards a draft on account switch", async () => {
+  const client = await mount(async () => json(user), {
+    ...user,
+    specialties: ["moving"],
+  });
+  const name = screen.getByLabelText<HTMLInputElement>("Имя");
+  fireEvent.change(name, { target: { value: "Черновик" } });
+  const key = getGetCurrentUserQueryKey();
+  await act(async () => {
+    client.setQueryData(key, {
+      ...user,
+      name: "Обновление",
+      specialties: ["repair"],
+    });
+  });
+  expect(name.value).toBe("Черновик");
+  expect(
+    (screen.getByRole("checkbox", { name: "Переезды" }) as HTMLInputElement)
+      .checked,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Отмена" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Остаться" }));
+  expect(name.value).toBe("Черновик");
+
+  await act(async () => {
+    client.setQueryData(key, { ...user, id: "other", name: "Другой профиль" });
+  });
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Редактировать профиль" }),
+  );
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(screen.getByLabelText<HTMLInputElement>("Имя").value).toBe(
+    "Другой профиль",
+  );
+});
 
 it("saves trimmed name and empty bio, updating the session immediately", async () => {
   const send = vi.fn(async (init: RequestInit) =>
@@ -147,7 +186,13 @@ it("validates name and preserves input on API field errors, while blocking dupli
     "Новое имя",
   );
   fireEvent.click(screen.getByRole("button", { name: "Отмена" }));
-  expect(screen.getByRole("heading", { name: "Алексей" })).toBeTruthy();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Уйти без сохранения" }),
+  );
+  await screen.findByRole("button", { name: "Редактировать профиль" });
+  expect(
+    screen.queryByRole("form", { name: "Редактирование профиля" }),
+  ).toBeNull();
 });
 
 it("does not restore a logged-out session when a late save response arrives", async () => {

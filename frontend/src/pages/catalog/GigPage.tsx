@@ -56,7 +56,7 @@ export function GigPage() {
   const query = useGetGig(gigId, {
     query: {
       retry: false,
-      enabled: !session.isPending && !session.isError,
+      enabled: !session.isPending && (!session.isError || !!session.user),
       queryKey: [...getGetGigQueryKey(gigId), session.user?.id ?? "guest"],
     },
   });
@@ -66,7 +66,7 @@ export function GigPage() {
       ? saved
       : "/catalog";
 
-  if (session.isError)
+  if (session.isError && !session.user)
     return (
       <StatusPanel
         title="Не удалось проверить аккаунт"
@@ -83,7 +83,9 @@ export function GigPage() {
       </Link>
       {query.isPending ? (
         <StatusPanel title="Загружаем задание" pending />
-      ) : query.isError ? (
+      ) : !query.data ||
+        (query.error instanceof ApiError &&
+          [401, 403, 404].includes(query.error.status)) ? (
         <StatusPanel
           title={
             query.error instanceof ApiError && query.error.status === 404
@@ -153,7 +155,7 @@ export function GigPage() {
             />
           )}
           <TermsPanel
-            key={`terms:${gigId}:${session.user?.id ?? "guest"}`}
+            key={`terms:${gigId}:${session.user?.id ?? "guest"}:${location.key}`}
             gig={query.data}
             user={session.user}
           />

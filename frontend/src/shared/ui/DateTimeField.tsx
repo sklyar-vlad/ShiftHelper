@@ -4,6 +4,7 @@ export function DateTimeField({
   id,
   label,
   value,
+  initialValue,
   onChange,
   onBlur,
   inputRef,
@@ -13,6 +14,7 @@ export function DateTimeField({
   id: string;
   label: string;
   value: string;
+  initialValue: string;
   onChange: (value: string) => void;
   onBlur: () => void;
   inputRef?: React.Ref<{ focus: () => void }>;
@@ -20,13 +22,19 @@ export function DateTimeField({
   disabled?: boolean;
 }) {
   const [day = "", time = ""] = value.split("T");
+  const change = (date: string, clock: string) => {
+    const next = date || clock ? `${date}T${clock}` : "";
+    onChange(
+      next.slice(0, 16) === initialValue.slice(0, 16) ? initialValue : next,
+    );
+  };
   return (
     <div className="date-time-field">
       <DatePicker
         id={id}
         label={label}
         value={day}
-        onChange={(next) => onChange(`${next}T${time}`)}
+        onChange={(next) => change(next, time)}
         onBlur={onBlur}
         inputRef={inputRef}
         error={error}
@@ -41,7 +49,7 @@ export function DateTimeField({
           type="time"
           step="60"
           value={time.slice(0, 5)}
-          onChange={(event) => onChange(`${day}T${event.target.value}`)}
+          onChange={(event) => change(day, event.target.value)}
           onBlur={onBlur}
           disabled={disabled}
           aria-invalid={!!error}
