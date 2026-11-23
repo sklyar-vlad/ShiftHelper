@@ -274,7 +274,36 @@ export interface GigCategory {
   name: string;
 }
 
+export type GigPointSource =
+  (typeof GigPointSource)[keyof typeof GigPointSource];
+
+export const GigPointSource = {
+  manual: "manual",
+  geoapify: "geoapify",
+} as const;
+
+/**
+ * Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.
+ * @nullable
+ */
+export type GigPoint = {
+  /**
+   * @minimum -90
+   * @maximum 90
+   */
+  latitude: number;
+  /**
+   * @minimum -180
+   * @maximum 180
+   */
+  longitude: number;
+  source?: GigPointSource;
+  /** @maxLength 300 */
+  attribution?: string;
+} | null;
+
 export interface CreateGigRequest {
+  point?: GigPoint | null;
   category?: CategoryCode;
   /**
    * @minLength 1
@@ -479,6 +508,8 @@ export interface TermsChange {
 }
 
 export interface Gig {
+  /** Текущая точка, доступна в тех же ответах, что и адрес задания. */
+  point?: GigPoint | null;
   /** Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене. */
   cancellation?: GigCancellation;
   category?: CategoryCode;
@@ -562,6 +593,8 @@ export interface Gig {
 }
 
 export interface EditGigTermsRequest {
+  /** null очищает точку. Пропуск сохраняет её только при неизменных городе и адресе. */
+  point?: GigPoint | null;
   category?: CategoryCode;
   /**
    * @minLength 1

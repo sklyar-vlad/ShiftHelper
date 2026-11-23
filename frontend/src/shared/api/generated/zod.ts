@@ -881,6 +881,15 @@ export const ListGigsResponse = zod.object({
  * Только customer. Автор определяется из сессии; создаётся open. startsAt > время сервера, endsAt > startsAt.
  * @summary Опубликовать подработку
  */
+export const createGigBodyPointOneLatitudeMin = -90;
+export const createGigBodyPointOneLatitudeMax = 90;
+
+export const createGigBodyPointOneLongitudeMin = -180;
+export const createGigBodyPointOneLongitudeMax = 180;
+
+export const createGigBodyPointOneSourceDefault = `manual`;
+export const createGigBodyPointOneAttributionMax = 300;
+
 export const createGigBodyTitleMax = 150;
 
 export const createGigBodyDescriptionMax = 5000;
@@ -901,6 +910,29 @@ export const createGigBodyEndsAtRegExp = new RegExp(
 export const createGigBodyAmountKopecksMax = 10000000000;
 
 export const CreateGigBody = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(createGigBodyPointOneLatitudeMin)
+        .max(createGigBodyPointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(createGigBodyPointOneLongitudeMin)
+        .max(createGigBodyPointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(createGigBodyPointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(createGigBodyPointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional(),
   category: zod
     .enum([
       "repair",
@@ -946,11 +978,29 @@ export const CreateGigBody = zod.object({
     ),
 });
 
+export const createGigResponsePointOneLatitudeMin = -90;
+export const createGigResponsePointOneLatitudeMax = 90;
+
+export const createGigResponsePointOneLongitudeMin = -180;
+export const createGigResponsePointOneLongitudeMax = 180;
+
+export const createGigResponsePointOneSourceDefault = `manual`;
+export const createGigResponsePointOneAttributionMax = 300;
+
 export const createGigResponseCancellationCommentMax = 500;
 
 export const createGigResponseTermsVersionDefault = 1;
 
 export const createGigResponseHasPendingChangeDefault = false;
+export const createGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const createGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const createGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const createGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const createGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const createGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const createGigResponsePendingChangeTermsTitleMax = 150;
 
 export const createGigResponsePendingChangeTermsDescriptionMax = 5000;
@@ -1058,6 +1108,30 @@ export const createGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CreateGigResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(createGigResponsePointOneLatitudeMin)
+        .max(createGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(createGigResponsePointOneLongitudeMin)
+        .max(createGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(createGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(createGigResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -1108,6 +1182,31 @@ export const CreateGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(createGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(createGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(createGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(createGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                createGigResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(createGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -1393,11 +1492,29 @@ export const GetGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const getGigResponsePointOneLatitudeMin = -90;
+export const getGigResponsePointOneLatitudeMax = 90;
+
+export const getGigResponsePointOneLongitudeMin = -180;
+export const getGigResponsePointOneLongitudeMax = 180;
+
+export const getGigResponsePointOneSourceDefault = `manual`;
+export const getGigResponsePointOneAttributionMax = 300;
+
 export const getGigResponseCancellationCommentMax = 500;
 
 export const getGigResponseTermsVersionDefault = 1;
 
 export const getGigResponseHasPendingChangeDefault = false;
+export const getGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const getGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const getGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const getGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const getGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const getGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const getGigResponsePendingChangeTermsTitleMax = 150;
 
 export const getGigResponsePendingChangeTermsDescriptionMax = 5000;
@@ -1505,6 +1622,30 @@ export const getGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const GetGigResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(getGigResponsePointOneLatitudeMin)
+        .max(getGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(getGigResponsePointOneLongitudeMin)
+        .max(getGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(getGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(getGigResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -1555,6 +1696,29 @@ export const GetGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(getGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(getGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(getGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(getGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(getGigResponsePendingChangeTermsPointOneSourceDefault),
+            attribution: zod
+              .string()
+              .max(getGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -1848,11 +2012,29 @@ export const CancelGigBody = zod.object({
   comment: zod.string().max(cancelGigBodyCommentMax).optional(),
 });
 
+export const cancelGigResponsePointOneLatitudeMin = -90;
+export const cancelGigResponsePointOneLatitudeMax = 90;
+
+export const cancelGigResponsePointOneLongitudeMin = -180;
+export const cancelGigResponsePointOneLongitudeMax = 180;
+
+export const cancelGigResponsePointOneSourceDefault = `manual`;
+export const cancelGigResponsePointOneAttributionMax = 300;
+
 export const cancelGigResponseCancellationCommentMax = 500;
 
 export const cancelGigResponseTermsVersionDefault = 1;
 
 export const cancelGigResponseHasPendingChangeDefault = false;
+export const cancelGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const cancelGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const cancelGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const cancelGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const cancelGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const cancelGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const cancelGigResponsePendingChangeTermsTitleMax = 150;
 
 export const cancelGigResponsePendingChangeTermsDescriptionMax = 5000;
@@ -1960,6 +2142,30 @@ export const cancelGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CancelGigResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(cancelGigResponsePointOneLatitudeMin)
+        .max(cancelGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(cancelGigResponsePointOneLongitudeMin)
+        .max(cancelGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(cancelGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(cancelGigResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -2010,6 +2216,31 @@ export const CancelGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(cancelGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(cancelGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(cancelGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(cancelGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                cancelGigResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(cancelGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -2295,11 +2526,29 @@ export const SubmitGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const submitGigResponsePointOneLatitudeMin = -90;
+export const submitGigResponsePointOneLatitudeMax = 90;
+
+export const submitGigResponsePointOneLongitudeMin = -180;
+export const submitGigResponsePointOneLongitudeMax = 180;
+
+export const submitGigResponsePointOneSourceDefault = `manual`;
+export const submitGigResponsePointOneAttributionMax = 300;
+
 export const submitGigResponseCancellationCommentMax = 500;
 
 export const submitGigResponseTermsVersionDefault = 1;
 
 export const submitGigResponseHasPendingChangeDefault = false;
+export const submitGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const submitGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const submitGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const submitGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const submitGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const submitGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const submitGigResponsePendingChangeTermsTitleMax = 150;
 
 export const submitGigResponsePendingChangeTermsDescriptionMax = 5000;
@@ -2407,6 +2656,30 @@ export const submitGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const SubmitGigResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(submitGigResponsePointOneLatitudeMin)
+        .max(submitGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(submitGigResponsePointOneLongitudeMin)
+        .max(submitGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(submitGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(submitGigResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -2457,6 +2730,31 @@ export const SubmitGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(submitGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(submitGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(submitGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(submitGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                submitGigResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(submitGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -2742,11 +3040,29 @@ export const ConfirmGigParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const confirmGigResponsePointOneLatitudeMin = -90;
+export const confirmGigResponsePointOneLatitudeMax = 90;
+
+export const confirmGigResponsePointOneLongitudeMin = -180;
+export const confirmGigResponsePointOneLongitudeMax = 180;
+
+export const confirmGigResponsePointOneSourceDefault = `manual`;
+export const confirmGigResponsePointOneAttributionMax = 300;
+
 export const confirmGigResponseCancellationCommentMax = 500;
 
 export const confirmGigResponseTermsVersionDefault = 1;
 
 export const confirmGigResponseHasPendingChangeDefault = false;
+export const confirmGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const confirmGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const confirmGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const confirmGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const confirmGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const confirmGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const confirmGigResponsePendingChangeTermsTitleMax = 150;
 
 export const confirmGigResponsePendingChangeTermsDescriptionMax = 5000;
@@ -2854,6 +3170,30 @@ export const confirmGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const ConfirmGigResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(confirmGigResponsePointOneLatitudeMin)
+        .max(confirmGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(confirmGigResponsePointOneLongitudeMin)
+        .max(confirmGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(confirmGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(confirmGigResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -2904,6 +3244,31 @@ export const ConfirmGigResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(confirmGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(confirmGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(confirmGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(confirmGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                confirmGigResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(confirmGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -3465,11 +3830,31 @@ export const SelectApplicationParams = zod.object({
   applicationId: zod.uuid(),
 });
 
+export const selectApplicationResponsePointOneLatitudeMin = -90;
+export const selectApplicationResponsePointOneLatitudeMax = 90;
+
+export const selectApplicationResponsePointOneLongitudeMin = -180;
+export const selectApplicationResponsePointOneLongitudeMax = 180;
+
+export const selectApplicationResponsePointOneSourceDefault = `manual`;
+export const selectApplicationResponsePointOneAttributionMax = 300;
+
 export const selectApplicationResponseCancellationCommentMax = 500;
 
 export const selectApplicationResponseTermsVersionDefault = 1;
 
 export const selectApplicationResponseHasPendingChangeDefault = false;
+export const selectApplicationResponsePendingChangeTermsPointOneLatitudeMin =
+  -90;
+export const selectApplicationResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const selectApplicationResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const selectApplicationResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const selectApplicationResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const selectApplicationResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const selectApplicationResponsePendingChangeTermsTitleMax = 150;
 
 export const selectApplicationResponsePendingChangeTermsDescriptionMax = 5000;
@@ -3581,6 +3966,30 @@ export const selectApplicationResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const SelectApplicationResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(selectApplicationResponsePointOneLatitudeMin)
+        .max(selectApplicationResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(selectApplicationResponsePointOneLongitudeMin)
+        .max(selectApplicationResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(selectApplicationResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(selectApplicationResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -3633,6 +4042,41 @@ export const SelectApplicationResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(
+                selectApplicationResponsePendingChangeTermsPointOneLatitudeMin,
+              )
+              .max(
+                selectApplicationResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                selectApplicationResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                selectApplicationResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                selectApplicationResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                selectApplicationResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -4851,6 +5295,15 @@ export const EditGigTermsParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const editGigTermsBodyPointOneLatitudeMin = -90;
+export const editGigTermsBodyPointOneLatitudeMax = 90;
+
+export const editGigTermsBodyPointOneLongitudeMin = -180;
+export const editGigTermsBodyPointOneLongitudeMax = 180;
+
+export const editGigTermsBodyPointOneSourceDefault = `manual`;
+export const editGigTermsBodyPointOneAttributionMax = 300;
+
 export const editGigTermsBodyTitleMax = 150;
 
 export const editGigTermsBodyDescriptionMax = 5000;
@@ -4871,6 +5324,32 @@ export const editGigTermsBodyEndsAtRegExp = new RegExp(
 export const editGigTermsBodyAmountKopecksMax = 10000000000;
 
 export const EditGigTermsBody = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(editGigTermsBodyPointOneLatitudeMin)
+        .max(editGigTermsBodyPointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(editGigTermsBodyPointOneLongitudeMin)
+        .max(editGigTermsBodyPointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(editGigTermsBodyPointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(editGigTermsBodyPointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe(
+      "null очищает точку. Пропуск сохраняет её только при неизменных городе и адресе.",
+    ),
   category: zod
     .enum([
       "repair",
@@ -4919,11 +5398,29 @@ export const EditGigTermsBody = zod.object({
   termsVersion: zod.int().min(1),
 });
 
+export const editGigTermsResponsePointOneLatitudeMin = -90;
+export const editGigTermsResponsePointOneLatitudeMax = 90;
+
+export const editGigTermsResponsePointOneLongitudeMin = -180;
+export const editGigTermsResponsePointOneLongitudeMax = 180;
+
+export const editGigTermsResponsePointOneSourceDefault = `manual`;
+export const editGigTermsResponsePointOneAttributionMax = 300;
+
 export const editGigTermsResponseCancellationCommentMax = 500;
 
 export const editGigTermsResponseTermsVersionDefault = 1;
 
 export const editGigTermsResponseHasPendingChangeDefault = false;
+export const editGigTermsResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const editGigTermsResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const editGigTermsResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const editGigTermsResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const editGigTermsResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const editGigTermsResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const editGigTermsResponsePendingChangeTermsTitleMax = 150;
 
 export const editGigTermsResponsePendingChangeTermsDescriptionMax = 5000;
@@ -5031,6 +5528,30 @@ export const editGigTermsResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const EditGigTermsResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(editGigTermsResponsePointOneLatitudeMin)
+        .max(editGigTermsResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(editGigTermsResponsePointOneLongitudeMin)
+        .max(editGigTermsResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(editGigTermsResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(editGigTermsResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -5081,6 +5602,31 @@ export const EditGigTermsResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(editGigTermsResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(editGigTermsResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(editGigTermsResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(editGigTermsResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                editGigTermsResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(editGigTermsResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -5371,11 +5917,31 @@ export const ConfirmApplicationTermsBody = zod.object({
   termsVersion: zod.int().min(1),
 });
 
+export const confirmApplicationTermsResponsePointOneLatitudeMin = -90;
+export const confirmApplicationTermsResponsePointOneLatitudeMax = 90;
+
+export const confirmApplicationTermsResponsePointOneLongitudeMin = -180;
+export const confirmApplicationTermsResponsePointOneLongitudeMax = 180;
+
+export const confirmApplicationTermsResponsePointOneSourceDefault = `manual`;
+export const confirmApplicationTermsResponsePointOneAttributionMax = 300;
+
 export const confirmApplicationTermsResponseCancellationCommentMax = 500;
 
 export const confirmApplicationTermsResponseTermsVersionDefault = 1;
 
 export const confirmApplicationTermsResponseHasPendingChangeDefault = false;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneLatitudeMin =
+  -90;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const confirmApplicationTermsResponsePendingChangeTermsTitleMax = 150;
 
 export const confirmApplicationTermsResponsePendingChangeTermsDescriptionMax = 5000;
@@ -5487,6 +6053,30 @@ export const confirmApplicationTermsResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const ConfirmApplicationTermsResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(confirmApplicationTermsResponsePointOneLatitudeMin)
+        .max(confirmApplicationTermsResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(confirmApplicationTermsResponsePointOneLongitudeMin)
+        .max(confirmApplicationTermsResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(confirmApplicationTermsResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(confirmApplicationTermsResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -5539,6 +6129,41 @@ export const ConfirmApplicationTermsResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneLatitudeMin,
+              )
+              .max(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -5855,11 +6480,30 @@ export const AcceptGigChangeParams = zod.object({
   changeId: zod.uuid(),
 });
 
+export const acceptGigChangeResponsePointOneLatitudeMin = -90;
+export const acceptGigChangeResponsePointOneLatitudeMax = 90;
+
+export const acceptGigChangeResponsePointOneLongitudeMin = -180;
+export const acceptGigChangeResponsePointOneLongitudeMax = 180;
+
+export const acceptGigChangeResponsePointOneSourceDefault = `manual`;
+export const acceptGigChangeResponsePointOneAttributionMax = 300;
+
 export const acceptGigChangeResponseCancellationCommentMax = 500;
 
 export const acceptGigChangeResponseTermsVersionDefault = 1;
 
 export const acceptGigChangeResponseHasPendingChangeDefault = false;
+export const acceptGigChangeResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const acceptGigChangeResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const acceptGigChangeResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const acceptGigChangeResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const acceptGigChangeResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const acceptGigChangeResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const acceptGigChangeResponsePendingChangeTermsTitleMax = 150;
 
 export const acceptGigChangeResponsePendingChangeTermsDescriptionMax = 5000;
@@ -5970,6 +6614,30 @@ export const acceptGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const AcceptGigChangeResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(acceptGigChangeResponsePointOneLatitudeMin)
+        .max(acceptGigChangeResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(acceptGigChangeResponsePointOneLongitudeMin)
+        .max(acceptGigChangeResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(acceptGigChangeResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(acceptGigChangeResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -6020,6 +6688,39 @@ export const AcceptGigChangeResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(acceptGigChangeResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(
+                acceptGigChangeResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                acceptGigChangeResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                acceptGigChangeResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                acceptGigChangeResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                acceptGigChangeResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -6311,11 +7012,30 @@ export const RejectGigChangeParams = zod.object({
   changeId: zod.uuid(),
 });
 
+export const rejectGigChangeResponsePointOneLatitudeMin = -90;
+export const rejectGigChangeResponsePointOneLatitudeMax = 90;
+
+export const rejectGigChangeResponsePointOneLongitudeMin = -180;
+export const rejectGigChangeResponsePointOneLongitudeMax = 180;
+
+export const rejectGigChangeResponsePointOneSourceDefault = `manual`;
+export const rejectGigChangeResponsePointOneAttributionMax = 300;
+
 export const rejectGigChangeResponseCancellationCommentMax = 500;
 
 export const rejectGigChangeResponseTermsVersionDefault = 1;
 
 export const rejectGigChangeResponseHasPendingChangeDefault = false;
+export const rejectGigChangeResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const rejectGigChangeResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const rejectGigChangeResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const rejectGigChangeResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const rejectGigChangeResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const rejectGigChangeResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const rejectGigChangeResponsePendingChangeTermsTitleMax = 150;
 
 export const rejectGigChangeResponsePendingChangeTermsDescriptionMax = 5000;
@@ -6426,6 +7146,30 @@ export const rejectGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const RejectGigChangeResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(rejectGigChangeResponsePointOneLatitudeMin)
+        .max(rejectGigChangeResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(rejectGigChangeResponsePointOneLongitudeMin)
+        .max(rejectGigChangeResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(rejectGigChangeResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(rejectGigChangeResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -6476,6 +7220,39 @@ export const RejectGigChangeResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(rejectGigChangeResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(
+                rejectGigChangeResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                rejectGigChangeResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                rejectGigChangeResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                rejectGigChangeResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                rejectGigChangeResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",
@@ -6767,11 +7544,31 @@ export const WithdrawGigChangeParams = zod.object({
   changeId: zod.uuid(),
 });
 
+export const withdrawGigChangeResponsePointOneLatitudeMin = -90;
+export const withdrawGigChangeResponsePointOneLatitudeMax = 90;
+
+export const withdrawGigChangeResponsePointOneLongitudeMin = -180;
+export const withdrawGigChangeResponsePointOneLongitudeMax = 180;
+
+export const withdrawGigChangeResponsePointOneSourceDefault = `manual`;
+export const withdrawGigChangeResponsePointOneAttributionMax = 300;
+
 export const withdrawGigChangeResponseCancellationCommentMax = 500;
 
 export const withdrawGigChangeResponseTermsVersionDefault = 1;
 
 export const withdrawGigChangeResponseHasPendingChangeDefault = false;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneLatitudeMin =
+  -90;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const withdrawGigChangeResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const withdrawGigChangeResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAttributionMax = 300;
+
 export const withdrawGigChangeResponsePendingChangeTermsTitleMax = 150;
 
 export const withdrawGigChangeResponsePendingChangeTermsDescriptionMax = 5000;
@@ -6883,6 +7680,30 @@ export const withdrawGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const WithdrawGigChangeResponse = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(withdrawGigChangeResponsePointOneLatitudeMin)
+        .max(withdrawGigChangeResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(withdrawGigChangeResponsePointOneLongitudeMin)
+        .max(withdrawGigChangeResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(withdrawGigChangeResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(withdrawGigChangeResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
   cancellation: zod
     .object({
       reason: zod
@@ -6935,6 +7756,41 @@ export const WithdrawGigChangeResponse = zod.object({
       id: zod.uuid(),
       termsVersion: zod.int().min(1),
       terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(
+                withdrawGigChangeResponsePendingChangeTermsPointOneLatitudeMin,
+              )
+              .max(
+                withdrawGigChangeResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                withdrawGigChangeResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                withdrawGigChangeResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                withdrawGigChangeResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                withdrawGigChangeResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
         category: zod
           .enum([
             "repair",

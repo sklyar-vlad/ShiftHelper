@@ -50,12 +50,14 @@ const detailSQL = profilesSQL + ` SELECT ` + summaryJSON + ` || jsonb_build_obje
         SELECT 1 FROM applications a WHERE a.gig_id = g.id AND a.worker_id = $2::uuid AND a.status = 'rejected'
     )) THEN ` + cancellationJSON + ` END,
     'pendingChange', CASE WHEN g.customer_id = $2::uuid OR g.selected_worker_id = $2::uuid THEN
- (SELECT jsonb_build_object('id', change.id, 'termsVersion', change.base_version, 'terms', change.terms)
+ (SELECT jsonb_build_object('id', change.id, 'termsVersion', change.base_version, 'terms', change.terms || jsonb_build_object('point',
+     CASE WHEN change.terms ? 'point' THEN change.terms->'point'
+          WHEN change.terms->>'city' = g.city AND change.terms->>'address' = g.address THEN g.point END))
  FROM gig_changes change WHERE change.gig_id = g.id AND change.status = 'pending') END,
  'counterpartyContact', CASE WHEN g.status IN ('in_progress', 'awaiting_confirmation', 'completed') THEN
  (SELECT contact FROM users WHERE id = CASE WHEN g.customer_id = $2::uuid THEN g.selected_worker_id
  WHEN g.selected_worker_id = $2::uuid THEN g.customer_id END) END,
- 'description', g.description, 'requirements', g.requirements, 'address', g.address,
+ 'description', g.description, 'requirements', g.requirements, 'address', g.address, 'point', g.point,
     'submittedAt', g.submitted_at, 'completedAt', g.completed_at, 'cancelledAt', g.cancelled_at,
     'myApplication', (SELECT ` + applicationJSON + `
         FROM applications a JOIN profiles applicant ON applicant.id = a.worker_id

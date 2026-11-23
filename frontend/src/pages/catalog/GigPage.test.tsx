@@ -456,6 +456,7 @@ it("shows a real comparison and sends the immutable proposal ID", async () => {
   const current: Gig = {
     ...gig,
     category: "repair",
+    point: { latitude: 0, longitude: 0 },
     status: "in_progress",
     selectedWorker: worker,
     termsVersion: 1,
@@ -465,6 +466,12 @@ it("shows a real comparison and sends the immutable proposal ID", async () => {
       termsVersion: 1,
       terms: {
         category: "moving",
+        point: {
+          latitude: 55.75,
+          longitude: 37.62,
+          source: "geoapify",
+          attribution: "OpenStreetMap contributors",
+        },
         title: "Новые условия",
         description: "Другое описание",
         requirements: "",
@@ -492,6 +499,10 @@ it("shows a real comparison and sends the immutable proposal ID", async () => {
   );
   await screen.findByRole("heading", { name: "Предложены новые условия" });
   expect(screen.getByText("Новые условия")).toBeTruthy();
+  expect(screen.getByText("0.000000, 0.000000")).toBeTruthy();
+  expect(screen.getByText("55.750000, 37.620000")).toBeTruthy();
+  expect(screen.getByText(/OpenStreetMap contributors/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Geoapify" })).toBeTruthy();
   await screen.findByText("Переезды и погрузка");
   expect(screen.getAllByText("Ремонт и сборка").length).toBeGreaterThanOrEqual(
     2,

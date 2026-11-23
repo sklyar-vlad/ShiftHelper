@@ -6,6 +6,7 @@ import {
   rejectGigChange,
   withdrawGigChange,
   type Gig,
+  type GigPoint,
   type CurrentUser,
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
@@ -22,6 +23,25 @@ const labels = {
   endsAt: "Окончание",
   amountKopecks: "Сумма за всё задание",
 } as const;
+
+function pointText(point?: GigPoint | null) {
+  if (!point) return "Точка не указана";
+  return (
+    <>
+      {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+      {point.source === "geoapify" && (
+        <small className="muted">
+          {" · "}
+          {point.attribution}
+          {" · "}
+          <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">
+            Geoapify
+          </a>
+        </small>
+      )}
+    </>
+  );
+}
 
 export function TermsPanel({
   gig,
@@ -109,6 +129,19 @@ export function TermsPanel({
                 </p>
               </dd>
             </div>
+            {(gig.point || change.terms.point) && (
+              <div>
+                <dt>Точка на карте</dt>
+                <dd>
+                  <span className="small muted">Сейчас</span>
+                  <p className="gig-text">{pointText(gig.point)}</p>
+                </dd>
+                <dd>
+                  <span className="small muted">Предлагается</span>
+                  <p className="gig-text">{pointText(change.terms.point)}</p>
+                </dd>
+              </div>
+            )}
             {(Object.keys(labels) as (keyof typeof labels)[]).map((key) => {
               const display = (value: string | number) =>
                 key === "amountKopecks"

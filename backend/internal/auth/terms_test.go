@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -202,6 +203,113 @@ func TestGigTerms(t *testing.T) {
 		cancelled := create()
 		decode(send("POST", "/gigs/"+cancelled.ID+"/cancel", nil, 0), 200)
 		expect(send("PUT", "/gigs/"+cancelled.ID+"/terms", body(cancelled), 0), 409)
+	})
+	t.Run("confirmed gig point", func(t *testing.T) {
+		zero := map[string]any{"latitude": 0, "longitude": 0}
+		geocoded := map[string]any{"latitude": 90, "longitude": -180, "source": "geoapify", "attribution": "OpenStreetMap contributors"}
+		const zeroPoint = `{"latitude":0,"longitude":0,"source":"manual"}`
+		const geoPoint = `{"latitude":90,"longitude":-180,"source":"geoapify","attribution":"OpenStreetMap contributors"}`
+		assertPoint := func(raw json.RawMessage, want string) {
+			t.Helper()
+			var got, expected any
+			if len(raw) != 0 {
+				if err := json.Unmarshal(raw, &got); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := json.Unmarshal([]byte(want), &expected); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, expected) {
+				t.Fatalf("point = %s, want %s", raw, want)
+			}
+		}
+
+		legacy := create()
+		assertPoint(legacy.Point, "null")
+		createBody := body(legacy)
+		delete(createBody, "termsVersion")
+		for _, bad := range []string{
+			`{"latitude":0}`, `{"latitude":0,"longitude":null}`,
+			`{"latitude":91,"longitude":0}`, `{"latitude":0,"longitude":-181}`,
+			`{"latitude":1e999,"longitude":0}`, `{"latitude":"0","longitude":0}`,
+			`{"latitude":0,"longitude":0,"source":"geoapify"}`,
+			`{"latitude":0,"longitude":0,"unexpected":true}`,
+		} {
+			createBody["point"] = json.RawMessage(bad)
+			expect(send("POST", "/gigs", createBody, 0), 400)
+		}
+		createBody["point"] = zero
+		g := decode(send("POST", "/gigs", createBody, 0), 201)
+		path := "/gigs/" + g.ID
+		assertPoint(g.Point, zeroPoint)
+		assertPoint(decode(send("GET", path, nil, -1), 200).Point, zeroPoint)
+		for _, listing := range []string{"/gigs", "/me/gigs"} {
+			list := send("GET", listing, nil, 0)
+			expect(list, 200)
+			if strings.Contains(list.Body.String(), `"point"`) {
+				t.Fatal("point exposed in a listing")
+			}
+		}
+		before := g.TermsVersion
+		g = decode(send("PUT", path+"/terms", body(g), 0), 200)
+		assertPoint(g.Point, zeroPoint)
+		if g.TermsVersion != before+1 {
+			t.Fatal("open edit must advance the version")
+		}
+		b := body(g)
+		b["address"] = "A different address"
+		g = decode(send("PUT", path+"/terms", b, 0), 200)
+		assertPoint(g.Point, "null")
+		b = body(g)
+		b["point"] = zero
+		g = decode(send("PUT", path+"/terms", b, 0), 200)
+		b = body(g)
+		b["point"] = nil
+		g = decode(send("PUT", path+"/terms", b, 0), 200)
+		assertPoint(g.Point, "null")
+		b = body(g)
+		b["point"] = zero
+		g = decode(send("PUT", path+"/terms", b, 0), 200)
+		app := apply(g, 1)
+		apply(g, 2)
+		g = decode(send("POST", path+"/applications/"+app+"/select", nil, 0), 200)
+		expect(send("GET", path, nil, -1), 404)
+		for _, action := range []string{"reject", "withdraw", "accept"} {
+			b := body(g)
+			b["point"] = geocoded
+			proposal := decode(send("PUT", path+"/terms", b, 0), 200)
+			assertPoint(proposal.Point, zeroPoint)
+			assertPoint(proposal.PendingChange.Terms.Point, geoPoint)
+			assertPoint(decode(send("GET", path, nil, 1), 200).PendingChange.Terms.Point, geoPoint)
+			other := decode(send("GET", path, nil, 2), 200)
+			if other.PendingChange != nil {
+				t.Fatal("proposal exposed to another candidate")
+			}
+			actor := 1
+			if action == "withdraw" {
+				actor = 0
+			}
+			res := decode(send("POST", path+"/changes/"+proposal.PendingChange.ID+"/"+action, nil, actor), 200)
+			want := zeroPoint
+			if action == "accept" {
+				want = geoPoint
+			}
+			assertPoint(res.Point, want)
+			g = res
+		}
+		for _, address := range []string{g.Address, "Legacy changed address"} {
+			b = body(g)
+			b["address"] = address
+			proposal := decode(send("PUT", path+"/terms", b, 0), 200)
+			want := geoPoint
+			if address != g.Address {
+				want = "null"
+			}
+			assertPoint(proposal.PendingChange.Terms.Point, want)
+			g = decode(send("POST", path+"/changes/"+proposal.PendingChange.ID+"/accept", nil, 1), 200)
+			assertPoint(g.Point, want)
+		}
 	})
 	for _, mode := range []string{"edit-select", "edit-apply", "edit-edit", "accept-reject", "accept-withdraw", "accept-submit"} {
 		t.Run(mode, func(t *testing.T) {

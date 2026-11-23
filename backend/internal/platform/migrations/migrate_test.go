@@ -126,6 +126,7 @@ func TestMVPMigration(t *testing.T) {
 	}
 	run("down")
 	run("down")
+	run("down")
 	var notificationsRemoved bool
 	if err := pool.QueryRow(ctx, "SELECT to_regclass(current_schema() || '.notifications') IS NULL").Scan(&notificationsRemoved); err != nil || !notificationsRemoved {
 		t.Fatalf("notifications table was not removed: %v", err)
@@ -139,10 +140,11 @@ func TestMVPMigration(t *testing.T) {
 	}
 	run("up")
 	var legacyCancellation bool
-	if err := pool.QueryRow(ctx, `SELECT cancellation_reason IS NULL AND cancellation_comment = ''
+	if err := pool.QueryRow(ctx, `SELECT cancellation_reason IS NULL AND cancellation_comment = '' AND point IS NULL
 		FROM gigs WHERE title = 'Legacy cancellation'`).Scan(&legacyCancellation); err != nil || !legacyCancellation {
 		t.Fatalf("legacy cancellation was not preserved: %v", err)
 	}
+	run("down")
 	run("down")
 	run("down")
 	run("down")
