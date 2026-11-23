@@ -4,7 +4,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigationType } from "react-router";
 import { Button } from "react-aria-components/Button";
 import { Dialog, DialogTrigger } from "react-aria-components/Dialog";
 import { Heading } from "react-aria-components/Heading";
@@ -52,6 +52,7 @@ function target(item: Notification) {
 export function NotificationBell({ userId }: { userId: string }) {
   const client = useQueryClient();
   const location = useLocation();
+  const navigationType = useNavigationType();
   const countLabel = useId();
   const handledNavigation = useRef<string>(null);
   const query = useInfiniteQuery({
@@ -93,6 +94,7 @@ export function NotificationBell({ userId }: { userId: string }) {
   useEffect(() => {
     const request = location.state?.notificationRead;
     if (
+      navigationType === "POP" ||
       request?.userId !== userId ||
       typeof request.id !== "string" ||
       handledNavigation.current === location.key
@@ -100,7 +102,7 @@ export function NotificationBell({ userId }: { userId: string }) {
       return;
     handledNavigation.current = location.key;
     mutate(request.id);
-  }, [location.key, location.state, mutate, userId]);
+  }, [location.key, location.state, mutate, navigationType, userId]);
 
   const count = query.data?.pages[0]?.unreadCount;
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
