@@ -847,7 +847,37 @@ try {
     await post(second, `${cancelPath}/applications`, {}, 201);
     await customer.goto(cancelPath);
     await button(customer, "Отменить задание").click();
+    const cancellation = customer.getByRole("form", { name: "Отмена задания" });
+    const reason = cancellation.getByLabel("Причина отмены");
+    assert.ok(
+      await reason.evaluate((element) => element === document.activeElement),
+    );
+    const viewport = customer.viewportSize();
+    await customer.setViewportSize({ ...viewport, width: 375 });
+    assert.ok(
+      await customer.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    await reason.selectOption("schedule_changed");
+    await cancellation
+      .getByLabel("Пояснение (необязательно)")
+      .fill("Перенесли переезд");
+    await button(customer, "Подтвердить отмену").click();
     await visible(customer, "Отменено");
+    await visible(customer, "Перенесли переезд");
+    await customer.setViewportSize(viewport);
+    for (const [candidate, allowed] of [
+      [second, true],
+      [worker, false],
+    ]) {
+      await candidate.goto(cancelPath);
+      await visible(candidate, "Отменено");
+      assert.equal(
+        await candidate.getByText("Перенесли переезд", { exact: true }).count(),
+        Number(allowed),
+      );
+    }
     await post(second, `${cancelPath}/applications`, {}, 409);
     const race = await create("Конкурентный выбор");
     const racePath = `/gigs/${race.id}`;

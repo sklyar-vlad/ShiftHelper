@@ -320,6 +320,29 @@ export interface CreateGigRequest {
   amountKopecks: number;
 }
 
+export type CancellationReason =
+  (typeof CancellationReason)[keyof typeof CancellationReason];
+
+export const CancellationReason = {
+  no_longer_needed: "no_longer_needed",
+  schedule_changed: "schedule_changed",
+  terms_changed: "terms_changed",
+  posted_by_mistake: "posted_by_mistake",
+  other: "other",
+} as const;
+
+export interface CancelGigRequest {
+  reason?: CancellationReason;
+  /** @maxLength 500 */
+  comment?: string;
+}
+
+export interface GigCancellation {
+  reason?: CancellationReason;
+  /** @maxLength 500 */
+  comment: string;
+}
+
 /**
  * null до выбора исполнителя.
  * @nullable
@@ -350,6 +373,8 @@ export type GigSummarySelectedWorker = {
 } | null;
 
 export interface GigSummary {
+  /** Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене. */
+  cancellation?: GigCancellation;
   category?: CategoryCode;
   /**
    * Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
@@ -454,6 +479,8 @@ export interface TermsChange {
 }
 
 export interface Gig {
+  /** Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене. */
+  cancellation?: GigCancellation;
   category?: CategoryCode;
   /**
    * Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
@@ -2618,16 +2645,43 @@ export const getCancelGigUrl = (gigId: string) => {
 };
 
 /**
- * Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected. Конкурентный выбор и отмена: успешно только одно действие.
+ * Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected. Конкурентный выбор и отмена: успешно только одно действие. Запрос без тела или без reason сохраняется без указанной причины.
  * @summary Отменить задание
  */
 export const cancelGig = async (
   gigId: string,
+  cancelGigRequest?: CancelGigRequest,
   options?: Parameters<typeof http>[1],
 ): Promise<Gig> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return http<Gig>(getCancelGigUrl(gigId), {
     ...options,
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(cancelGigRequest),
   });
 };
 
@@ -2669,9 +2723,9 @@ export const getCancelGigMutationOptions = <
     Awaited<ReturnType<typeof cancelGig>>,
     CancelGigMutationVariables
   > = (props) => {
-    const { gigId } = props ?? {};
+    const { gigId, data } = props ?? {};
 
-    return cancelGig(gigId, requestOptions);
+    return cancelGig(gigId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2680,7 +2734,7 @@ export const getCancelGigMutationOptions = <
 export type CancelGigMutationResult = NonNullable<
   Awaited<ReturnType<typeof cancelGig>>
 >;
-
+export type CancelGigMutationBody = CancelGigRequest | undefined;
 export type CancelGigMutationError =
   | BadRequestResponse
   | UnauthorizedResponse
@@ -2688,7 +2742,10 @@ export type CancelGigMutationError =
   | NotFoundResponse
   | ConflictResponse
   | InternalErrorResponse;
-export type CancelGigMutationVariables = { gigId: string };
+export type CancelGigMutationVariables = {
+  gigId: string;
+  data?: CancelGigRequest;
+};
 
 /**
  * @summary Отменить задание
