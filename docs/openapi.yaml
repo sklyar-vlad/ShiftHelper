@@ -16,6 +16,7 @@ info:
     Суммы — целые копейки RUB. Текстовые поля обрезаются по краям до проверки длины, пароль не изменяется.
 
     Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100.
+    Для уведомлений используется курсор nextCursor.
 
     Пустая страница возвращает items: [] и total: 0 либо общее число записей при выходе за последнюю страницу. Между
     запросами страницы могут изменяться.
@@ -26,7 +27,8 @@ info:
     Для закрытых ресурсов доступ проверяется до состояния: отсутствие прав на скрытые данные даёт 404; неверная
     роль или действие над видимым чужим ресурсом — 403; конфликт состояния — 409.
 
-    Изменения статусов атомарны. Повторное действие даёт 409 и не меняет время переходов. Сервер определяет текущего
+    Изменения статусов заданий и откликов атомарны. Повторное действие над ними даёт 409 и не меняет время переходов.
+    Повторная отметка уведомления прочитанным допустима. Сервер определяет текущего
     пользователя по сессии.'
 servers:
 - url: /
@@ -781,6 +783,83 @@ paths:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
       - $ref: '#/components/parameters/Scope'
+  /api/v1/me/notifications:
+    get:
+      operationId: listMyNotifications
+      tags: [Personal]
+      summary: Мои уведомления и число непрочитанных
+      description: Новые первыми. Непрочитанные считаются по всей ленте в том же снимке данных, что и страница.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/PageSize'
+      - name: cursor
+        in: query
+        description: Передайте nextCursor предыдущей страницы без изменений. Первую страницу запрашивайте без курсора.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      responses:
+        '200':
+          description: Страница уведомлений текущего пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/me/notifications/{notificationId}/read:
+    post:
+      operationId: readMyNotification
+      tags: [Personal]
+      summary: Отметить уведомление прочитанным
+      description: При повторе время первого прочтения сохраняется. Чужое уведомление недоступно и возвращает 404.
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Уведомление прочитано
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/me/notifications/read-all:
+    post:
+      operationId: readAllMyNotifications
+      tags: [Personal]
+      summary: Отметить все текущие уведомления прочитанными
+      description: Повтор допустим. Операция затрагивает только собственные уведомления, видимые в начале обновления.
+      security:
+      - sessionCookie: []
+      responses:
+        '204':
+          description: Текущие уведомления прочитаны
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/gigs/{gigId}/terms:
     put:
       operationId: editGigTerms
@@ -1693,6 +1772,51 @@ components:
                   minLength: 1
                   maxLength: 500
               description: Ошибки по именам полей запроса, например email или startsAt; только для VALIDATION_ERROR.
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, type, gigId, gigTitle, createdAt, readAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,63}$'
+          description: Код события для выбора текста и действия.
+        gigId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Идентификатор задания. Доступ к странице проверяется отдельно.
+        gigTitle:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: Название задания на момент события, обычный текст.
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+    NotificationPage:
+      type: object
+      additionalProperties: false
+      required: [items, unreadCount, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        unreadCount:
+          type: integer
+          minimum: 0
+        nextCursor:
+          type: string
+          nullable: true
+          maxLength: 128
     GigPage:
       type: object
       additionalProperties: false

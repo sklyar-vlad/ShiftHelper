@@ -7,11 +7,11 @@
  * Нет черновиков, редактирования заданий, платежей, чата, споров, восстановления пароля или подтверждения email.
  * Все даты — RFC 3339 (ISO 8601 с обязательным Z или смещением часового пояса); ответы используют UTC.
  * Суммы — целые копейки RUB. Текстовые поля обрезаются по краям до проверки длины, пароль не изменяется.
- * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100.
+ * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100. Для уведомлений используется курсор nextCursor.
  * Пустая страница возвращает items: [] и total: 0 либо общее число записей при выходе за последнюю страницу. Между запросами страницы могут изменяться.
  * Ошибки имеют envelope error с code, message и необязательным fields. Неизвестные поля тела и параметры, неверные UUID, даты, JSON и фильтры дают 400.
  * Для закрытых ресурсов доступ проверяется до состояния: отсутствие прав на скрытые данные даёт 404; неверная роль или действие над видимым чужим ресурсом — 403; конфликт состояния — 409.
- * Изменения статусов атомарны. Повторное действие даёт 409 и не меняет время переходов. Сервер определяет текущего пользователя по сессии.
+ * Изменения статусов заданий и откликов атомарны. Повторное действие над ними даёт 409 и не меняет время переходов. Повторная отметка уведомления прочитанным допустима. Сервер определяет текущего пользователя по сессии.
  * OpenAPI spec version: 0.3.0
  */
 import * as zod from "zod";
@@ -4748,6 +4748,86 @@ export const ListMyApplicationsResponse = zod.object({
   pageSize: zod.int().min(1).max(listMyApplicationsResponsePageSizeMax),
   total: zod.int().min(listMyApplicationsResponseTotalMin),
 });
+
+/**
+ * Новые первыми. Непрочитанные считаются по всей ленте в том же снимке данных, что и страница.
+ * @summary Мои уведомления и число непрочитанных
+ */
+export const listMyNotificationsQueryPageSizeDefault = 20;
+export const listMyNotificationsQueryPageSizeMax = 100;
+
+export const listMyNotificationsQueryCursorMax = 128;
+
+export const ListMyNotificationsQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listMyNotificationsQueryPageSizeMax)
+    .default(listMyNotificationsQueryPageSizeDefault),
+  cursor: zod
+    .string()
+    .min(1)
+    .max(listMyNotificationsQueryCursorMax)
+    .optional()
+    .describe(
+      "Передайте nextCursor предыдущей страницы без изменений. Первую страницу запрашивайте без курсора.",
+    ),
+});
+
+export const listMyNotificationsResponseItemsItemTypeRegExp = new RegExp(
+  "^[a-z][a-z0-9_]{0,63}$",
+);
+export const listMyNotificationsResponseItemsItemGigTitleMax = 150;
+
+export const listMyNotificationsResponseUnreadCountMin = 0;
+
+export const listMyNotificationsResponseNextCursorMax = 128;
+
+export const ListMyNotificationsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      type: zod
+        .string()
+        .regex(listMyNotificationsResponseItemsItemTypeRegExp)
+        .describe("Код события для выбора текста и действия."),
+      gigId: zod
+        .uuid()
+        .nullable()
+        .describe(
+          "Идентификатор задания. Доступ к странице проверяется отдельно.",
+        ),
+      gigTitle: zod
+        .string()
+        .min(1)
+        .max(listMyNotificationsResponseItemsItemGigTitleMax)
+        .describe("Название задания на момент события, обычный текст."),
+      createdAt: zod.iso.datetime({ offset: true }),
+      readAt: zod.iso.datetime({ offset: true }).nullable(),
+    }),
+  ),
+  unreadCount: zod.int().min(listMyNotificationsResponseUnreadCountMin),
+  nextCursor: zod
+    .string()
+    .max(listMyNotificationsResponseNextCursorMax)
+    .nullable(),
+});
+
+/**
+ * При повторе время первого прочтения сохраняется. Чужое уведомление недоступно и возвращает 404.
+ * @summary Отметить уведомление прочитанным
+ */
+export const ReadMyNotificationParams = zod.object({
+  notificationId: zod.uuid(),
+});
+
+export const ReadMyNotificationResponse = zod.void();
+
+/**
+ * Повтор допустим. Операция затрагивает только собственные уведомления, видимые в начале обновления.
+ * @summary Отметить все текущие уведомления прочитанными
+ */
+export const ReadAllMyNotificationsResponse = zod.void();
 
 /**
  * Только владелец. open: применить новую редакцию, отклики сохраняются и требуют повторного согласия. in_progress: создать единственное предложение без изменения текущих условий. termsVersion должна совпадать с текущей, иначе 409. В остальных состояниях 409.

@@ -125,6 +125,11 @@ func TestMVPMigration(t *testing.T) {
 		t.Fatalf("valid lifecycle: %v", err)
 	}
 	run("down")
+	var notificationsRemoved bool
+	if err := pool.QueryRow(ctx, "SELECT to_regclass(current_schema() || '.notifications') IS NULL").Scan(&notificationsRemoved); err != nil || !notificationsRemoved {
+		t.Fatalf("notifications table was not removed: %v", err)
+	}
+	run("down")
 	if _, err := pool.Exec(ctx, `INSERT INTO gigs (customer_id, title, description, city, address, starts_at,
 		ends_at, amount_kopecks, status, cancelled_at)
 		VALUES ('00000000-0000-0000-0000-000000000001', 'Legacy cancellation', 'Old gig', 'Moscow', 'Example 1',
@@ -137,6 +142,7 @@ func TestMVPMigration(t *testing.T) {
 		FROM gigs WHERE title = 'Legacy cancellation'`).Scan(&legacyCancellation); err != nil || !legacyCancellation {
 		t.Fatalf("legacy cancellation was not preserved: %v", err)
 	}
+	run("down")
 	run("down")
 	var cancellationColumnsRemoved bool
 	if err := pool.QueryRow(ctx, `SELECT NOT EXISTS (

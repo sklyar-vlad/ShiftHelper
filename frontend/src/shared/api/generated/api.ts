@@ -7,11 +7,11 @@
  * Нет черновиков, редактирования заданий, платежей, чата, споров, восстановления пароля или подтверждения email.
  * Все даты — RFC 3339 (ISO 8601 с обязательным Z или смещением часового пояса); ответы используют UTC.
  * Суммы — целые копейки RUB. Текстовые поля обрезаются по краям до проверки длины, пароль не изменяется.
- * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100.
+ * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100. Для уведомлений используется курсор nextCursor.
  * Пустая страница возвращает items: [] и total: 0 либо общее число записей при выходе за последнюю страницу. Между запросами страницы могут изменяться.
  * Ошибки имеют envelope error с code, message и необязательным fields. Неизвестные поля тела и параметры, неверные UUID, даты, JSON и фильтры дают 400.
  * Для закрытых ресурсов доступ проверяется до состояния: отсутствие прав на скрытые данные даёт 404; неверная роль или действие над видимым чужим ресурсом — 403; конфликт состояния — 409.
- * Изменения статусов атомарны. Повторное действие даёт 409 и не меняет время переходов. Сервер определяет текущего пользователя по сессии.
+ * Изменения статусов заданий и откликов атомарны. Повторное действие над ними даёт 409 и не меняет время переходов. Повторная отметка уведомления прочитанным допустима. Сервер определяет текущего пользователя по сессии.
  * OpenAPI spec version: 0.3.0
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -663,6 +663,40 @@ export interface ErrorResponse {
   error: ErrorResponseError;
 }
 
+export interface Notification {
+  id: string;
+  /**
+   * Код события для выбора текста и действия.
+   * @pattern ^[a-z][a-z0-9_]{0,63}$
+   */
+  type: string;
+  /**
+   * Идентификатор задания. Доступ к странице проверяется отдельно.
+   * @nullable
+   */
+  gigId: string | null;
+  /**
+   * Название задания на момент события, обычный текст.
+   * @minLength 1
+   * @maxLength 150
+   */
+  gigTitle: string;
+  createdAt: string;
+  /** @nullable */
+  readAt: string | null;
+}
+
+export interface NotificationPage {
+  items: Notification[];
+  /** @minimum 0 */
+  unreadCount: number;
+  /**
+   * @maxLength 128
+   * @nullable
+   */
+  nextCursor: string | null;
+}
+
 export interface GigPage {
   items: GigSummary[];
   /** @minimum 1 */
@@ -858,6 +892,20 @@ export type ListMyApplicationsParams = {
    */
   pageSize?: PageSizeParameter;
   scope?: ScopeParameter;
+};
+
+export type ListMyNotificationsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: PageSizeParameter;
+  /**
+   * Передайте nextCursor предыдущей страницы без изменений. Первую страницу запрашивайте без курсора.
+   * @minLength 1
+   * @maxLength 128
+   */
+  cursor?: string;
 };
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
@@ -4283,6 +4331,402 @@ export function useListMyApplications<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getListMyNotificationsUrl = (
+  params?: ListMyNotificationsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/me/notifications?${stringifiedParams}`
+    : `/api/v1/me/notifications`;
+};
+
+/**
+ * Новые первыми. Непрочитанные считаются по всей ленте в том же снимке данных, что и страница.
+ * @summary Мои уведомления и число непрочитанных
+ */
+export const listMyNotifications = async (
+  params?: ListMyNotificationsParams,
+  options?: Parameters<typeof http>[1],
+): Promise<NotificationPage> => {
+  return http<NotificationPage>(getListMyNotificationsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyNotificationsQueryKey = (
+  params?: ListMyNotificationsParams,
+) => {
+  return [`/api/v1/me/notifications`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMyNotificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params?: ListMyNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMyNotificationsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyNotifications>>
+  > = ({ signal }) =>
+    listMyNotifications(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyNotifications>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListMyNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyNotifications>>
+>;
+export type ListMyNotificationsQueryError =
+  BadRequestResponse | UnauthorizedResponse | InternalErrorResponse;
+
+export function useListMyNotifications<
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params: undefined | ListMyNotificationsParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listMyNotifications>>,
+          TError,
+          Awaited<ReturnType<typeof listMyNotifications>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListMyNotifications<
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params?: ListMyNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listMyNotifications>>,
+          TError,
+          Awaited<ReturnType<typeof listMyNotifications>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListMyNotifications<
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params?: ListMyNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Мои уведомления и число непрочитанных
+ */
+
+export function useListMyNotifications<
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params?: ListMyNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListMyNotificationsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getReadMyNotificationUrl = (notificationId: string) => {
+  return `/api/v1/me/notifications/${notificationId}/read`;
+};
+
+/**
+ * При повторе время первого прочтения сохраняется. Чужое уведомление недоступно и возвращает 404.
+ * @summary Отметить уведомление прочитанным
+ */
+export const readMyNotification = async (
+  notificationId: string,
+  options?: Parameters<typeof http>[1],
+): Promise<void> => {
+  return http<void>(getReadMyNotificationUrl(notificationId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReadMyNotificationMutationKey = () =>
+  ["readMyNotification"] as const;
+
+export const getReadMyNotificationMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof readMyNotification>>,
+    TError,
+    ReadMyNotificationMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof readMyNotification>>,
+  TError,
+  ReadMyNotificationMutationVariables,
+  TContext
+> => {
+  const mutationKey = getReadMyNotificationMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof readMyNotification>>,
+    ReadMyNotificationMutationVariables
+  > = (props) => {
+    const { notificationId } = props ?? {};
+
+    return readMyNotification(notificationId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReadMyNotificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof readMyNotification>>
+>;
+
+export type ReadMyNotificationMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | InternalErrorResponse;
+export type ReadMyNotificationMutationVariables = { notificationId: string };
+
+/**
+ * @summary Отметить уведомление прочитанным
+ */
+export const useReadMyNotification = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof readMyNotification>>,
+      TError,
+      ReadMyNotificationMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof readMyNotification>>,
+  TError,
+  ReadMyNotificationMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getReadMyNotificationMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getReadAllMyNotificationsUrl = () => {
+  return `/api/v1/me/notifications/read-all`;
+};
+
+/**
+ * Повтор допустим. Операция затрагивает только собственные уведомления, видимые в начале обновления.
+ * @summary Отметить все текущие уведомления прочитанными
+ */
+export const readAllMyNotifications = async (
+  options?: Parameters<typeof http>[1],
+): Promise<void> => {
+  return http<void>(getReadAllMyNotificationsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReadAllMyNotificationsMutationKey = () =>
+  ["readAllMyNotifications"] as const;
+
+export const getReadAllMyNotificationsMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof readAllMyNotifications>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof readAllMyNotifications>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getReadAllMyNotificationsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof readAllMyNotifications>>,
+    void
+  > = () => {
+    return readAllMyNotifications(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReadAllMyNotificationsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof readAllMyNotifications>>
+>;
+
+export type ReadAllMyNotificationsMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | InternalErrorResponse;
+
+/**
+ * @summary Отметить все текущие уведомления прочитанными
+ */
+export const useReadAllMyNotifications = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof readAllMyNotifications>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof readAllMyNotifications>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getReadAllMyNotificationsMutationOptions(options),
+    queryClient,
+  );
+};
 
 export const getEditGigTermsUrl = (gigId: string) => {
   return `/api/v1/gigs/${gigId}/terms`;
