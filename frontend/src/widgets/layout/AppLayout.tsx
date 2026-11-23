@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router";
 import { roleNames, useSession } from "@/shared/model/session";
+import { NotificationBell } from "./NotificationBell";
 
 export function AppLayout() {
   const session = useSession();
@@ -43,25 +44,35 @@ export function AppLayout() {
             </span>
             ShiftHelper
           </Link>
-          <button
-            className="menu-toggle"
-            type="button"
-            aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"}
-            aria-expanded={menuOpen}
-            aria-controls="main-navigation account-navigation"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d={
-                  menuOpen ? "m6 6 12 12M18 6 6 18" : "M4 6h16M4 12h16M4 18h16"
-                }
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
+          <div className="header-controls">
+            {session.user && (
+              <NotificationBell
+                key={session.user.id}
+                userId={session.user.id}
               />
-            </svg>
-          </button>
+            )}
+            <button
+              className="menu-toggle"
+              type="button"
+              aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"}
+              aria-expanded={menuOpen}
+              aria-controls="main-navigation account-navigation"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d={
+                    menuOpen
+                      ? "m6 6 12 12M18 6 6 18"
+                      : "M4 6h16M4 12h16M4 18h16"
+                  }
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
           <nav
             className="main-nav"
             id="main-navigation"
