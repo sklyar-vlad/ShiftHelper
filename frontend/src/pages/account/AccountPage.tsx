@@ -5,6 +5,7 @@ import { roleNames, useSession } from "@/shared/model/session";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router";
 import {
   getGetCurrentUserQueryKey,
   updateProfile,
@@ -13,12 +14,17 @@ import {
   type UpdateProfileRequest,
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
+import { useUnsavedChanges } from "@/shared/ui/useUnsavedChanges";
 
 export function AccountPage() {
   const { user } = useSession();
+  const { key } = useLocation();
+  return user ? <Account key={`${user.id}:${key}`} user={user} /> : null;
+}
+
+function Account({ user }: { user: CurrentUser }) {
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
-  if (!user) return null;
   return (
     <div className="account-page">
       <div className="page-heading">
@@ -112,13 +118,18 @@ function ProfileForm({
   const busy = useRef(false);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
+  const [initialSpecialties] = useState(() => user.specialties ?? []);
   const [specialties, setSpecialties] = useState<CategoryCode[]>();
+  const specialtiesChanged =
+    specialties !== undefined &&
+    (specialties.length !== initialSpecialties.length ||
+      specialties.some((code) => !initialSpecialties.includes(code)));
   const [specialtyError, setSpecialtyError] = useState("");
   const {
     register,
     handleSubmit,
     setError,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<UpdateProfileRequest>({
     defaultValues: {
       name: user.name,
@@ -126,6 +137,9 @@ function ProfileForm({
       contact: user.contact ?? "",
     },
   });
+  const guard = useUnsavedChanges(isDirty || specialtiesChanged, () =>
+    onClose(false),
+  );
   const submit = handleSubmit(async (values) => {
     if (busy.current) return;
     busy.current = true;
@@ -137,7 +151,7 @@ function ProfileForm({
         name: values.name.trim(),
         bio: values.bio.trim(),
         contact: values.contact?.trim() ?? "",
-        ...(user.role === "worker" && specialties !== undefined
+        ...(user.role === "worker" && specialtiesChanged
           ? { specialties }
           : {}),
       });
@@ -148,7 +162,7 @@ function ProfileForm({
       void client.invalidateQueries({
         predicate: (query) => query.queryKey[0] !== key[0],
       });
-      onClose(true);
+      if (guard.allowSavedExit()) onClose(true);
     } catch (error) {
       const specialtyMessage =
         error instanceof ApiError
@@ -250,7 +264,7 @@ function ProfileForm({
         </div>
         {user.role === "worker" && (
           <SpecialtyFields
-            value={specialties ?? user.specialties ?? []}
+            value={specialties ?? initialSpecialties}
             onChange={(codes) => {
               setSpecialties(codes);
               setSpecialtyError("");
@@ -270,12 +284,13 @@ function ProfileForm({
           <button
             className="button button-secondary"
             type="button"
-            onClick={() => onClose(false)}
+            onClick={guard.requestClose}
           >
             Отмена
           </button>
         </div>
       </fieldset>
+      {guard.dialog}
     </form>
   );
 }

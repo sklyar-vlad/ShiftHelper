@@ -8,7 +8,7 @@ export function RequireUser({ role }: { role?: Role }) {
   const location = useLocation();
   if (session.isPending)
     return <StatusPanel title="Проверяем аккаунт" pending />;
-  if (session.isError)
+  if (session.isError && !session.user)
     return (
       <StatusPanel
         title="Не удалось проверить аккаунт"

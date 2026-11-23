@@ -72,22 +72,20 @@ export function TermsPanel({
       aria-busy={working}
     >
       {owner &&
-        ["open", "in_progress"].includes(gig.status) &&
-        !change &&
         (editing ? (
           <GigForm
             gig={editing}
             onSaved={() => setEditing(null)}
             onCancel={() => setEditing(null)}
           />
-        ) : (
+        ) : ["open", "in_progress"].includes(gig.status) && !change ? (
           <button
             className="button button-secondary"
             onClick={() => setEditing(gig)}
           >
             Изменить условия
           </button>
-        ))}
+        ) : null)}
       {change && gig.status === "in_progress" && (
         <>
           <h2>Предложены новые условия</h2>

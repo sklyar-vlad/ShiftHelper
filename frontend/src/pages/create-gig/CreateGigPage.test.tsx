@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -8,7 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { SessionProvider } from "@/shared/model/session";
 import { RequireUser } from "@/shared/ui/RequireUser";
 import { CreateGigPage, parseRubles } from "./CreateGigPage";
@@ -57,17 +58,21 @@ async function mount(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
+  const router = createMemoryRouter(
+    [
+      { path: "/", element: <h1>Главная</h1> },
+      {
+        element: <RequireUser role="customer" />,
+        children: [{ path: "/gigs/new", element: <CreateGigPage /> }],
+      },
+      { path: "/gigs/:id", element: <h1>Опубликовано</h1> },
+    ],
+    { initialEntries: ["/", "/gigs/new"] },
+  );
   render(
     <QueryClientProvider client={client}>
       <SessionProvider>
-        <MemoryRouter initialEntries={["/gigs/new"]}>
-          <Routes>
-            <Route element={<RequireUser role="customer" />}>
-              <Route path="/gigs/new" element={<CreateGigPage />} />
-            </Route>
-            <Route path="/gigs/:id" element={<h1>Опубликовано</h1>} />
-          </Routes>
-        </MemoryRouter>
+        <RouterProvider router={router} />
       </SessionProvider>
     </QueryClientProvider>,
   );
@@ -76,8 +81,38 @@ async function mount(
     if (!categoryResponse)
       await screen.findByRole("option", { name: "Другое" });
   }
-  return send;
+  return { send, router };
 }
+
+it("blocks Back only for unsaved values and retries the original Back once", async () => {
+  const { router } = await mount();
+  const field = screen.getByLabelText("Название") as HTMLInputElement;
+  const unload = () =>
+    !window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
+  expect(unload()).toBe(false);
+  fireEvent.change(field, { target: { value: "Черновик" } });
+  expect(unload()).toBe(true);
+
+  await act(async () => router.navigate(-1));
+  const dialog = await screen.findByRole("alertdialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Остаться" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(field.value).toBe("Черновик");
+
+  fireEvent.change(field, { target: { value: "" } });
+  expect(unload()).toBe(false);
+  fireEvent.change(field, { target: { value: "Новый черновик" } });
+  await act(async () => router.navigate(-1));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Уйти без сохранения" }),
+  );
+  await screen.findByRole("heading", { name: "Главная" });
+  expect(unload()).toBe(false);
+  await act(async () => router.navigate(1));
+  expect(
+    (await screen.findByLabelText<HTMLInputElement>("Название")).value,
+  ).toBe("");
+});
 
 function fillDateTime(label: string, value: string) {
   const [date, time] = value.split("T");
@@ -175,7 +210,7 @@ it("converts decimal rubles to exact integer kopecks and rejects invalid amounts
 });
 
 it("publishes exact money and timezone dates, then opens the new gig", async () => {
-  const send = await mount();
+  const { send } = await mount();
   fill();
   fireEvent.change(screen.getByLabelText("Категория"), {
     target: { value: "moving" },
@@ -194,7 +229,7 @@ it("publishes exact money and timezone dates, then opens the new gig", async () 
 });
 
 it("rejects past start and end before start without sending", async () => {
-  const send = await mount();
+  const { send } = await mount();
   fill();
   fillDateTime("Начало работы", localDate(-86400000));
   submit();
@@ -241,7 +276,7 @@ it("blocks duplicate sends and maps API errors to fields without losing values",
 });
 
 it("denies the publication form to workers", async () => {
-  const send = await mount("worker");
+  const { send } = await mount("worker");
   await screen.findByRole("heading", { name: "Этот раздел для заказчиков" });
   expect(screen.queryByRole("form")).toBeNull();
   expect(send).not.toHaveBeenCalled();
@@ -327,9 +362,11 @@ it("edits existing terms without losing past dates, cents or legacy cities", asy
   };
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <GigForm gig={gig} onSaved={saved} />
-      </MemoryRouter>
+      <RouterProvider
+        router={createMemoryRouter([
+          { path: "/", element: <GigForm gig={gig} onSaved={saved} /> },
+        ])}
+      />
     </QueryClientProvider>,
   );
   await screen.findByRole("option", { name: "Другое" });
@@ -341,6 +378,16 @@ it("edits existing terms without losing past dates, cents or legacy cities", asy
     expect(input.value).toMatch(/^\d{2}:\d{2}$/);
     expect(input.step).toBe("60");
   }
+  const startTime = screen.getByLabelText<HTMLInputElement>("Время начала");
+  const originalTime = startTime.value;
+  fireEvent.change(startTime, { target: { value: "" } });
+  expect(
+    window.dispatchEvent(new Event("beforeunload", { cancelable: true })),
+  ).toBe(false);
+  fireEvent.change(startTime, { target: { value: originalTime } });
+  expect(
+    window.dispatchEvent(new Event("beforeunload", { cancelable: true })),
+  ).toBe(true);
   fireEvent.change(screen.getByLabelText("Описание"), {
     target: { value: "Новая версия описания" },
   });
@@ -429,7 +476,7 @@ it("keeps the chosen category after a failed publication", async () => {
 it.each([2, 4, 8])(
   "saves a %s-hour preset as an actual period",
   async (hours) => {
-    const send = await mount();
+    const { send } = await mount();
     fill();
     fireEvent.click(
       screen.getByRole("button", {

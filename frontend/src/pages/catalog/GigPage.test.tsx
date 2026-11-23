@@ -13,6 +13,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { SessionProvider } from "@/shared/model/session";
 import {
   getGetCurrentUserQueryKey,
+  getGetGigQueryKey,
   type CurrentUser,
   type Gig,
 } from "@/shared/api/generated/api";
@@ -106,6 +107,37 @@ function mount(
   );
   return { client, router };
 }
+
+it("keeps the terms draft through a temporary refetch failure and hides it when access is lost", async () => {
+  let status = 200;
+  const { client } = mount(
+    async (url) =>
+      url.includes("/applications?")
+        ? json({ items: [], page: 1, pageSize: 20, total: 0 })
+        : json(gig, status),
+    { ...worker, role: "customer", id: gig.customer.id },
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Изменить условия" }),
+  );
+  const title = screen.getByLabelText<HTMLInputElement>("Название");
+  fireEvent.change(title, { target: { value: "Черновик условий" } });
+
+  const refetch = () =>
+    act(async () =>
+      client.invalidateQueries({ queryKey: getGetGigQueryKey(gig.id) }),
+    );
+  status = 500;
+  await refetch();
+  expect(screen.getByLabelText<HTMLInputElement>("Название").value).toBe(
+    "Черновик условий",
+  );
+
+  status = 404;
+  await refetch();
+  await screen.findByRole("heading", { name: "Задание недоступно" });
+  expect(screen.queryByLabelText("Название")).toBeNull();
+});
 
 const copyButton = { name: "Скопировать ссылку" };
 const copySuccess = "Ссылка скопирована";
