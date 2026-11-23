@@ -451,6 +451,28 @@ try {
       { termsVersion: categorized.termsVersion },
       201,
     );
+    await customer.goto("/profile");
+    const customerBell = button(customer, "Уведомления");
+    await customerBell.getByText("2", { exact: true }).waitFor();
+    await customerBell.click();
+    const customerNotifications = customer.getByRole("dialog", {
+      name: "Уведомления",
+    });
+    const newApplications = customerNotifications.getByRole("link", {
+      name: /Новый отклик на задание/,
+    });
+    await newApplications.first().waitFor();
+    assert.equal(await newApplications.count(), 2);
+    await newApplications.first().click();
+    await customer.waitForURL("**" + path);
+    await customerBell.getByText("1", { exact: true }).waitFor();
+    await customerBell.click();
+    await button(customer, "Отметить всё прочитанным").click();
+    await customerNotifications
+      .getByText("Не прочитано", { exact: true })
+      .waitFor({ state: "hidden" });
+    await customer.keyboard.press("Escape");
+    assert.equal(await button(guest, "Уведомления").count(), 0);
     await customer.reload();
     await button(customer, "Изменить условия").click();
     await customer
@@ -464,6 +486,35 @@ try {
       .getByText("Кандидат ещё не подтвердил новые условия.", { exact: true })
       .first()
       .waitFor();
+    await worker.goto("/profile");
+    const workerBell = button(worker, "Уведомления");
+    await workerBell.getByText("1", { exact: true }).waitFor();
+    await workerBell.focus();
+    await worker.keyboard.press("Enter");
+    const workerNotifications = worker.getByRole("dialog", {
+      name: "Уведомления",
+    });
+    const termsNotification = workerNotifications.getByRole("link", {
+      name: /Условия изменились/,
+    });
+    await termsNotification.waitFor();
+    assert.equal(
+      await workerNotifications
+        .getByText("Новый отклик на задание", { exact: true })
+        .count(),
+      0,
+    );
+    assert.ok(
+      await worker.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    await termsNotification.focus();
+    await worker.keyboard.press("Enter");
+    await worker.waitForURL("**" + path);
+    await workerBell
+      .getByText("1", { exact: true })
+      .waitFor({ state: "hidden" });
     const staleApplication = await (
       await worker.request.get(`/api/v1${path}`)
     ).json();
