@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/auth"
+	"github.com/sklyar-vlad/ShiftHelper/backend/internal/notifications"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/platform/httpapi"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/users"
 )
@@ -175,8 +176,9 @@ func (h *Handler) cancel(c *gin.Context) {
 		httpapi.Fail(c, http.StatusConflict, "STATE_CONFLICT", "Можно отменить только открытое задание.")
 		return
 	}
-	if _, err := tx.Exec(ctx, "UPDATE applications SET status = 'rejected', updated_at = now() WHERE gig_id = $1 AND status = 'pending'", id); err != nil {
-		httpapi.InternalError(c)
+	recipients, ok := notificationRecipients(c, tx, `UPDATE applications SET status = 'rejected',
+		updated_at = now() WHERE gig_id = $1 AND status = 'pending' RETURNING worker_id::text`, id)
+	if !ok {
 		return
 	}
 	gig, err := scanGig(tx.QueryRow(ctx, `UPDATE gigs SET status = 'cancelled', cancelled_at = now(), updated_at = now(),
@@ -184,6 +186,11 @@ func (h *Handler) cancel(c *gin.Context) {
 		id, cancellation.Reason, cancellation.Comment), auth.UserFromContext(c))
 	if err != nil {
 		httpapi.InternalError(c)
+		return
+	}
+	if !notify(c, tx, notifications.Event{
+		Type: "gig_cancelled", Key: id, GigID: id, GigTitle: gig.Title, CancellationReason: cancellation.Reason,
+	}, recipients...) {
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {

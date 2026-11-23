@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/auth"
+	"github.com/sklyar-vlad/ShiftHelper/backend/internal/notifications"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/platform/httpapi"
 )
 
@@ -38,9 +39,11 @@ func (h *Handler) finish(c *gin.Context, confirming bool) {
 		return
 	}
 	actor, required := worker, "in_progress"
+	recipient, eventType := owner, "gig_submitted"
 	update := "UPDATE gigs SET status = 'awaiting_confirmation', submitted_at = clock_timestamp(), updated_at = clock_timestamp() WHERE id = $1"
 	if confirming {
 		actor, required = owner, "awaiting_confirmation"
+		recipient, eventType = worker, "gig_completed"
 		update = "UPDATE gigs SET status = 'completed', completed_at = GREATEST(clock_timestamp(), submitted_at), updated_at = clock_timestamp() WHERE id = $1"
 	}
 	if actor != user.ID {
@@ -66,6 +69,9 @@ func (h *Handler) finish(c *gin.Context, confirming bool) {
 	var gig Gig
 	if err := tx.QueryRow(ctx, detailSQL+" WHERE g.id = $1", id, user.ID).Scan(&gig); err != nil {
 		httpapi.InternalError(c)
+		return
+	}
+	if !notify(c, tx, notifications.Event{Type: eventType, Key: id, GigID: id, GigTitle: gig.Title}, recipient) {
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {
