@@ -1,4 +1,5 @@
 import { CategoryName } from "@/entities/gig/GigCategory";
+import { GigPointAttribution } from "@/entities/gig/GigPointAttribution";
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -28,16 +29,14 @@ function pointText(point?: GigPoint | null) {
   if (!point) return "Точка не указана";
   return (
     <>
-      {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+      <span>
+        {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+      </span>
       {point.source === "geoapify" && (
-        <small className="muted">
+        <>
           {" · "}
-          {point.attribution}
-          {" · "}
-          <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">
-            Geoapify
-          </a>
-        </small>
+          <GigPointAttribution point={point} />
+        </>
       )}
     </>
   );

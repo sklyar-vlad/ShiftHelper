@@ -3,8 +3,10 @@ import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { getGetGigQueryKey, useGetGig } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
+import { PlaceMap } from "@/shared/ui/PlaceMap";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { GigFacts, gigStatusNames } from "@/entities/gig/GigFacts";
+import { GigPointAttribution } from "@/entities/gig/GigPointAttribution";
 import { ReportAction } from "@/entities/report/ReportAction";
 import { UserCard } from "@/entities/user/UserCard";
 import { ReviewPanel } from "@/entities/review/ReviewPanel";
@@ -118,6 +120,18 @@ export function GigPage() {
           )}
           <h2>Адрес</h2>
           <p className="gig-text">{query.data.address}</p>
+          {query.data.address && query.data.point && (
+            <div className="gig-place">
+              <PlaceMap
+                key={session.user?.id ?? "guest"}
+                center={query.data.point}
+                point={query.data.point}
+              />
+              {query.data.point.source === "geoapify" && (
+                <GigPointAttribution point={query.data.point} />
+              )}
+            </div>
+          )}
           {query.data.selectedWorker && (
             <section>
               <h2>Выбранный исполнитель</h2>

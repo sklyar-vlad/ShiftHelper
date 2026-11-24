@@ -172,6 +172,9 @@
 .gig-detail .gig-facts {
   margin-bottom: 24px;
 }
+.gig-place {
+  margin-top: 12px;
+}
 .gig-text {
   white-space: pre-wrap;
   line-height: 1.8;
