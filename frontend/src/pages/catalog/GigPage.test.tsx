@@ -67,6 +67,7 @@ const json = (value: unknown, status = 200) =>
   });
 afterEach(() => {
   cleanup();
+  vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
 
@@ -107,6 +108,55 @@ function mount(
   );
   return { client, router };
 }
+
+it("keeps the address and its attribution when the map is unavailable", async () => {
+  vi.stubEnv("VITE_GEOAPIFY_TILES_PUBLIC", "");
+  mount(async () =>
+    json({
+      ...gig,
+      point: {
+        latitude: 55.75,
+        longitude: 37.62,
+        source: "geoapify",
+        attribution: "OpenStreetMap contributors",
+      },
+    }),
+  );
+
+  const map = within(
+    await screen.findByRole("region", { name: "Карта места" }),
+  );
+  expect(map.getByRole("status").textContent).toContain("Карта не настроена");
+  expect(map.getByText("Координаты: 55.750000, 37.620000")).toBeTruthy();
+  expect(screen.getByText(gig.address)).toBeTruthy();
+  expect(screen.getByText(/OpenStreetMap contributors/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Geoapify" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Откликнуться" })).toBeTruthy();
+});
+
+it("drops the old map on navigation, keeps legacy addresses and hides forbidden locations", async () => {
+  let firstStatus = 200;
+  const { client, router } = mount(async (url) =>
+    url.endsWith("/gig-1")
+      ? json({ ...gig, point: { latitude: 0, longitude: 0 } }, firstStatus)
+      : json({ ...gig, id: "gig-2", address: "Мира, 2" }),
+  );
+
+  await screen.findByRole("region", { name: "Карта места" });
+  await act(async () => router.navigate("/gigs/gig-2"));
+  await screen.findByText("Мира, 2");
+  expect(screen.queryByRole("region", { name: "Карта места" })).toBeNull();
+
+  await act(async () => router.navigate("/gigs/gig-1"));
+  await screen.findByRole("region", { name: "Карта места" });
+  firstStatus = 404;
+  await act(async () =>
+    client.invalidateQueries({ queryKey: getGetGigQueryKey(gig.id) }),
+  );
+  await screen.findByRole("heading", { name: "Задание недоступно" });
+  expect(screen.queryByRole("region", { name: "Карта места" })).toBeNull();
+  expect(screen.queryByText(gig.address)).toBeNull();
+});
 
 it("keeps the terms draft through a temporary refetch failure and hides it when access is lost", async () => {
   let status = 200;
@@ -452,7 +502,12 @@ it("confirms the exact revised conditions of an existing application", async () 
   expect(send).toHaveBeenCalledTimes(1);
 });
 
-it("shows a real comparison and sends the immutable proposal ID", async () => {
+it.each(["accept", "reject"])("updates map on %s", async (action) => {
+  const accepted = action === "accept";
+  const button = accepted ? "Согласиться" : "Отказаться";
+  const coordinates = accepted
+    ? "Координаты: 55.750000, 37.620000"
+    : "Координаты: 0.000000, 0.000000";
   const current: Gig = {
     ...gig,
     category: "repair",
@@ -484,20 +539,24 @@ it("shows a real comparison and sends the immutable proposal ID", async () => {
     },
   };
   let resolved = false;
+  const afterDecision = {
+    ...current,
+    ...(accepted ? current.pendingChange?.terms : {}),
+    pendingChange: undefined,
+  };
   const send = vi.fn(async (url: string) => {
-    expect(url).toBe("/api/v1/gigs/gig-1/changes/proposal-1/accept");
+    expect(url).toBe(`/api/v1/gigs/gig-1/changes/proposal-1/${action}`);
     resolved = true;
-    return json({ ...current, pendingChange: undefined });
+    return json(afterDecision);
   });
   mount(async (url, init) =>
     init.method === "POST"
       ? send(url)
-      : json({
-          ...current,
-          pendingChange: resolved ? undefined : current.pendingChange,
-        }),
+      : json(resolved ? afterDecision : current),
   );
   await screen.findByRole("heading", { name: "Предложены новые условия" });
+  const map = within(screen.getByRole("region", { name: "Карта места" }));
+  expect(map.getByText("Координаты: 0.000000, 0.000000")).toBeTruthy();
   expect(screen.getByText("Новые условия")).toBeTruthy();
   expect(screen.getByText("0.000000, 0.000000")).toBeTruthy();
   expect(screen.getByText("55.750000, 37.620000")).toBeTruthy();
@@ -507,11 +566,12 @@ it("shows a real comparison and sends the immutable proposal ID", async () => {
   expect(screen.getAllByText("Ремонт и сборка").length).toBeGreaterThanOrEqual(
     2,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Согласиться" }));
+  fireEvent.click(screen.getByRole("button", { name: button }));
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   await waitFor(() =>
-    expect(screen.queryByRole("button", { name: "Согласиться" })).toBeNull(),
+    expect(screen.queryByRole("button", { name: button })).toBeNull(),
   );
+  expect(map.getByText(coordinates)).toBeTruthy();
 });
 
 const gigReport = "Пожаловаться на задание";
