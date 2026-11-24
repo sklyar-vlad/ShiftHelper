@@ -2,6 +2,16 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright";
+import {
+  checkAddressSearch,
+  checkMapNavigation,
+  checkMobileMapScroll,
+  chooseMapPoint,
+  compactPoint,
+  interceptMaps,
+  mapRegion,
+  verifyMap,
+} from "./smoke-map.mjs";
 
 const baseURL = process.env.SMOKE_BASE_URL;
 assert.ok(baseURL, "SMOKE_BASE_URL is required");
@@ -200,12 +210,20 @@ try {
       assert.equal(gig.status, "completed");
       assert.equal(gig.amountKopecks, 200099);
       assert.equal(gig.category, "moving");
+      assert.equal(gig.address, "Мира, 2");
+      assert.deepEqual(gig.point, state.point);
       assert.equal(gig.completedAt, state.completedAt);
       assert.equal(gig.submittedAt, state.submittedAt);
       assert.equal(gig.customer.ratingAverage, 4);
       assert.equal(gig.selectedWorker.ratingAverage, 5);
       assert.deepEqual(gig.selectedWorker.specialties, ["electrical"]);
       await page.goto(`/gigs/${state.gigId}`);
+      await mapRegion(page)
+        .getByText(/Карта не настроена/)
+        .waitFor();
+      await visible(page, gig.address);
+      await page.getByRole("link", { name: "Geoapify", exact: true }).waitFor();
+      assert.equal(await mapRegion(page).locator("canvas").count(), 0);
       const own = page.getByRole("article", { name: "Ваш отзыв", exact: true });
       await visible(own, `${isWorker ? 4 : 5} из 5`);
       const other = page.getByRole("article", {
@@ -238,8 +256,39 @@ try {
           "Электрика",
         );
     }
+    const searchWithoutKey = await post(
+      customer,
+      "/gig-place-search",
+      { city: "Киров, Калужская область", address: "Мира, 1" },
+      503,
+    );
+    assert.match((await searchWithoutKey.json()).error.message, /не настроен/);
+    await customer.goto("/gigs/new");
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    for (const [label, value] of Object.entries({
+      Название: "Задание без карты",
+      Описание: "Проверка текстового адреса",
+      Город: "Москва",
+      Адрес: "Текстовый адрес",
+      "Сумма за всё задание, ₽": "1000",
+    })) {
+      await customer.getByLabel(label, { exact: true }).fill(value);
+    }
+    await chooseDateTime(customer, "Начало работы", `${tomorrow}T10:00`);
+    await button(customer, "На 2 часа").press("Enter");
+    await button(customer, "Показать на карте").press("Enter");
+    await customer.getByText(/Поиск адреса недоступен/).waitFor();
+    await button(customer, "Опубликовать").press("Enter");
+    await customer.waitForURL(/\/gigs\/[0-9a-f-]+$/);
+    await visible(customer, "Текстовый адрес");
+    assert.equal(await mapRegion(customer).count(), 0);
+    const textGig = await (
+      await customer.request.get(`/api/v1${new URL(customer.url()).pathname}`)
+    ).json();
+    assert.equal(textGig.address, "Текстовый адрес");
+    assert.equal(textGig.point ?? null, null);
     console.log(
-      "PASS: accounts, completed work and history survive service restart.",
+      "PASS: work, history and the accepted location survive restart; a text address works without map keys.",
     );
   } else {
     const guest = await session(0);
@@ -303,6 +352,10 @@ try {
     await register(second, "Второй исполнитель", "worker");
     const foreign = await session(0);
     await register(foreign, "Другой заказчик", "customer");
+    await interceptMaps(customer.context(), true);
+    for (const page of [worker, second, guest])
+      await interceptMaps(page.context());
+    const foreignMapCalls = await interceptMaps(foreign.context());
 
     const title = "Перенести коробки для показа";
     await customer.goto("/gigs/new");
@@ -359,6 +412,11 @@ try {
     const fourHours = button(customer, "На 4 часа");
     await fourHours.click();
     assert.equal(await fourHours.getAttribute("aria-pressed"), "true");
+    await checkAddressSearch(customer);
+    const placed = await chooseMapPoint(customer, "Мира, 1", {
+      retry: true,
+      adjust: true,
+    });
     await button(customer, "Опубликовать").click();
     await customer.waitForURL(/\/gigs\/[0-9a-f-]+$/);
     const gigId = customer.url().split("/").at(-1);
@@ -376,6 +434,10 @@ try {
       await customer.request.get(`/api/v1${path}`)
     ).json();
     assert.equal(original.category, "moving");
+    assert.equal(original.address, "Мира, 1");
+    assert.deepEqual(compactPoint(original.point), placed);
+    await verifyMap(customer, original.point);
+    await checkMapNavigation(guest, path);
     assert.equal(
       Date.parse(original.endsAt) - Date.parse(original.startsAt),
       4 * 3600000,
@@ -510,6 +572,8 @@ try {
       "Киров, Калужская область",
     );
     await link(worker, title).click();
+    await verifyMap(worker, original.point);
+    await checkMobileMapScroll(worker);
     await worker
       .getByLabel("Комментарий (необязательно)", { exact: true })
       .fill("Готов помочь");
@@ -669,6 +733,10 @@ try {
     ]);
     assert.equal((await guest.request.get(`/api/v1${path}`)).status(), 404);
     assert.equal((await foreign.request.get(`/api/v1${path}`)).status(), 404);
+    await foreign.goto(path);
+    await visible(foreign, "Задание недоступно");
+    assert.equal(await mapRegion(foreign).count(), 0);
+    assert.equal(foreignMapCalls(), 0);
     await checkDemoReports(worker, path, title, "Заказчик проверки");
     for (const [page, contact] of [
       [customer, "@smoke-worker"],
@@ -706,6 +774,11 @@ try {
         .selectOption(action === "accept" ? "moving" : "delivery");
       await chooseDateTime(customer, "Начало работы", proposedStart);
       await chooseDateTime(customer, "Окончание работы", proposedEnd);
+      let newPoint;
+      if (action !== "withdraw") {
+        await customer.getByLabel("Адрес", { exact: true }).fill("Мира, 2");
+        newPoint = await chooseMapPoint(customer, "Мира, 2");
+      }
       await button(customer, "Предложить изменения").click();
       await Promise.race([
         visible(customer, "Предложены новые условия"),
@@ -729,6 +802,7 @@ try {
         .waitFor();
       await worker.goto(path);
       await visible(worker, "Предложены новые условия");
+      await verifyMap(worker, original.point);
       if (action === "reject") {
         await worker
           .getByRole("heading", {
@@ -756,6 +830,15 @@ try {
       ).json();
       assert.equal(proposed.amountKopecks, 150050);
       assert.equal(proposed.category, "repair");
+      assert.equal(proposed.address, "Мира, 1");
+      assert.equal(
+        proposed.pendingChange.terms.address,
+        newPoint ? "Мира, 2" : "Мира, 1",
+      );
+      assert.deepEqual(
+        proposed.pendingChange.terms.point,
+        newPoint ?? original.point,
+      );
       assert.equal(
         proposed.pendingChange.terms.category,
         action === "accept" ? "moving" : "delivery",
@@ -808,6 +891,15 @@ try {
       const currentTerms = await (
         await worker.request.get(`/api/v1${path}`)
       ).json();
+      assert.deepEqual(
+        currentTerms.point,
+        action === "accept" ? newPoint : original.point,
+      );
+      assert.equal(
+        currentTerms.address,
+        action === "accept" ? "Мира, 2" : "Мира, 1",
+      );
+      if (action === "accept") await verifyMap(worker, newPoint);
       assert.equal(
         Date.parse(currentTerms.startsAt),
         action === "accept"
@@ -1215,6 +1307,7 @@ try {
         ...credentials,
         title,
         gigId,
+        point: completed.point,
         submittedAt: completed.submittedAt,
         completedAt: completed.completedAt,
         notifications: {
