@@ -261,6 +261,74 @@ paths:
         schema:
           type: string
           format: uuid
+  /api/v1/gig-place-search:
+    post:
+      operationId: searchGigPlace
+      tags:
+      - Gigs
+      summary: Найти адрес задания на карте
+      description: Только для заказчика. Не более трёх вариантов адреса в России. Выбор и сохранение выполняются отдельно.
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [city, address]
+              properties:
+                city:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                address:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+      responses:
+        '200':
+          description: Найденные адреса и координаты Geoapify. Пустой список означает, что подходящих вариантов нет.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 3
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [label, point]
+                  properties:
+                    label:
+                      type: string
+                    point:
+                      allOf:
+                      - $ref: '#/components/schemas/GigPoint'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          description: Превышен лимит запросов к поиску адресов.
+          headers:
+            Retry-After:
+              description: Минимальное число секунд до следующей попытки, если известно.
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Адресный поиск не настроен или временно недоступен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/gig-categories:
     get:
       operationId: listGigCategories

@@ -18,12 +18,14 @@ import {
   createGig,
   editGigTerms,
   type Gig,
+  type GigPoint,
   type CategoryCode,
   getGetGigQueryKey,
   getGetCurrentUserQueryKey,
   type CurrentUser,
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
+import { GigPlacePicker } from "./GigPlacePicker";
 import "./create-gig.css";
 
 const fields = [
@@ -51,7 +53,10 @@ const fields = [
   { name: "amount", label: "Сумма за всё задание, ₽", required: true, max: 12 },
 ] as const;
 type Name = (typeof fields)[number]["name"];
-type Values = Record<Name, string> & { category: CategoryCode };
+type Values = Record<Name, string> & {
+  category: CategoryCode;
+  point: GigPoint;
+};
 
 export function parseRubles(value: string): number | null {
   if (!/^\d{1,9}([.,]\d{1,2})?$/.test(value.trim())) return null;
@@ -90,6 +95,7 @@ export function GigForm({
       : apiDate(value, gig?.endsAt);
   const [duration, setDuration] = useState<number | null>(null);
   const [periodError, setPeriodError] = useState("");
+  const [placeRevision, setPlaceRevision] = useState(0);
   const {
     register,
     watch,
@@ -99,7 +105,7 @@ export function GigForm({
     reset,
     setError,
     setValue,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, dirtyFields },
   } = useForm<Values>({
     defaultValues: gig
       ? {
@@ -109,6 +115,7 @@ export function GigForm({
           requirements: gig.requirements,
           city: gig.city,
           address: gig.address,
+          point: gig.point ?? null,
           startsAt: localDate(gig.startsAt),
           endsAt: localDate(gig.endsAt),
           amount: `${Math.floor(gig.amountKopecks / 100)},${String(gig.amountKopecks % 100).padStart(2, "0")}`,
@@ -120,11 +127,17 @@ export function GigForm({
           requirements: "",
           city: "",
           address: "",
+          point: null,
           startsAt: "",
           endsAt: "",
           amount: "",
         },
   });
+  function placeTextChanged(name: "city" | "address", value: string) {
+    if (value.trim() === getValues(name).trim()) return;
+    setValue("point", null, { shouldDirty: true });
+    setPlaceRevision((revision) => revision + 1);
+  }
   const guard = useUnsavedChanges(isDirty, onCancel);
   const startValue = watch("startsAt") ?? "";
   const endValue = watch("endsAt") ?? "";
@@ -171,7 +184,7 @@ export function GigForm({
       getGetCurrentUserQueryKey(),
     )?.id;
     try {
-      const { amount, ...input } = values;
+      const { amount, point, ...input } = values;
       const payload = {
         ...input,
         title: input.title.trim(),
@@ -186,9 +199,10 @@ export function GigForm({
       const result = gig
         ? await editGigTerms(gig.id, {
             ...payload,
+            ...(dirtyFields.point ? { point } : {}),
             termsVersion: gig.termsVersion ?? 1,
           })
-        : await createGig(payload);
+        : await createGig({ ...payload, ...(point ? { point } : {}) });
       if (
         client.getQueryData<CurrentUser>(getGetCurrentUserQueryKey())?.id !==
         userId
@@ -405,7 +419,10 @@ export function GigForm({
                         value={binding.value}
                         ref={binding.ref}
                         onBlur={binding.onBlur}
-                        onValueChange={binding.onChange}
+                        onValueChange={(value) => {
+                          placeTextChanged("city", value);
+                          binding.onChange(value);
+                        }}
                         maxLength={100}
                         aria-invalid={!!errors.city}
                         aria-describedby={
@@ -424,6 +441,11 @@ export function GigForm({
                     {...props}
                     type="text"
                     inputMode={field.name === "amount" ? "decimal" : undefined}
+                    onChange={(event) => {
+                      if (field.name === "address")
+                        placeTextChanged("address", event.currentTarget.value);
+                      void props.onChange(event);
+                    }}
                   />
                 )}
                 {field.name === "endsAt" && (
@@ -473,6 +495,17 @@ export function GigForm({
                       {errors[field.name]?.message}
                     </p>
                   )}
+                {field.name === "address" && (
+                  <GigPlacePicker
+                    key={placeRevision}
+                    city={watch("city")}
+                    address={watch("address")}
+                    point={watch("point")}
+                    onChange={(point) =>
+                      setValue("point", point, { shouldDirty: true })
+                    }
+                  />
+                )}
               </div>
             );
           })}
