@@ -21,17 +21,14 @@ func (input *termsInput) normalizePoint() bool {
 	var point gigPoint
 	decoder := json.NewDecoder(bytes.NewReader(input.Point))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&point); err != nil || point.Latitude == nil || point.Longitude == nil ||
-		*point.Latitude < -90 || *point.Latitude > 90 || *point.Longitude < -180 || *point.Longitude > 180 {
+	if err := decoder.Decode(&point); err != nil {
 		return false
 	}
 	if point.Source == "" {
 		point.Source = "manual"
 	}
 	point.Attribution = strings.TrimSpace(point.Attribution)
-	if (point.Source != "manual" && point.Source != "geoapify") ||
-		(point.Source == "geoapify" && point.Attribution == "") ||
-		utf8.RuneCountInString(point.Attribution) > 300 || strings.ContainsRune(point.Attribution, 0) {
+	if !point.valid() {
 		return false
 	}
 	normalized, err := json.Marshal(point)
@@ -40,4 +37,11 @@ func (input *termsInput) normalizePoint() bool {
 	}
 	input.Point = normalized
 	return true
+}
+
+func (point gigPoint) valid() bool {
+	return point.Latitude != nil && point.Longitude != nil &&
+		*point.Latitude >= -90 && *point.Latitude <= 90 && *point.Longitude >= -180 && *point.Longitude <= 180 &&
+		(point.Source == "manual" || (point.Source == "geoapify" && point.Attribution != "")) &&
+		utf8.RuneCountInString(point.Attribution) <= 300 && !strings.ContainsRune(point.Attribution, 0)
 }

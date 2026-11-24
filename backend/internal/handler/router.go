@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/gigs"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/metrics"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/notifications"
+	"github.com/sklyar-vlad/ShiftHelper/backend/internal/platform/httpapi"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/reviews"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/status"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/users"
@@ -44,6 +46,7 @@ func NewRouter(logger *zap.Logger, pool *pgxpool.Pool, metricsToken, appOrigin s
 	api := authHandler.Register(router)
 	users.NewHandler(pool).Register(api, authHandler.RequireUser())
 	gigs.NewHandler(pool).Register(api, authHandler.RequireUser(), authHandler.OptionalUser())
+	api.POST("/gig-place-search", httpapi.ValidateQuery(), authHandler.RequireUser(), auth.RequireRole("customer"), auth.LimitByIP(8), gigs.NewPlaceSearch(os.Getenv("GEOAPIFY_GEOCODING_KEY")))
 	reviews.NewHandler(pool).Register(api, authHandler.RequireUser())
 	notifications.NewHandler(pool).Register(api, authHandler.RequireUser())
 	router.GET("/metrics", gin.WrapH(metrics.Handler(metricsToken)))

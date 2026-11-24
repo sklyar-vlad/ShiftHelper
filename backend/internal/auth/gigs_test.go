@@ -15,6 +15,7 @@ import (
 )
 
 func TestGigPublicationAndCancellation(t *testing.T) {
+	t.Setenv("GEOAPIFY_GEOCODING_KEY", "")
 	ctx, pool := testDatabase(t)
 	const origin = "http://shifthelper.localhost"
 	router := handler.NewRouter(zap.NewNop(), pool, "", origin)
@@ -57,6 +58,11 @@ func TestGigPublicationAndCancellation(t *testing.T) {
 		accounts = append(accounts, user)
 		cookies = append(cookies, response.Result().Cookies()[0])
 	}
+	const placeSearch = "/api/v1/gig-place-search"
+	const placeInput = `{"city":"Москва","address":"Тверская, 13"}`
+	expect(send(placeSearch, placeInput, nil), 401, "UNAUTHORIZED")
+	expect(send(placeSearch, placeInput, cookies[2]), 403, "FORBIDDEN")
+	expect(send(placeSearch, placeInput, cookies[0]), 503, "INTERNAL_ERROR")
 	start := time.Now().Add(24 * time.Hour).Truncate(time.Second).In(time.FixedZone("MSK", 3*60*60))
 	body := func(overrides map[string]any) string {
 		input := map[string]any{"title": "  Разгрузка  ", "description": "Перенести коробки", "requirements": "", "city": "Москва", "address": "Примерная, 1",

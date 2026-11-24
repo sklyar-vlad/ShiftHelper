@@ -12,7 +12,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { SessionProvider } from "@/shared/model/session";
 import { RequireUser } from "@/shared/ui/RequireUser";
-import { CreateGigPage, parseRubles } from "./CreateGigPage";
+import type { Gig } from "@/shared/api/generated/api";
+import { CreateGigPage, GigForm, parseRubles } from "./CreateGigPage";
+
+vi.mock("@/shared/ui/PlaceMap", () => ({
+  PlaceMap: ({
+    onPointChange,
+  }: {
+    onPointChange: (point: { latitude: number; longitude: number }) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onPointChange({ latitude: 55.76, longitude: 37.63 })}
+    >
+      Уточнить тестовую метку
+    </button>
+  ),
+}));
 
 const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), {
@@ -42,6 +58,10 @@ async function mount(
     json({ id: "new-gig" }, 201),
   ),
   categoryResponse?: () => Promise<Response>,
+  options?: {
+    search?: (init: RequestInit) => Promise<Response>;
+    gig?: Gig;
+  },
 ) {
   vi.stubGlobal(
     "fetch",
@@ -52,7 +72,9 @@ async function mount(
           : json(categoryList)
         : url === "/api/v1/me"
           ? json({ id: "user", name: "Тест", role })
-          : send(init),
+          : url === "/api/v1/gig-place-search" && options?.search
+            ? options.search(init)
+            : send(init),
     ),
   );
   const client = new QueryClient({
@@ -63,7 +85,16 @@ async function mount(
       { path: "/", element: <h1>Главная</h1> },
       {
         element: <RequireUser role="customer" />,
-        children: [{ path: "/gigs/new", element: <CreateGigPage /> }],
+        children: [
+          {
+            path: "/gigs/new",
+            element: options?.gig ? (
+              <GigForm gig={options.gig} />
+            ) : (
+              <CreateGigPage />
+            ),
+          },
+        ],
       },
       { path: "/gigs/:id", element: <h1>Опубликовано</h1> },
     ],
@@ -536,3 +567,132 @@ it("recalculates an active preset across a year boundary and stops after a manua
   expect(readDateTime("Окончание работы")).toBe(manualEnd);
   expect(screen.getByText(/Длительность: 2 д 10 ч 15 мин/)).toBeTruthy();
 });
+
+const searchButton = { name: "Показать на карте" };
+const confirmPoint = { name: "Подтвердить точку" };
+const foundPoint = {
+  latitude: 55.75,
+  longitude: 37.62,
+  source: "geoapify" as const,
+  attribution: "© OpenStreetMap contributors",
+};
+const addressOptions = [
+  { label: "Москва, улица Мира, 1", point: foundPoint },
+  {
+    label: "Москва, улица Мира, 1с2",
+    point: { ...foundPoint, longitude: 37.64 },
+  },
+];
+
+it.each([true, false])(
+  "publishes only a confirmed point (%s)",
+  async (confirm) => {
+    const search = vi.fn(async (init: RequestInit) => {
+      expect(JSON.parse(init.body as string)).toEqual({
+        city: "Москва",
+        address: "Мира, 1",
+      });
+      return json(addressOptions);
+    });
+    const { send } = await mount("customer", undefined, undefined, { search });
+    fill();
+    expect(search).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", searchButton));
+    await screen.findByRole("list", { name: "Найденные адреса" });
+    expect(screen.queryByRole("button", confirmPoint)).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: addressOptions[1].label }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Уточнить тестовую метку" }),
+    );
+    expect(screen.getByLabelText<HTMLInputElement>("Адрес").value).toBe(
+      "Мира, 1",
+    );
+    if (confirm) fireEvent.click(screen.getByRole("button", confirmPoint));
+    submit();
+    await screen.findByRole("heading", { name: "Опубликовано" });
+    const payload = JSON.parse(send.mock.calls[0][0].body as string);
+    expect(payload.point).toEqual(
+      confirm
+        ? { ...foundPoint, latitude: 55.76, longitude: 37.63 }
+        : undefined,
+    );
+  },
+);
+
+it("ignores previous searches after A to B to A and recovers from a limit", async () => {
+  let finish!: (value: Response) => void;
+  const search = vi
+    .fn<(init: RequestInit) => Promise<Response>>()
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    )
+    .mockResolvedValueOnce(
+      json({ error: { code: "RATE_LIMITED", message: "Лимит" } }, 429),
+    )
+    .mockResolvedValue(json([]));
+  const { send } = await mount("customer", undefined, undefined, { search });
+  fill();
+  fireEvent.click(screen.getByRole("button", searchButton));
+  const address = screen.getByLabelText("Адрес");
+  fireEvent.change(address, { target: { value: "Мира, 2" } });
+  fireEvent.change(address, { target: { value: "Мира, 1" } });
+  expect(search.mock.calls[0][0].signal?.aborted).toBe(true);
+  await act(async () => finish(json(addressOptions)));
+  expect(screen.queryByRole("list", { name: "Найденные адреса" })).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", searchButton));
+  await screen.findByText(/Слишком много попыток/);
+  fireEvent.click(screen.getByRole("button", searchButton));
+  await screen.findByText(/Подходящий адрес не найден/);
+  submit();
+  await screen.findByRole("heading", { name: "Опубликовано" });
+  expect(JSON.parse(send.mock.calls[0][0].body as string)).not.toHaveProperty(
+    "point",
+  );
+});
+
+it.each(["open", "in_progress"] as const)(
+  "preserves the point contract when editing %s",
+  async (status) => {
+    const gig = {
+      id: "gig",
+      title: "Помочь с переездом",
+      description: "Перенести коробки",
+      requirements: "",
+      city: "Москва",
+      address: "Мира, 1",
+      startsAt: new Date(Date.now() + 86400000).toISOString(),
+      endsAt: new Date(Date.now() + 90000000).toISOString(),
+      amountKopecks: 10000,
+      point: foundPoint,
+      termsVersion: 3,
+      status,
+    } as Gig;
+    const { send } = await mount("customer", undefined, undefined, { gig });
+    await screen.findByText(/Точка подтверждена/);
+    const form = screen.getByRole("form", { name: "Изменение условий" });
+    fireEvent.submit(form);
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(send.mock.calls[0][0].body as string)).not.toHaveProperty(
+      "point",
+    );
+
+    fireEvent.change(screen.getByLabelText("Адрес"), {
+      target: { value: "Мира, 2" },
+    });
+    expect(screen.queryByText(/Точка подтверждена/)).toBeNull();
+    fireEvent.submit(form);
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(send.mock.calls[1][0].method).toBe("PUT");
+    expect(JSON.parse(send.mock.calls[1][0].body as string)).toMatchObject({
+      address: "Мира, 2",
+      point: null,
+      termsVersion: 3,
+    });
+  },
+);

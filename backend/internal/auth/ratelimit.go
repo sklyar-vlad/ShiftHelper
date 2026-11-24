@@ -29,6 +29,10 @@ func newIPLimiter(limit int) *ipLimiter {
 	return &ipLimiter{entries: make(map[string]attemptWindow), limit: limit, capacity: 4096, window: time.Minute, now: time.Now}
 }
 
+func LimitByIP(attemptsPerMinute int) gin.HandlerFunc {
+	return newIPLimiter(attemptsPerMinute).middleware()
+}
+
 func (l *ipLimiter) retryAfter(ip string) int {
 	l.mu.Lock()
 	defer l.mu.Unlock()

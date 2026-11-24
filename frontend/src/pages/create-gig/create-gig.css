@@ -15,7 +15,8 @@
   .create-gig form {
     padding: 24px 20px;
   }
-  .create-gig button {
+  .create-gig .button,
+  .create-gig .duration-preset {
     width: 100%;
   }
 }
@@ -88,4 +89,43 @@
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 10px;
+}
+
+.gig-place-picker,
+.gig-place-results {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  min-width: 0;
+}
+
+.gig-place-picker .place-map {
+  width: 100%;
+}
+
+.gig-place-picker p,
+.gig-place-results {
+  margin: 0;
+}
+
+.gig-place-results {
+  padding: 0;
+  list-style: none;
+}
+
+.gig-place-results small {
+  display: block;
+  margin-top: 4px;
+}
+
+.gig-place-results .button {
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.gig-place-results .button[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--mint);
 }

@@ -542,6 +542,57 @@ export const GetPublicUserResponse = zod.object({
 });
 
 /**
+ * Только для заказчика. Не более трёх вариантов адреса в России. Выбор и сохранение выполняются отдельно.
+ * @summary Найти адрес задания на карте
+ */
+export const searchGigPlaceBodyCityMax = 100;
+
+export const searchGigPlaceBodyAddressMax = 300;
+
+export const SearchGigPlaceBody = zod.object({
+  city: zod.string().min(1).max(searchGigPlaceBodyCityMax),
+  address: zod.string().min(1).max(searchGigPlaceBodyAddressMax),
+});
+
+export const searchGigPlaceResponsePointOneLatitudeMin = -90;
+export const searchGigPlaceResponsePointOneLatitudeMax = 90;
+
+export const searchGigPlaceResponsePointOneLongitudeMin = -180;
+export const searchGigPlaceResponsePointOneLongitudeMax = 180;
+
+export const searchGigPlaceResponsePointOneSourceDefault = `manual`;
+export const searchGigPlaceResponsePointOneAttributionMax = 300;
+
+export const SearchGigPlaceResponseItem = zod.object({
+  label: zod.string(),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(searchGigPlaceResponsePointOneLatitudeMin)
+        .max(searchGigPlaceResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(searchGigPlaceResponsePointOneLongitudeMin)
+        .max(searchGigPlaceResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(searchGigPlaceResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(searchGigPlaceResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    ),
+});
+export const SearchGigPlaceResponse = zod
+  .array(SearchGigPlaceResponseItem)
+  .max(3);
+
+/**
  * Публичный список кодов и русских названий в порядке отображения. Пользователь не создаёт категории.
  * @summary Общий справочник категорий заданий
  */
