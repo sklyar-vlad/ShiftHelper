@@ -109,6 +109,8 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile.frontend
+      args:
+        VITE_GEOAPIFY_TILES_PUBLIC: ${VITE_GEOAPIFY_TILES_PUBLIC:-}
     environment:
       HTTP_PORT: ${HTTP_PORT:-8081}
     depends_on:
