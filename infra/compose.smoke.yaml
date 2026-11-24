@@ -1,4 +1,31 @@
 services:
+  geoapify:
+    image: node:24-alpine
+    command: ["node", "/geoapify.mjs"]
+    volumes:
+      - ../scripts/smoke-geoapify.mjs:/geoapify.mjs:ro
+      - ${SMOKE_MAP_TLS_DIR:?Run scripts/check-mvp.sh}:/tls:ro
+    networks:
+      default:
+        aliases:
+          - api.geoapify.com
+
+  backend:
+    environment:
+      GEOAPIFY_GEOCODING_KEY: ${SMOKE_GEOCODING_KEY:-}
+      SSL_CERT_FILE: /smoke-geoapify.crt
+      NO_PROXY: api.geoapify.com
+    volumes:
+      - ${SMOKE_MAP_TLS_DIR:?Run scripts/check-mvp.sh}/tls.crt:/smoke-geoapify.crt:ro
+    depends_on:
+      geoapify:
+        condition: service_started
+
+  frontend:
+    build:
+      args:
+        VITE_GEOAPIFY_TILES_PUBLIC: ${SMOKE_TILES_KEY:-}
+
   smoke:
     profiles: [smoke]
     build:
