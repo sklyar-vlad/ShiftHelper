@@ -49,9 +49,6 @@
 .date-time-field > div {
   min-width: 0;
 }
-.date-time-field input[type="time"] {
-  min-width: 0;
-}
 @media (max-width: 480px) {
   .date-time-field {
     grid-template-columns: minmax(0, 1fr);

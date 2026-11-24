@@ -37,6 +37,7 @@ export function DatePicker({
   error,
   onBlur,
   inputRef,
+  separator,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -49,6 +50,7 @@ export function DatePicker({
   error?: string;
   onBlur?: () => void;
   inputRef?: React.Ref<{ focus: () => void }>;
+  separator?: string;
 }) {
   const [open, setOpen] = useState(false);
   const segments = useRef<HTMLDivElement>(null);
@@ -89,7 +91,14 @@ export function DatePicker({
         <Group className="date-picker-input">
           <DateInput className="date-picker-segments" ref={segments}>
             {(segment) => (
-              <DateSegment segment={segment} className="date-picker-segment" />
+              <DateSegment
+                segment={
+                  separator && segment.type === "literal"
+                    ? { ...segment, text: separator }
+                    : segment
+                }
+                className="date-picker-segment"
+              />
             )}
           </DateInput>
           {value && (

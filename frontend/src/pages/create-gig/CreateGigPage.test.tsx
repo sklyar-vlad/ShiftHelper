@@ -271,6 +271,49 @@ it("rejects past start and end before start without sending", async () => {
   expect(send).not.toHaveBeenCalled();
 });
 
+it("displays a slash-separated date and commits exact minutes from the clock dial", async () => {
+  const { send } = await mount();
+  fill();
+  expect(
+    within(screen.getByRole("group", { name: "Начало работы" })).getAllByText(
+      "/",
+    ),
+  ).toHaveLength(2);
+  const input = screen.getByRole<HTMLInputElement>("textbox", {
+    name: "Время начала",
+  });
+  const trigger = screen.getByRole("button", {
+    name: "Время начала: открыть циферблат",
+  });
+  fireEvent.click(trigger);
+  const picker = within(screen.getByRole("dialog", { name: "Время начала" }));
+  const dial = picker.getByRole("slider", { name: "Часы на циферблате" });
+  vi.spyOn(dial, "getBoundingClientRect").mockReturnValue(
+    new DOMRect(0, 0, 200, 200),
+  );
+  const pointer = { pointerId: 1, isPrimary: true, button: 0 };
+  fireEvent.pointerDown(dial, { ...pointer, clientX: 100, clientY: 18 });
+  fireEvent.pointerMove(dial, { ...pointer, clientX: 154, clientY: 100 });
+  expect(dial.getAttribute("aria-valuenow")).toBe("15");
+  fireEvent.pointerUp(dial, pointer);
+
+  const minuteDial = picker.getByRole("slider", {
+    name: "Минуты на циферблате",
+  });
+  fireEvent.pointerDown(minuteDial, { ...pointer, clientX: 100, clientY: 18 });
+  fireEvent.pointerMove(minuteDial, { ...pointer, clientX: 180, clientY: 117 });
+  fireEvent.pointerUp(minuteDial, pointer);
+  fireEvent.click(picker.getByRole("button", { name: "Готово" }));
+  expect(input.value).toBe("15:17");
+
+  fireEvent.click(trigger);
+  const reopened = within(screen.getByRole("dialog", { name: "Время начала" }));
+  fireEvent.keyDown(reopened.getByRole("slider"), { key: "ArrowRight" });
+  fireEvent.click(reopened.getByRole("button", { name: "Отмена" }));
+  expect(input.value).toBe("15:17");
+  expect(send).not.toHaveBeenCalled();
+});
+
 it("blocks duplicate sends and maps API errors to fields without losing values", async () => {
   let finish: (response: Response) => void = () => {};
   const send = vi.fn<(init: RequestInit) => Promise<Response>>(
@@ -407,7 +450,7 @@ it("edits existing terms without losing past dates, cents or legacy cities", asy
   for (const label of ["Время начала", "Время окончания"]) {
     const input = screen.getByLabelText(label) as HTMLInputElement;
     expect(input.value).toMatch(/^\d{2}:\d{2}$/);
-    expect(input.step).toBe("60");
+    expect(input.placeholder).toBe("чч:мм");
   }
   const startTime = screen.getByLabelText<HTMLInputElement>("Время начала");
   const originalTime = startTime.value;
