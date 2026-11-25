@@ -29,10 +29,16 @@ const reviews = [
 ] as const;
 
 export function HomeReviews() {
-  const [index, setIndex] = useState(0);
+  const [{ index, direction }, setSlide] = useState({
+    index: 0,
+    direction: "",
+  });
 
-  function move(step: number) {
-    setIndex((current) => (current + step + reviews.length) % reviews.length);
+  function move(step: -1 | 1) {
+    setSlide(({ index }) => ({
+      index: (index + step + reviews.length) % reviews.length,
+      direction: step === 1 ? "next" : "previous",
+    }));
   }
 
   return (
@@ -44,7 +50,10 @@ export function HomeReviews() {
     >
       <h2 id="reviews-title">Отзывы</h2>
       <p className="home-reviews-label">Демонстрационные отзывы</p>
-      <div className="home-reviews-slides">
+      <div
+        className="home-reviews-slides"
+        data-direction={direction || undefined}
+      >
         {reviews.map(({ name, role, photo, quote }, position) => (
           <figure
             key={name}

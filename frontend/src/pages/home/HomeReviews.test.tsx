@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -40,4 +41,10 @@ it("cycles in both directions with the matching text and portrait", () => {
   check(1, "Ирина", "Заказчик", /разобрать вещи после переезда/, irina);
   fireEvent.click(next);
   check(2, "Максим", "Помощь с переездами", /подработку на выходные/, maksim);
+  act(() => {
+    fireEvent.click(next);
+    fireEvent.click(next);
+    fireEvent.click(back);
+  });
+  check(3, "Дарья", "Помощь на мероприятиях", /сдвинулось время/, darya);
 });

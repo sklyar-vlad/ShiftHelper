@@ -67,15 +67,24 @@ export function HomeFaq() {
                   type="button"
                   aria-expanded={expanded}
                   aria-controls={panelId}
-                  onClick={() => setOpen(expanded ? null : index)}
+                  onClick={() =>
+                    setOpen((current) => (current === index ? null : index))
+                  }
                 >
                   {question}
                   <span className="home-faq-icon" aria-hidden="true" />
                 </button>
               </h3>
-              <p className="home-faq-answer" id={panelId} hidden={!expanded}>
-                {answer}
-              </p>
+              <div
+                className="home-faq-panel"
+                id={panelId}
+                aria-hidden={!expanded}
+                inert={!expanded}
+              >
+                <div>
+                  <p className="home-faq-answer">{answer}</p>
+                </div>
+              </div>
             </div>
           );
         })}
