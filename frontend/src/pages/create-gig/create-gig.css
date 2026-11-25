@@ -1,6 +1,7 @@
 .create-gig {
   max-width: 800px;
   margin-inline: auto;
+  animation: ui-reveal 210ms ease-out;
 }
 .create-gig form {
   padding: 32px;
@@ -10,6 +11,23 @@
 }
 .create-gig .notice {
   margin-bottom: 20px;
+}
+.create-gig .field-error,
+.create-gig .notice-error {
+  animation: ui-reveal 150ms ease-out;
+}
+.create-gig .gig-submit {
+  display: inline-grid;
+  place-items: center;
+}
+.gig-submit > span {
+  grid-area: 1 / 1;
+}
+.gig-submit > [aria-hidden="true"] {
+  visibility: hidden;
+}
+.gig-submit > span + span[aria-hidden="false"] {
+  animation: ui-reveal 150ms ease-out;
 }
 @media (max-width: 767px) {
   .create-gig form {
@@ -69,6 +87,10 @@
   background: white;
   color: black;
   font-size: 13px;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
 .duration-preset[aria-pressed="true"] {
   background: var(--mint);
@@ -99,6 +121,7 @@
 .address-input .city-popup {
   position: static;
   margin-top: 6px;
+  animation: ui-reveal 150ms ease-out;
 }
 
 .address-help {
@@ -107,6 +130,7 @@
 
 .gig-place-picker .place-map {
   width: 100%;
+  animation: ui-reveal 200ms ease-out;
 }
 
 .gig-place-picker p {

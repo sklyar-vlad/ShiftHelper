@@ -223,9 +223,14 @@ export function GigForm({
         onSaved?.();
         return;
       }
-      client.setQueryData(getGetGigQueryKey(result.id), result);
+      if (userId) {
+        client.setQueryData([...getGetGigQueryKey(result.id), userId], result);
+      }
       void client.invalidateQueries({ queryKey: ["/api/v1/gigs"] });
-      navigate(`/gigs/${result.id}`, { replace: true });
+      navigate(`/gigs/${result.id}`, {
+        replace: true,
+        state: { publishedGigId: result.id },
+      });
     } catch (error) {
       const serverFields =
         error instanceof ApiError ? error.details?.fields : undefined;
@@ -259,6 +264,12 @@ export function GigForm({
       setWorking(false);
     }
   });
+
+  const submitLabel = gig
+    ? gig.status === "in_progress"
+      ? "Предложить изменения"
+      : "Сохранить условия"
+    : "Опубликовать";
 
   return (
     <section className="create-gig">
@@ -558,19 +569,14 @@ export function GigForm({
             </p>
           )}
           <button
-            className="button"
+            className="button gig-submit"
             disabled={working || !categoriesReady}
             type="submit"
           >
-            {working
-              ? gig
-                ? "Сохраняем…"
-                : "Публикуем…"
-              : gig
-                ? gig.status === "in_progress"
-                  ? "Предложить изменения"
-                  : "Сохранить условия"
-                : "Опубликовать"}
+            <span aria-hidden={working}>{submitLabel}</span>
+            <span aria-hidden={!working}>
+              {gig ? "Сохраняем…" : "Публикуем…"}
+            </span>
           </button>
           {onCancel && (
             <button

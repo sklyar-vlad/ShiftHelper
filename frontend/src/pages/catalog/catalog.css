@@ -155,6 +155,10 @@
   max-width: 840px;
   margin-top: 24px;
 }
+.gig-detail[data-just-published="true"] {
+  animation: ui-reveal 220ms ease-out;
+}
+
 .gig-detail h1 {
   font-size: 42px;
   margin-block: 24px;

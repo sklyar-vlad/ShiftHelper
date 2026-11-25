@@ -105,7 +105,11 @@ export function GigPage() {
           retry={() => void query.refetch()}
         />
       ) : (
-        <article className="gig-card gig-detail" key={gigId}>
+        <article
+          className="gig-card gig-detail"
+          data-just-published={location.state?.publishedGigId === gigId}
+          key={gigId}
+        >
           <span className="badge">{gigStatusNames[query.data.status]}</span>
           <h1>{query.data.title}</h1>
           <CopyGigLink key={gigId} gigId={query.data.id} />

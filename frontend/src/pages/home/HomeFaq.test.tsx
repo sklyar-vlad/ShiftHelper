@@ -19,21 +19,21 @@ it("starts collapsed and opens only one answer at a time", () => {
   );
   expect(buttons).toHaveLength(10);
   expect(new Set(panels).size).toBe(buttons.length);
-  expect(panels.every((panel) => panel?.hidden)).toBe(true);
+  expect(panels.every((panel) => panel?.hasAttribute("inert"))).toBe(true);
 
   const [first, second] = buttons;
   first.focus();
   expect(document.activeElement).toBe(first);
   fireEvent.click(first);
   expect(first.getAttribute("aria-expanded")).toBe("true");
-  expect(panels[0]?.hidden).toBe(false);
+  expect(panels[0]?.hasAttribute("inert")).toBe(false);
 
   fireEvent.click(second);
   expect(first.getAttribute("aria-expanded")).toBe("false");
-  expect(panels[0]?.hidden).toBe(true);
-  expect(panels[1]?.hidden).toBe(false);
+  expect(panels[0]?.hasAttribute("inert")).toBe(true);
+  expect(panels[1]?.hasAttribute("inert")).toBe(false);
 
   fireEvent.click(second);
   expect(within(faq).queryByRole("button", { expanded: true })).toBeNull();
-  expect(panels[1]?.hidden).toBe(true);
+  expect(panels[1]?.hasAttribute("inert")).toBe(true);
 });
