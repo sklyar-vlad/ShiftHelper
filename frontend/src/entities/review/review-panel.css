@@ -8,7 +8,7 @@
   margin: 0;
 }
 .review-success {
-  animation: ui-reveal 180ms ease-out;
+  animation: ui-reveal 230ms var(--motion-ease);
   padding: 14px 18px;
   border-radius: 16px;
   background: var(--mint);

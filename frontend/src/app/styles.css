@@ -12,6 +12,7 @@
   --mint: #ecffe0;
   --muted: #67717c;
   --line: #e5e7eb;
+  --motion-ease: cubic-bezier(0.25, 0.55, 0.32, 1);
   --display: "Titillium Web", "Roboto Condensed", "Inter", sans-serif;
 }
 * {
@@ -154,6 +155,33 @@ h3 {
   align-items: center;
   gap: 18px;
 }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .site-header
+    :is(
+      .main-nav a,
+      .account-nav a,
+      .account-nav button,
+      .notification-trigger,
+      .menu-toggle
+    ) {
+    transition:
+      scale 220ms var(--motion-ease),
+      background-color 220ms var(--motion-ease);
+  }
+  .site-header
+    :is(
+      .main-nav a,
+      .account-nav a,
+      .account-nav button,
+      .notification-trigger,
+      .menu-toggle
+    ):hover:not(:disabled) {
+    scale: 1.04;
+  }
+}
+.site-header .button:hover {
+  transform: none;
+}
 .button {
   display: inline-flex;
   align-items: center;
@@ -171,8 +199,8 @@ h3 {
   line-height: 1.4;
   text-align: center;
   transition:
-    background 0.15s,
-    transform 0.15s;
+    background-color 200ms var(--motion-ease),
+    transform 200ms var(--motion-ease);
 }
 .button:hover {
   background: #303030;

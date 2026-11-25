@@ -29,14 +29,16 @@ const reviews = [
 ] as const;
 
 export function HomeReviews() {
-  const [{ index, direction }, setSlide] = useState({
+  const [{ index, previous, direction }, setSlide] = useState({
     index: 0,
+    previous: -1,
     direction: "",
   });
 
   function move(step: -1 | 1) {
     setSlide(({ index }) => ({
       index: (index + step + reviews.length) % reviews.length,
+      previous: index,
       direction: step === 1 ? "next" : "previous",
     }));
   }
@@ -59,6 +61,7 @@ export function HomeReviews() {
             key={name}
             className="home-reviews-slide"
             aria-hidden={index !== position}
+            data-leaving={previous === position}
           >
             <blockquote>
               <p>«{quote}»</p>
