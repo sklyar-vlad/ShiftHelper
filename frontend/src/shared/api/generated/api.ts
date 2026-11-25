@@ -526,6 +526,8 @@ export interface TermsChange {
 }
 
 export interface Gig {
+  /** Присутствует со значением true только у владельца, скрывшего задание. */
+  hiddenFromMyGigs?: boolean;
   /** Текущая точка, доступна в тех же ответах, что и адрес задания. */
   point?: GigPoint | null;
   /** Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене. */
@@ -4334,6 +4336,115 @@ export const useCreateGigReview = <
   TContext
 > => {
   return useMutation(getCreateGigReviewMutationOptions(options), queryClient);
+};
+
+export const getHideMyGigUrl = (gigId: string) => {
+  return `/api/v1/me/gigs/${gigId}/hide`;
+};
+
+/**
+ * Доступно владельцу отменённого задания. Повторный вызов успешен. Доступ к деталям и история других участников сохраняются.
+ * @summary Убрать отменённое задание из личных списков заказчика
+ */
+export const hideMyGig = async (
+  gigId: string,
+  options?: Parameters<typeof http>[1],
+): Promise<void> => {
+  return http<void>(getHideMyGigUrl(gigId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getHideMyGigMutationKey = () => ["hideMyGig"] as const;
+
+export const getHideMyGigMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof hideMyGig>>,
+    TError,
+    HideMyGigMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof hideMyGig>>,
+  TError,
+  HideMyGigMutationVariables,
+  TContext
+> => {
+  const mutationKey = getHideMyGigMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof hideMyGig>>,
+    HideMyGigMutationVariables
+  > = (props) => {
+    const { gigId } = props ?? {};
+
+    return hideMyGig(gigId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type HideMyGigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof hideMyGig>>
+>;
+
+export type HideMyGigMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type HideMyGigMutationVariables = { gigId: string };
+
+/**
+ * @summary Убрать отменённое задание из личных списков заказчика
+ */
+export const useHideMyGig = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof hideMyGig>>,
+      TError,
+      HideMyGigMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof hideMyGig>>,
+  TError,
+  HideMyGigMutationVariables,
+  TContext
+> => {
+  return useMutation(getHideMyGigMutationOptions(options), queryClient);
 };
 
 export const getListMyGigsUrl = (params?: ListMyGigsParams) => {

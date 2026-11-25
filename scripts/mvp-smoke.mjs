@@ -258,6 +258,16 @@ try {
           "Электрика",
         );
     }
+    for (const scope of ["all", "history"]) {
+      const list = await (
+        await customer.request.get(`/api/v1/me/gigs?scope=${scope}`)
+      ).json();
+      assert.ok(list.items.every((gig) => gig.id !== state.hiddenGigId));
+    }
+    const hidden = await (
+      await customer.request.get(`/api/v1/gigs/${state.hiddenGigId}`)
+    ).json();
+    assert.equal(hidden.hiddenFromMyGigs, true);
     const searchWithoutKey = await post(
       customer,
       "/gig-place-search",
@@ -1209,6 +1219,44 @@ try {
     await cancellationLink.click();
     await second.waitForURL("**/my-gigs?view=applications&scope=history");
     await link(second, cancelled.title).waitFor();
+    const hidePath = `/me/gigs/${cancelled.id}/hide`;
+    await post(second, hidePath, undefined, 403);
+    await post(foreign, hidePath, undefined, 404);
+    await post(customer, `/me/gigs/${gigId}/hide`, undefined, 409);
+    const historyURL = "/api/v1/me/gigs?scope=history&pageSize=1";
+    const beforeHide = await (await customer.request.get(historyURL)).json();
+    assert.equal(beforeHide.items[0].id, cancelled.id);
+    await customer.setViewportSize({ ...viewport, width: 375 });
+    await customer.goto("/my-gigs?scope=history");
+    const cancelledCard = customer
+      .getByRole("article")
+      .filter({ has: link(customer, cancelled.title) });
+    await cancelledCard
+      .getByRole("button", { name: "Убрать из моих заданий" })
+      .click();
+    await cancelledCard.waitFor({ state: "hidden" });
+    assert.ok(
+      await customer.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    await customer.setViewportSize(viewport);
+    const afterHide = await (await customer.request.get(historyURL)).json();
+    assert.equal(afterHide.total, beforeHide.total - 1);
+    assert.ok(afterHide.items.every((gig) => gig.id !== cancelled.id));
+    await post(customer, hidePath, undefined, 204);
+    for (const scope of ["all", "history", "active"]) {
+      const list = await (
+        await customer.request.get(`/api/v1/me/gigs?scope=${scope}`)
+      ).json();
+      assert.ok(list.items.every((gig) => gig.id !== cancelled.id));
+    }
+    await customer.goto(cancelPath);
+    await visible(customer, "Перенесли переезд");
+    assert.equal(await button(customer, "Убрать из моих заданий").count(), 0);
+    await second.goto(cancelPath);
+    await visible(second, "Перенесли переезд");
+    assert.equal(await button(second, "Убрать из моих заданий").count(), 0);
     const race = await create("Конкурентный выбор");
     const racePath = `/gigs/${race.id}`;
     const firstApp = await (
@@ -1334,6 +1382,7 @@ try {
         ...credentials,
         title,
         gigId,
+        hiddenGigId: cancelled.id,
         point: completed.point,
         submittedAt: completed.submittedAt,
         completedAt: completed.completedAt,

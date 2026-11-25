@@ -1,11 +1,12 @@
 import { TermsPanel } from "./TermsPanel";
 import { useState } from "react";
-import { Link, useLocation, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { getGetGigQueryKey, useGetGig } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
 import { PlaceMap } from "@/shared/ui/PlaceMap";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { GigFacts, gigStatusNames } from "@/entities/gig/GigFacts";
+import { HideCancelledGig } from "@/entities/gig/HideCancelledGig";
 import { GigPointAttribution } from "@/entities/gig/GigPointAttribution";
 import { GigPlaceWarning } from "@/entities/gig/GigPlaceWarning";
 import { ReportAction } from "@/entities/report/ReportAction";
@@ -55,6 +56,7 @@ function CopyGigLink({ gigId }: { gigId: string }) {
 export function GigPage() {
   const { gigId = "" } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const session = useSession();
   const query = useGetGig(gigId, {
     query: {
@@ -170,6 +172,22 @@ export function GigPage() {
               }}
             />
           )}
+          {query.data.status === "cancelled" &&
+            !query.data.hiddenFromMyGigs &&
+            session.user?.id === query.data.customer.id && (
+              <HideCancelledGig
+                gigId={query.data.id}
+                userId={session.user.id}
+                onHidden={() =>
+                  void navigate(
+                    backTo.startsWith("/my-gigs")
+                      ? backTo
+                      : "/my-gigs?scope=history",
+                    { replace: true },
+                  )
+                }
+              />
+            )}
           <TermsPanel
             key={`terms:${gigId}:${session.user?.id ?? "guest"}:${location.key}`}
             gig={query.data}

@@ -298,3 +298,52 @@ it("never requests another customer's applications", async () => {
     screen.queryByRole("heading", { name: "Ожидающие отклики" }),
   ).toBeNull();
 });
+
+it("keeps a cancelled card on failure and goes back when the last page becomes empty", async () => {
+  vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+  const cancelled = { ...gig, status: "cancelled" };
+  let hidden = false;
+  let finish!: () => void;
+  const hide = vi
+    .fn()
+    .mockResolvedValueOnce(
+      json({ error: { code: "INTERNAL_ERROR", message: "Ошибка" } }, 500),
+    )
+    .mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () => {
+            hidden = true;
+            resolve(new Response(null, { status: 204 }));
+          };
+        }),
+    );
+  const router = mount("/my-gigs?scope=history&page=2", async (url) => {
+    if (url.endsWith("/hide")) return hide();
+    const page = Number(
+      new URL(url, "http://localhost").searchParams.get("page") ?? 1,
+    );
+    return json({
+      items: page === 2 && !hidden ? [cancelled] : [],
+      page,
+      pageSize: 20,
+      total: hidden ? 20 : 21,
+    });
+  });
+  const action = { name: "Убрать из моих заданий" };
+  fireEvent.click(await screen.findByRole("button", action));
+  await screen.findByRole("alert");
+  expect(screen.getByRole("link", { name: gig.title })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", action));
+  const pending = await screen.findByRole<HTMLButtonElement>("button", {
+    name: "Убираем…",
+  });
+  expect(pending.disabled).toBe(true);
+  expect(screen.getByRole("link", { name: gig.title })).toBeTruthy();
+  await act(async () => finish());
+  await waitFor(() =>
+    expect(router.state.location.search).toBe("?scope=history"),
+  );
+  await screen.findByText("Всего заданий: 20");
+  expect(screen.queryByRole("link", { name: gig.title })).toBeNull();
+});

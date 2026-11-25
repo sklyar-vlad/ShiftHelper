@@ -881,6 +881,32 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+  /api/v1/me/gigs/{gigId}/hide:
+    post:
+      operationId: hideMyGig
+      tags:
+      - Gigs
+      summary: Убрать отменённое задание из личных списков заказчика
+      description: Доступно владельцу отменённого задания. Повторный вызов успешен. Доступ к деталям и история других участников сохраняются.
+      security:
+      - sessionCookie: []
+      responses:
+        '204':
+          description: Задание скрыто из личных списков
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
   /api/v1/me/gigs:
     get:
       operationId: listMyGigs
@@ -1706,6 +1732,9 @@ components:
       - cancelledAt
       - myApplication
       properties:
+        hiddenFromMyGigs:
+          type: boolean
+          description: Присутствует со значением true только у владельца, скрывшего задание.
         point:
           allOf:
             - $ref: '#/components/schemas/GigPoint'

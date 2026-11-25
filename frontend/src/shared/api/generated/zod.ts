@@ -1313,6 +1313,12 @@ export const createGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CreateGigResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -1879,6 +1885,12 @@ export const getGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const GetGigResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -2451,6 +2463,12 @@ export const cancelGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CancelGigResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -3017,6 +3035,12 @@ export const submitGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const SubmitGigResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -3583,6 +3607,12 @@ export const confirmGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const ConfirmGigResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -4432,6 +4462,12 @@ export const selectApplicationResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const SelectApplicationResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -5044,6 +5080,16 @@ export const CreateGigReviewResponse = zod.object({
   comment: zod.string().max(createGigReviewResponseCommentMax),
   createdAt: zod.iso.datetime({ offset: true }),
 });
+
+/**
+ * Доступно владельцу отменённого задания. Повторный вызов успешен. Доступ к деталям и история других участников сохраняются.
+ * @summary Убрать отменённое задание из личных списков заказчика
+ */
+export const HideMyGigParams = zod.object({
+  gigId: zod.uuid(),
+});
+
+export const HideMyGigResponse = zod.void();
 
 /**
  * customer видит свои публикации; worker — задания, где он selectedWorker. active: open/in_progress/awaiting_confirmation; history: completed/cancelled; all: все. Включает выбранного исполнителя и число pending откликов. Пользователь определяется по сессии.
@@ -6067,6 +6113,12 @@ export const editGigTermsResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const EditGigTermsResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -6646,6 +6698,12 @@ export const confirmApplicationTermsResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const ConfirmApplicationTermsResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -7267,6 +7325,12 @@ export const acceptGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const AcceptGigChangeResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -7851,6 +7915,12 @@ export const rejectGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const RejectGigChangeResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
@@ -8438,6 +8508,12 @@ export const withdrawGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const WithdrawGigChangeResponse = zod.object({
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
   point: zod
     .object({
       latitude: zod
