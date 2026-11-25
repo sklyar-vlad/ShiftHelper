@@ -434,39 +434,11 @@ h3 {
   color: var(--accent);
   font-weight: 400;
 }
-.how-section {
-  margin-top: 80px;
-  padding: 48px;
-  background: var(--mint);
-  border-radius: 32px;
-}
-.section-heading h2 {
-  font-size: 48px;
-  letter-spacing: -1px;
-  margin-bottom: 32px;
-  max-width: 650px;
-}
-.steps-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-}
 .step-card {
   background: #fff;
   border: 1px solid #00000008;
   border-radius: 20px;
   padding: 26px;
-}
-.step-number {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: var(--accent);
-  font-size: 12px;
-  margin-bottom: 28px;
-  font-weight: 600;
 }
 .step-card h3 {
   font-size: 27px;
@@ -602,22 +574,8 @@ h3 {
     font-size: 12px;
     padding: 22px;
   }
-  .how-section {
-    margin-top: 40px;
-    padding: 28px 20px;
-    border-radius: 24px;
-  }
-  .section-heading h2 {
-    font-size: 36px;
-  }
-  .steps-grid {
-    grid-template-columns: 1fr;
-  }
   .step-card {
     padding: 24px;
-  }
-  .step-number {
-    margin-bottom: 20px;
   }
   .footer-inner {
     flex-direction: column;
