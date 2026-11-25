@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { useSession } from "@/shared/model/session";
 import { WorkPreview } from "@/shared/ui/WorkPreview";
+import { HomeFaq } from "./HomeFaq";
 
 export function HomePage() {
   const { user } = useSession();
@@ -87,6 +88,7 @@ export function HomePage() {
           ))}
         </div>
       </section>
+      <HomeFaq />
     </>
   );
 }
