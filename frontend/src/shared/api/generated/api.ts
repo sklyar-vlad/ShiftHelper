@@ -824,6 +824,46 @@ export const ScopeParameter = {
   history: "history",
 } as const;
 
+export type SuggestGigPlacesBody = {
+  /**
+   * Название города или город и регион через запятую.
+   * @minLength 1
+   * @maxLength 100
+   */
+  city: string;
+  /**
+   * Часть адреса. Длина проверяется после обрезки пробелов.
+   * @minLength 3
+   * @maxLength 300
+   */
+  address: string;
+};
+
+export type SuggestGigPlaces200ItemKind =
+  (typeof SuggestGigPlaces200ItemKind)[keyof typeof SuggestGigPlaces200ItemKind];
+
+export const SuggestGigPlaces200ItemKind = {
+  street: "street",
+  building: "building",
+  amenity: "amenity",
+} as const;
+
+export type SuggestGigPlaces200Item = {
+  /** Полный текст варианта для выпадающего списка. */
+  label: string;
+  /** Улица, номер дома или название места для поля адреса. */
+  address: string;
+  city: string;
+  region?: string;
+  kind: SuggestGigPlaces200ItemKind;
+  /** Вариант с номером дома и точкой, которую можно показать для уточнения. */
+  complete: boolean;
+  /** Атрибуция источника адреса Geoapify. */
+  attribution: string;
+  /** Только для complete=true. Для улиц и неполных вариантов точка отсутствует. */
+  point?: GigPoint | null;
+};
+
 export type SearchGigPlaceBody = {
   /**
    * @minLength 1
@@ -2152,6 +2192,133 @@ export function useGetPublicUser<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getSuggestGigPlacesUrl = () => {
+  return `/api/v1/gig-place-suggestions`;
+};
+
+/**
+ * Только для заказчика. Возвращает до семи вариантов в выбранном городе РФ с учётом явно указанного региона.
+ * @summary Подсказать адрес задания по неполному вводу
+ */
+export const suggestGigPlaces = async (
+  suggestGigPlacesBody: SuggestGigPlacesBody,
+  options?: Parameters<typeof http>[1],
+): Promise<SuggestGigPlaces200Item[]> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return http<SuggestGigPlaces200Item[]>(getSuggestGigPlacesUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(suggestGigPlacesBody),
+  });
+};
+
+export const getSuggestGigPlacesMutationKey = () =>
+  ["suggestGigPlaces"] as const;
+
+export const getSuggestGigPlacesMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | ErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestGigPlaces>>,
+    TError,
+    SuggestGigPlacesMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof suggestGigPlaces>>,
+  TError,
+  SuggestGigPlacesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSuggestGigPlacesMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof suggestGigPlaces>>,
+    SuggestGigPlacesMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return suggestGigPlaces(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SuggestGigPlacesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof suggestGigPlaces>>
+>;
+export type SuggestGigPlacesMutationBody = SuggestGigPlacesBody;
+export type SuggestGigPlacesMutationError =
+  BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | ErrorResponse;
+export type SuggestGigPlacesMutationVariables = { data: SuggestGigPlacesBody };
+
+/**
+ * @summary Подсказать адрес задания по неполному вводу
+ */
+export const useSuggestGigPlaces = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | ErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof suggestGigPlaces>>,
+      TError,
+      SuggestGigPlacesMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof suggestGigPlaces>>,
+  TError,
+  SuggestGigPlacesMutationVariables,
+  TContext
+> => {
+  return useMutation(getSuggestGigPlacesMutationOptions(options), queryClient);
+};
 
 export const getSearchGigPlaceUrl = () => {
   return `/api/v1/gig-place-search`;

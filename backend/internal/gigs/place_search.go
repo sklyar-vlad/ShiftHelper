@@ -3,6 +3,7 @@ package gigs
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,12 @@ import (
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/platform/httpapi"
 )
 
+const (
+	geoapifySearch       = "https://api.geoapify.com/v1/geocode/search"
+	geoapifyAutocomplete = "https://api.geoapify.com/v1/geocode/autocomplete"
+	suggestionLimit      = 7
+)
+
 type placeSearch struct {
 	key    string
 	client *http.Client
@@ -19,12 +26,50 @@ type placeSearch struct {
 	next   time.Time
 }
 
+type placeInput struct {
+	City    string `json:"city"`
+	Address string `json:"address"`
+}
+
+type geoapifyPlace struct {
+	Latitude    *float64 `json:"lat"`
+	Longitude   *float64 `json:"lon"`
+	Label       string   `json:"formatted"`
+	Address     string   `json:"address_line1"`
+	Type        string   `json:"result_type"`
+	Country     string   `json:"country_code"`
+	City        string   `json:"city"`
+	Region      string   `json:"state"`
+	HouseNumber string   `json:"housenumber"`
+	Datasource  struct {
+		Attribution string `json:"attribution"`
+	} `json:"datasource"`
+}
+
+func (p geoapifyPlace) point() gigPoint {
+	return gigPoint{
+		Latitude: p.Latitude, Longitude: p.Longitude, Source: "geoapify",
+		Attribution: strings.TrimSpace(p.Datasource.Attribution),
+	}
+}
+
 type placeResult struct {
 	Label string   `json:"label"`
 	Point gigPoint `json:"point"`
 }
 
-func NewPlaceSearch(key string) gin.HandlerFunc {
+type placeSuggestion struct {
+	Label       string    `json:"label"`
+	Address     string    `json:"address"`
+	City        string    `json:"city"`
+	Region      string    `json:"region,omitempty"`
+	Kind        string    `json:"kind"`
+	Complete    bool      `json:"complete"`
+	Attribution string    `json:"attribution"`
+	Point       *gigPoint `json:"point,omitempty"`
+}
+
+func NewPlaceSearch(key string) (gin.HandlerFunc, gin.HandlerFunc) {
 	search := &placeSearch{
 		key: strings.TrimSpace(key),
 		client: &http.Client{
@@ -34,7 +79,7 @@ func NewPlaceSearch(key string) gin.HandlerFunc {
 			},
 		},
 	}
-	return search.find
+	return search.find, search.suggest
 }
 
 func (s *placeSearch) allow() bool {
@@ -48,80 +93,36 @@ func (s *placeSearch) allow() bool {
 	return true
 }
 
-func (s *placeSearch) find(c *gin.Context) {
-	var input struct {
-		City    string `json:"city"`
-		Address string `json:"address"`
-	}
+func readPlaceInput(c *gin.Context, minAddressLength int) (placeInput, bool) {
+	var input placeInput
 	if !httpapi.DecodeJSON(c, &input, 4096) {
-		return
+		return input, false
 	}
 	input.City = strings.TrimSpace(input.City)
 	input.Address = strings.TrimSpace(input.Address)
+	addressLength := utf8.RuneCountInString(input.Address)
 	if input.City == "" || utf8.RuneCountInString(input.City) > 100 ||
-		input.Address == "" || utf8.RuneCountInString(input.Address) > 300 ||
+		addressLength < minAddressLength || addressLength > 300 ||
 		strings.ContainsRune(input.City+input.Address, 0) {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Укажите город и адрес допустимой длины.")
-		return
+		return input, false
 	}
-	if s.key == "" {
-		httpapi.Fail(c, http.StatusServiceUnavailable, "INTERNAL_ERROR", "Поиск адреса на карте не настроен. Можно использовать текстовый адрес.")
-		return
-	}
-	if !s.allow() {
-		c.Header("Retry-After", "1")
-		httpapi.Fail(c, http.StatusTooManyRequests, "RATE_LIMITED", "Слишком много запросов. Попробуйте чуть позже.")
-		return
-	}
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, "https://api.geoapify.com/v1/geocode/search", nil)
-	if err != nil {
-		httpapi.InternalError(c)
-		return
-	}
-	query := req.URL.Query()
-	query.Set("text", input.Address+", "+input.City)
-	query.Set("filter", "countrycode:ru")
-	query.Set("lang", "ru")
-	query.Set("format", "json")
-	query.Set("limit", "3")
-	query.Set("apiKey", s.key)
-	req.URL.RawQuery = query.Encode()
+	return input, true
+}
 
-	response, err := s.client.Do(req)
-	if err != nil {
-		placeSearchUnavailable(c)
+func (s *placeSearch) find(c *gin.Context) {
+	input, ok := readPlaceInput(c, 1)
+	if !ok {
 		return
 	}
-	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode == http.StatusTooManyRequests {
-		httpapi.Fail(c, http.StatusTooManyRequests, "RATE_LIMITED", "Достигнут лимит поиска адресов. Попробуйте позже.")
-		return
-	}
-	var body struct {
-		Results []struct {
-			Latitude   *float64 `json:"lat"`
-			Longitude  *float64 `json:"lon"`
-			Label      string   `json:"formatted"`
-			Type       string   `json:"result_type"`
-			Country    string   `json:"country_code"`
-			Datasource struct {
-				Attribution string `json:"attribution"`
-			} `json:"datasource"`
-		} `json:"results"`
-	}
-	if response.StatusCode != http.StatusOK || json.NewDecoder(http.MaxBytesReader(nil, response.Body, 128<<10)).Decode(&body) != nil || body.Results == nil {
-		placeSearchUnavailable(c)
+	found, ok := s.lookup(c, input, geoapifySearch, 3)
+	if !ok {
 		return
 	}
 	results := make([]placeResult, 0, 3)
-	for _, result := range body.Results {
+	for _, result := range found {
 		label := strings.TrimSpace(result.Label)
-		point := gigPoint{
-			Latitude:    result.Latitude,
-			Longitude:   result.Longitude,
-			Source:      "geoapify",
-			Attribution: strings.TrimSpace(result.Datasource.Attribution),
-		}
+		point := result.point()
 		if result.Country != "ru" || (result.Type != "building" && result.Type != "amenity") || label == "" || !point.valid() {
 			continue
 		}
@@ -130,9 +131,132 @@ func (s *placeSearch) find(c *gin.Context) {
 			break
 		}
 	}
-
-	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, results)
+}
+
+func (s *placeSearch) suggest(c *gin.Context) {
+	input, ok := readPlaceInput(c, 3)
+	if !ok {
+		return
+	}
+	city, region, _ := strings.Cut(input.City, ",")
+	city = normalizePlaceName(city)
+	region = normalizePlaceName(strings.TrimSuffix(strings.TrimSpace(region), " (город федерального значения)"))
+	if city == "" {
+		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Укажите город.")
+		return
+	}
+
+	found, ok := s.lookup(c, input, geoapifyAutocomplete, suggestionLimit)
+	if !ok {
+		return
+	}
+	results := make([]placeSuggestion, 0, suggestionLimit)
+	seen := make(map[string]struct{}, suggestionLimit)
+	for _, result := range found {
+		if result.Country != "ru" || normalizePlaceName(result.City) != city ||
+			(region != "" && normalizePlaceName(result.Region) != region) {
+			continue
+		}
+		if result.Type != "street" && result.Type != "building" && result.Type != "amenity" {
+			continue
+		}
+		label := strings.TrimSpace(result.Label)
+		point := result.point()
+		address := strings.TrimSpace(result.Address)
+		if label == "" || address == "" || point.Attribution == "" || !validAttribution(point.Attribution) {
+			continue
+		}
+		labelKey := normalizePlaceName(label)
+		if result.Type == "street" {
+			labelKey = strings.Join([]string{"street", normalizePlaceName(address), city, normalizePlaceName(result.Region)}, "\x00")
+		}
+		if _, duplicate := seen[labelKey]; duplicate {
+			continue
+		}
+		seen[labelKey] = struct{}{}
+		suggestion := placeSuggestion{
+			Label: label, Address: address, City: strings.TrimSpace(result.City), Region: strings.TrimSpace(result.Region),
+			Kind: result.Type, Attribution: point.Attribution,
+		}
+		if result.Type != "street" && strings.TrimSpace(result.HouseNumber) != "" && point.valid() {
+			suggestion.Complete = true
+			suggestion.Point = &point
+		}
+		results = append(results, suggestion)
+		if len(results) == suggestionLimit {
+			break
+		}
+	}
+	c.JSON(http.StatusOK, results)
+}
+
+func normalizePlaceName(value string) string {
+	return strings.ReplaceAll(strings.ToLower(strings.Join(strings.Fields(value), " ")), "ё", "е")
+}
+
+func (s *placeSearch) lookup(c *gin.Context, input placeInput, endpoint string, limit int) ([]geoapifyPlace, bool) {
+	c.Header("Cache-Control", "no-store")
+	if c.Request.Context().Err() != nil {
+		return nil, false
+	}
+	if s.key == "" {
+		httpapi.Fail(c, http.StatusServiceUnavailable, "INTERNAL_ERROR", "Поиск адреса на карте не настроен. Можно использовать текстовый адрес.")
+		return nil, false
+	}
+	if !s.allow() {
+		c.Header("Retry-After", "1")
+		httpapi.Fail(c, http.StatusTooManyRequests, "RATE_LIMITED", "Слишком много запросов. Попробуйте чуть позже.")
+		return nil, false
+	}
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, endpoint, nil)
+	if err != nil {
+		httpapi.InternalError(c)
+		return nil, false
+	}
+	query := req.URL.Query()
+	query.Set("text", input.Address+", "+input.City)
+	query.Set("filter", "countrycode:ru")
+	query.Set("lang", "ru")
+	query.Set("format", "json")
+	query.Set("limit", strconv.Itoa(limit))
+	query.Set("apiKey", s.key)
+	req.URL.RawQuery = query.Encode()
+
+	response, err := s.client.Do(req)
+	if err != nil {
+		if c.Request.Context().Err() == nil {
+			placeSearchUnavailable(c)
+		}
+		return nil, false
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode == http.StatusTooManyRequests {
+		c.Header("Retry-After", retryAfterSeconds(response.Header.Get("Retry-After")))
+		httpapi.Fail(c, http.StatusTooManyRequests, "RATE_LIMITED", "Достигнут лимит поиска адресов. Попробуйте позже.")
+		return nil, false
+	}
+	var body struct {
+		Results []geoapifyPlace `json:"results"`
+	}
+	if response.StatusCode != http.StatusOK ||
+		json.NewDecoder(http.MaxBytesReader(nil, response.Body, 128<<10)).Decode(&body) != nil || body.Results == nil {
+		placeSearchUnavailable(c)
+		return nil, false
+	}
+	return body.Results, true
+}
+
+func retryAfterSeconds(value string) string {
+	if seconds, err := strconv.Atoi(value); err == nil && seconds > 0 {
+		return strconv.Itoa(seconds)
+	}
+	if until, err := http.ParseTime(value); err == nil {
+		if wait := time.Until(until); wait > 0 {
+			return strconv.Itoa(int((wait-1)/time.Second) + 1)
+		}
+	}
+	return "5"
 }
 
 func placeSearchUnavailable(c *gin.Context) {

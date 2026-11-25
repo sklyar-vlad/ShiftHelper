@@ -542,6 +542,82 @@ export const GetPublicUserResponse = zod.object({
 });
 
 /**
+ * Только для заказчика. Возвращает до семи вариантов в выбранном городе РФ с учётом явно указанного региона.
+ * @summary Подсказать адрес задания по неполному вводу
+ */
+export const suggestGigPlacesBodyCityMax = 100;
+
+export const suggestGigPlacesBodyAddressMin = 3;
+export const suggestGigPlacesBodyAddressMax = 300;
+
+export const SuggestGigPlacesBody = zod.object({
+  city: zod
+    .string()
+    .min(1)
+    .max(suggestGigPlacesBodyCityMax)
+    .describe("Название города или город и регион через запятую."),
+  address: zod
+    .string()
+    .min(suggestGigPlacesBodyAddressMin)
+    .max(suggestGigPlacesBodyAddressMax)
+    .describe("Часть адреса. Длина проверяется после обрезки пробелов."),
+});
+
+export const suggestGigPlacesResponsePointOneLatitudeMin = -90;
+export const suggestGigPlacesResponsePointOneLatitudeMax = 90;
+
+export const suggestGigPlacesResponsePointOneLongitudeMin = -180;
+export const suggestGigPlacesResponsePointOneLongitudeMax = 180;
+
+export const suggestGigPlacesResponsePointOneSourceDefault = `manual`;
+export const suggestGigPlacesResponsePointOneAttributionMax = 300;
+
+export const SuggestGigPlacesResponseItem = zod.object({
+  label: zod.string().describe("Полный текст варианта для выпадающего списка."),
+  address: zod
+    .string()
+    .describe("Улица, номер дома или название места для поля адреса."),
+  city: zod.string(),
+  region: zod.string().optional(),
+  kind: zod.enum(["street", "building", "amenity"]),
+  complete: zod
+    .boolean()
+    .describe(
+      "Вариант с номером дома и точкой, которую можно показать для уточнения.",
+    ),
+  attribution: zod.string().describe("Атрибуция источника адреса Geoapify."),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(suggestGigPlacesResponsePointOneLatitudeMin)
+        .max(suggestGigPlacesResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(suggestGigPlacesResponsePointOneLongitudeMin)
+        .max(suggestGigPlacesResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(suggestGigPlacesResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(suggestGigPlacesResponsePointOneAttributionMax)
+        .optional(),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe(
+      "Только для complete=true. Для улиц и неполных вариантов точка отсутствует.",
+    ),
+});
+export const SuggestGigPlacesResponse = zod
+  .array(SuggestGigPlacesResponseItem)
+  .max(7);
+
+/**
  * Только для заказчика. Не более трёх вариантов адреса в России. Выбор и сохранение выполняются отдельно.
  * @summary Найти адрес задания на карте
  */

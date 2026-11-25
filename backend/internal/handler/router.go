@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -46,7 +47,15 @@ func NewRouter(logger *zap.Logger, pool *pgxpool.Pool, metricsToken, appOrigin s
 	api := authHandler.Register(router)
 	users.NewHandler(pool).Register(api, authHandler.RequireUser())
 	gigs.NewHandler(pool).Register(api, authHandler.RequireUser(), authHandler.OptionalUser())
-	api.POST("/gig-place-search", httpapi.ValidateQuery(), authHandler.RequireUser(), auth.RequireRole("customer"), auth.LimitByIP(8), gigs.NewPlaceSearch(os.Getenv("GEOAPIFY_GEOCODING_KEY")))
+	geoapifyKey := strings.TrimSpace(os.Getenv("GEOAPIFY_GEOCODING_KEY"))
+	findPlace, suggestPlace := gigs.NewPlaceSearch(geoapifyKey)
+	place := api.Group("", httpapi.ValidateQuery(), authHandler.RequireUser(), auth.RequireRole("customer"))
+	place.POST("/gig-place-search", auth.LimitByIP(8), findPlace)
+	if geoapifyKey == "" {
+		place.POST("/gig-place-suggestions", suggestPlace)
+	} else {
+		place.POST("/gig-place-suggestions", auth.LimitByIP(45), suggestPlace)
+	}
 	reviews.NewHandler(pool).Register(api, authHandler.RequireUser())
 	notifications.NewHandler(pool).Register(api, authHandler.RequireUser())
 	router.GET("/metrics", gin.WrapH(metrics.Handler(metricsToken)))

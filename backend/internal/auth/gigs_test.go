@@ -63,6 +63,13 @@ func TestGigPublicationAndCancellation(t *testing.T) {
 	expect(send(placeSearch, placeInput, nil), 401, "UNAUTHORIZED")
 	expect(send(placeSearch, placeInput, cookies[2]), 403, "FORBIDDEN")
 	expect(send(placeSearch, placeInput, cookies[0]), 503, "INTERNAL_ERROR")
+	const suggestions = "/api/v1/gig-place-suggestions"
+	expect(send(suggestions, placeInput, nil), 401, "UNAUTHORIZED")
+	expect(send(suggestions, placeInput, cookies[2]), 403, "FORBIDDEN")
+	expect(send(suggestions, `{"city":"Москва","address":"Тв"}`, cookies[0]), 400, "VALIDATION_ERROR")
+	for range 10 {
+		expect(send(suggestions, placeInput, cookies[0]), 503, "INTERNAL_ERROR")
+	}
 	start := time.Now().Add(24 * time.Hour).Truncate(time.Second).In(time.FixedZone("MSK", 3*60*60))
 	body := func(overrides map[string]any) string {
 		input := map[string]any{"title": "  Разгрузка  ", "description": "Перенести коробки", "requirements": "", "city": "Москва", "address": "Примерная, 1",
