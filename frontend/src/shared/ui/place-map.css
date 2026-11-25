@@ -58,6 +58,20 @@
   background: rgb(0 0 0 / 45%);
 }
 
+.place-map-overlay[data-entering] {
+  animation: place-map-shade 200ms ease-out;
+}
+
+.place-map-overlay[data-entering] .place-map-modal {
+  animation: ui-reveal 200ms ease-out;
+}
+
+@keyframes place-map-shade {
+  from {
+    background-color: transparent;
+  }
+}
+
 .place-map-modal {
   width: min(100%, 1120px);
   max-height: 100%;

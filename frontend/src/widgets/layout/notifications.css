@@ -46,6 +46,10 @@
   box-shadow: 0 12px 36px #00000014;
 }
 
+.notification-popover[data-entering] {
+  animation: ui-reveal 150ms ease-out;
+}
+
 .notification-dialog {
   padding: 16px;
   outline: none;

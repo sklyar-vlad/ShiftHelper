@@ -107,6 +107,7 @@
 .home-faq-panel[aria-hidden="false"] .home-faq-answer {
   opacity: 1;
   transform: none;
+  transition-delay: 25ms;
 }
 
 @media (max-width: 767px) {
