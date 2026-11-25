@@ -11,11 +11,13 @@ export function GigPlacePicker({
   city,
   address,
   point,
+  suggestedPoint,
   onChange,
 }: {
   city: string;
   address: string;
   point: GigPoint;
+  suggestedPoint: GigPoint;
   onChange: (point: GigPoint) => void;
 }) {
   const request = useRef<AbortController | null>(null);
@@ -26,7 +28,9 @@ export function GigPlacePicker({
   const [preview, setPreview] = useState<{
     center: Point;
     draft: Point;
-  } | null>(null);
+  } | null>(() =>
+    suggestedPoint ? { center: suggestedPoint, draft: suggestedPoint } : null,
+  );
   const draft = preview?.draft ?? point;
   const center = preview?.center ?? point;
   const confirmed =

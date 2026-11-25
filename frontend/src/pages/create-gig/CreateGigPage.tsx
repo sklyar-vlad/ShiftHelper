@@ -25,6 +25,7 @@ import {
   type CurrentUser,
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
+import { AddressInput } from "./AddressInput";
 import { GigPlacePicker } from "./GigPlacePicker";
 import "./create-gig.css";
 
@@ -96,6 +97,7 @@ export function GigForm({
   const [duration, setDuration] = useState<number | null>(null);
   const [periodError, setPeriodError] = useState("");
   const [placeRevision, setPlaceRevision] = useState(0);
+  const [suggestedPoint, setSuggestedPoint] = useState<GigPoint>(null);
   const {
     register,
     watch,
@@ -133,9 +135,15 @@ export function GigForm({
           amount: "",
         },
   });
-  function placeTextChanged(name: "city" | "address", value: string) {
-    if (value.trim() === getValues(name).trim()) return;
-    setValue("point", null, { shouldDirty: true });
+  function placeTextChanged(
+    name: "city" | "address",
+    value: string,
+    suggestion?: GigPoint,
+  ) {
+    const changed = value.trim() !== getValues(name).trim();
+    if (!changed && suggestion === undefined) return;
+    if (changed) setValue("point", null, { shouldDirty: true });
+    setSuggestedPoint(suggestion ?? null);
     setPlaceRevision((revision) => revision + 1);
   }
   const guard = useUnsavedChanges(isDirty, onCancel);
@@ -431,6 +439,42 @@ export function GigForm({
                       />
                     )}
                   />
+                ) : field.name === "address" ? (
+                  <Controller
+                    name="address"
+                    control={control}
+                    rules={rules}
+                    render={({ field: binding }) => (
+                      <AddressInput
+                        id="address"
+                        name={binding.name}
+                        value={binding.value}
+                        ref={binding.ref}
+                        onBlur={binding.onBlur}
+                        city={watch("city")}
+                        maxLength={300}
+                        disabled={working}
+                        aria-invalid={!!errors.address}
+                        aria-describedby={
+                          errors.address ? "address-error" : undefined
+                        }
+                        onValueChange={(value) => {
+                          placeTextChanged("address", value);
+                          binding.onChange(value);
+                        }}
+                        onChoose={(suggestion, value) => {
+                          placeTextChanged(
+                            "address",
+                            value,
+                            suggestion.complete
+                              ? (suggestion.point ?? null)
+                              : null,
+                          );
+                          binding.onChange(value);
+                        }}
+                      />
+                    )}
+                  />
                 ) : "multiline" in field ? (
                   <textarea
                     {...props}
@@ -441,11 +485,6 @@ export function GigForm({
                     {...props}
                     type="text"
                     inputMode={field.name === "amount" ? "decimal" : undefined}
-                    onChange={(event) => {
-                      if (field.name === "address")
-                        placeTextChanged("address", event.currentTarget.value);
-                      void props.onChange(event);
-                    }}
                   />
                 )}
                 {field.name === "endsAt" && (
@@ -501,6 +540,7 @@ export function GigForm({
                     city={watch("city")}
                     address={watch("address")}
                     point={watch("point")}
+                    suggestedPoint={suggestedPoint}
                     onChange={(point) =>
                       setValue("point", point, { shouldDirty: true })
                     }

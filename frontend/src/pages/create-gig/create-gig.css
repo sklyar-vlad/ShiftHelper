@@ -96,6 +96,14 @@
   min-width: 0;
 }
 
+.address-input .city-popup {
+  z-index: 32;
+}
+
+.address-help {
+  margin: 6px 0 0;
+}
+
 .gig-place-picker .place-map {
   width: 100%;
 }

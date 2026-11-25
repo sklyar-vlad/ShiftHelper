@@ -60,6 +60,7 @@ async function mount(
   categoryResponse?: () => Promise<Response>,
   options?: {
     search?: (init: RequestInit) => Promise<Response>;
+    suggestions?: (init: RequestInit) => Promise<Response>;
     gig?: Gig;
   },
 ) {
@@ -74,7 +75,9 @@ async function mount(
           ? json({ id: "user", name: "Тест", role })
           : url === "/api/v1/gig-place-search" && options?.search
             ? options.search(init)
-            : send(init),
+            : url === "/api/v1/gig-place-suggestions"
+              ? (options?.suggestions?.(init) ?? json([]))
+              : send(init),
     ),
   );
   const client = new QueryClient({
@@ -739,3 +742,147 @@ it.each(["open", "in_progress"] as const)(
     });
   },
 );
+
+const addressList = { name: "Подсказки адреса" };
+const suggestionsList = [
+  {
+    label: "Улица Мира, Москва",
+    address: "Улица Мира",
+    city: "Москва",
+    kind: "street",
+    complete: false,
+    attribution: foundPoint.attribution,
+  },
+  {
+    label: "Улица Мира, 12, Москва",
+    address: "Улица Мира, 12",
+    city: "Москва",
+    region: "Москва",
+    kind: "building",
+    complete: true,
+    attribution: foundPoint.attribution,
+    point: foundPoint,
+  },
+];
+
+const advanceAddressTime = (ms = 500) =>
+  act(async () => vi.advanceTimersByTimeAsync(ms));
+
+function enterAddress(value: string) {
+  const input = screen.getByRole("combobox", { name: "Адрес" });
+  act(() => input.focus());
+  fireEvent.change(input, { target: { value } });
+  return input as HTMLInputElement;
+}
+
+it("debounces focused address text and previews only a selected house", async () => {
+  const suggestions = vi.fn(async () => json(suggestionsList));
+  const { send } = await mount("customer", undefined, undefined, {
+    suggestions,
+  });
+  fill();
+  vi.useFakeTimers();
+  await advanceAddressTime();
+  expect(suggestions).not.toHaveBeenCalled();
+  enterAddress("Ми");
+  await advanceAddressTime();
+  expect(suggestions).not.toHaveBeenCalled();
+  const field = enterAddress("Мир");
+  await advanceAddressTime(499);
+  expect(suggestions).not.toHaveBeenCalled();
+  await advanceAddressTime(1);
+  expect(suggestions).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("button", confirmPoint)).toBeNull();
+
+  fireEvent.keyDown(field, { key: "ArrowDown" });
+  expect(
+    screen
+      .getByRole("option", { name: /Уточните номер дома/ })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  fireEvent.keyDown(field, { key: "Enter" });
+  expect(field.value).toBe("Улица Мира ");
+  expect(screen.queryByRole("listbox", addressList)).toBeNull();
+  expect(screen.queryByRole("button", confirmPoint)).toBeNull();
+  await advanceAddressTime(1000);
+  expect(suggestions).toHaveBeenCalledTimes(1);
+
+  enterAddress("Улица Мира 12");
+  await advanceAddressTime();
+  fireEvent.click(screen.getByRole("option", { name: /Улица Мира, 12/ }));
+  expect(field.value).toBe("Улица Мира, 12");
+  expect(screen.queryByRole("listbox", addressList)).toBeNull();
+  expect(screen.getByRole("button", confirmPoint)).toBeTruthy();
+  await advanceAddressTime(1000);
+  expect(suggestions).toHaveBeenCalledTimes(2);
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Уточнить тестовую метку" }),
+  );
+  fireEvent.click(screen.getByRole("button", confirmPoint));
+  vi.useRealTimers();
+  submit();
+  await screen.findByRole("heading", { name: "Опубликовано" });
+  const payload = JSON.parse(send.mock.calls[0][0].body as string);
+  expect(payload).toMatchObject({
+    city: "Москва",
+    address: "Улица Мира, 12",
+    point: { ...foundPoint, latitude: 55.76, longitude: 37.63 },
+  });
+});
+
+it("drops a late suggestion when the text changes back to its original value", async () => {
+  let finish!: (response: Response) => void;
+  const suggestions = vi
+    .fn<(init: RequestInit) => Promise<Response>>()
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    )
+    .mockResolvedValue(json([suggestionsList[1]]));
+  await mount("customer", undefined, undefined, { suggestions });
+  fill();
+  vi.useFakeTimers();
+  enterAddress("Улица");
+  await advanceAddressTime();
+  enterAddress("Улица 1");
+  const field = enterAddress("Улица");
+  await advanceAddressTime();
+  expect(suggestions.mock.calls[0][0].signal?.aborted).toBe(true);
+  await act(async () => finish(json([suggestionsList[0]])));
+  expect(screen.getAllByRole("option", { name: /Улица Мира/ })).toHaveLength(1);
+  expect(screen.getByRole("option", { name: /Улица Мира, 12/ })).toBeTruthy();
+  fireEvent.keyDown(field, { key: "Escape" });
+  expect(screen.queryByRole("listbox", addressList)).toBeNull();
+});
+
+it("honors Retry-After without automatic retries and keeps manual entry after an error", async () => {
+  const suggestions = vi
+    .fn()
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ error: { code: "RATE_LIMITED", message: "Лимит" } }),
+        { status: 429, headers: { "Retry-After": "4" } },
+      ),
+    )
+    .mockResolvedValue(json({}, 503));
+  await mount("customer", undefined, undefined, { suggestions });
+  fill();
+  vi.useFakeTimers();
+  enterAddress("Улица");
+  await advanceAddressTime();
+  expect(screen.getByText(/Слишком много запросов/)).toBeTruthy();
+  const input = enterAddress("Улица 12");
+  await advanceAddressTime();
+  expect(suggestions).toHaveBeenCalledTimes(1);
+  await advanceAddressTime(5000);
+  expect(suggestions).toHaveBeenCalledTimes(1);
+  enterAddress("Улица 123");
+  await advanceAddressTime();
+  expect(suggestions).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(/Подсказки недоступны/)).toBeTruthy();
+  expect(input.value).toBe("Улица 123");
+  expect(screen.getByRole("button", searchButton)).toBeTruthy();
+});
