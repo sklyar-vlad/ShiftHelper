@@ -280,3 +280,11 @@
   background: #fff;
   border-color: var(--line);
 }
+
+.gig-hide-action {
+  margin-top: 12px;
+}
+
+.gig-hide-action p {
+  margin: 8px 0 0;
+}

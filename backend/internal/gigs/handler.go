@@ -54,6 +54,7 @@ type Cancellation struct {
 }
 
 type Gig struct {
+	HiddenFromMyGigs    bool            `json:"hiddenFromMyGigs,omitempty"`
 	Point               json.RawMessage `json:"point,omitempty"`
 	PendingChange       *TermsChange    `json:"pendingChange,omitempty"`
 	CounterpartyContact *string         `json:"counterpartyContact,omitempty"`
@@ -80,6 +81,7 @@ func (h *Handler) Register(api *gin.RouterGroup, requireUser, optionalUser gin.H
 	api.GET("/gigs/:gigId/applications", httpapi.ValidateQuery("page", "pageSize", "status"), requireUser, auth.RequireRole("customer"), h.listApplications)
 	write := api.Group("", httpapi.ValidateQuery())
 	write.POST("/gigs", requireUser, auth.RequireRole("customer"), h.create)
+	write.POST("/me/gigs/:gigId/hide", requireUser, auth.RequireRole("customer"), h.hideMyGig)
 	write.PUT("/gigs/:gigId/terms", requireUser, auth.RequireRole("customer"), h.editTerms)
 	write.POST("/gigs/:gigId/applications/:applicationId/confirm-terms", requireUser, auth.RequireRole("worker"), h.confirmTerms)
 	for _, action := range []string{"accept", "reject", "withdraw"} {

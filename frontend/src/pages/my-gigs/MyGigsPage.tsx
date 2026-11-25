@@ -1,4 +1,5 @@
-import { Link, useLocation, useSearchParams } from "react-router";
+import { useRef } from "react";
+import { Link, Navigate, useLocation, useSearchParams } from "react-router";
 import {
   getListMyGigsQueryKey,
   useListMyGigs,
@@ -8,6 +9,7 @@ import {
   type ScopeParameter,
 } from "@/shared/api/generated/api";
 import { useSession } from "@/shared/model/session";
+import { HideCancelledGig } from "@/entities/gig/HideCancelledGig";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import {
   GigFacts,
@@ -24,6 +26,7 @@ export function MyGigsPage() {
 function PersonalGigs({ user }: { user: CurrentUser }) {
   const [search] = useSearchParams();
   const location = useLocation();
+  const heading = useRef<HTMLHeadingElement>(null);
   const worker = user.role === "worker";
   const view =
     worker && search.get("view") !== "work" ? "applications" : "work";
@@ -64,10 +67,19 @@ function PersonalGigs({ user }: { user: CurrentUser }) {
       : gigs.data?.items.map((gig) => ({ gig, application: null }));
   const url = (next: number, filter = scope, section = view) =>
     `/my-gigs?scope=${filter}${worker ? `&view=${section}` : ""}${next > 1 ? `&page=${next}` : ""}`;
+  const lastPage = Math.max(
+    1,
+    Math.ceil((query.data?.total ?? 0) / params.pageSize),
+  );
+  if (query.isSuccess && !query.isFetching && page > lastPage)
+    return <Navigate to={url(lastPage)} replace />;
+
   return (
     <>
       <header className="page-heading">
-        <h1>Мои задания</h1>
+        <h1 ref={heading} tabIndex={-1}>
+          Мои задания
+        </h1>
         <Link className="button" to={worker ? "/catalog" : "/gigs/new"}>
           {worker ? "Найти подработку" : "Опубликовать задание"}
         </Link>
@@ -167,6 +179,13 @@ function PersonalGigs({ user }: { user: CurrentUser }) {
                     <p className="small">
                       Ожидают решения: {gig.pendingApplicationsCount}
                     </p>
+                  )}
+                  {!worker && gig.status === "cancelled" && (
+                    <HideCancelledGig
+                      gigId={gig.id}
+                      userId={user.id}
+                      onHidden={() => heading.current?.focus()}
+                    />
                   )}
                   {!worker && gig.selectedWorker && (
                     <p className="small">
