@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 const searchAPI = "**/api/v1/gig-place-search";
+const suggestionsAPI = "**/api/v1/gig-place-suggestions";
 const mapAPI = "https://maps.geoapify.com/**";
 const find = (target, name) =>
   target.getByRole("button", { name, exact: true });
@@ -91,10 +92,13 @@ export async function checkAddressSearch(page) {
   for (const [value, message] of [
     ["Сбой, 1", /Поиск адреса недоступен/],
     ["Ненайденная, 1", /Подходящий адрес не найден/],
+    ["Лимит, 1", /Слишком много попыток/],
   ]) {
     await address.fill(value);
     await show.click();
     await page.getByRole("status").filter({ hasText: message }).waitFor();
+    assert.equal(await address.inputValue(), value);
+    assert.equal(await mapRegion(page).count(), 0);
   }
 
   const arrived = Promise.withResolvers();
@@ -127,37 +131,90 @@ export async function checkAddressSearch(page) {
     release.resolve();
   }
   assert.equal(await mapRegion(page).count(), 0);
-  await address.fill("Мира, 1");
 }
 
-export async function chooseMapPoint(
-  page,
-  address,
-  { retry = false, adjust = false } = {},
-) {
-  const picker = page.getByRole("region", { name: "Место задания на карте" });
-  await find(picker, "Показать на карте").click();
-  const map = mapRegion(picker);
-  if (retry) {
-    await map
-      .getByRole("status")
-      .filter({ hasText: /Не удалось загрузить карту/ })
-      .waitFor();
-    assert.equal(
-      await page.getByLabel("Адрес", { exact: true }).inputValue(),
-      address,
-    );
-    await find(map, "Повторить загрузку").click();
-  }
-  const marker = map.locator(".maplibregl-marker");
+export async function chooseSuggestedPoint(page) {
+  const address = page.getByRole("combobox", { name: "Адрес", exact: true });
+  const list = page.getByRole("listbox", { name: "Подсказки адреса" });
+  await address.fill("Мир");
+  await list.getByRole("option", { name: /Уточните номер дома/ }).waitFor();
+  await address.press("ArrowDown");
+  await address.press("Enter");
+  assert.equal(await address.inputValue(), "Мира ");
+  assert.equal(await mapRegion(page).count(), 0);
+
+  const matched = page.waitForResponse(suggestionsAPI);
+  await address.fill("Мира 1");
+  await list.getByRole("option", { name: /^Мира, 1/ }).waitFor();
+  assert.equal(await list.getByRole("option").count(), 1);
+  const response = await matched;
+  assert.equal(response.status(), 200);
+  assert.doesNotMatch(await response.text(), /smoke-geocoder-key/);
+  await address.press("ArrowDown");
+  await address.press("Enter");
+  assert.equal(await address.inputValue(), "Мира, 1");
+
+  const map = mapRegion(page);
+  await map.getByText(/Не удалось загрузить карту/).waitFor();
+  assert.equal(await address.inputValue(), "Мира, 1");
+  await find(map, "Повторить загрузку").click();
+  await map.locator(".maplibregl-marker").waitFor();
+  const bounds = await map.locator(".place-map-frame").boundingBox();
+  assert.ok(bounds.height >= 440, "desktop map height");
+  await checkExpandedMap(page, true);
+  return confirmMapPoint(page);
+}
+
+export async function checkExpandedMap(page, adjust = false) {
+  const map = mapRegion(page);
+  const trigger = find(map, "Развернуть карту");
+  await trigger.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Карта места", exact: true });
+  assert.ok(
+    await find(dialog, "Закрыть карту").evaluate(
+      (el) => el === document.activeElement,
+    ),
+  );
+  const marker = dialog.locator(".maplibregl-marker");
   await marker.waitFor();
-  const position = map.getByText(/^Координаты:/);
+  const position = dialog.getByText(/^Координаты:/);
   if (adjust) {
+    const canvas = dialog.locator("canvas");
+    const width = await canvas.evaluate((el) => el.width);
+    const viewport = page.viewportSize();
+    await page.setViewportSize({ ...viewport, width: 900 });
+    await page.waitForFunction(
+      (before) =>
+        document.querySelector('[role="dialog"] canvas')?.width > 0 &&
+        document.querySelector('[role="dialog"] canvas').width !== before,
+      width,
+    );
+    await page.setViewportSize(viewport);
     const before = await position.textContent();
-    await marker.focus();
-    await page.keyboard.press("ArrowRight");
+    await marker.press("ArrowRight");
     await position.filter({ hasNotText: before }).waitFor();
   }
+  const draft = await position.textContent();
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "hidden" });
+  await trigger.evaluate((el) => {
+    if (document.activeElement !== el)
+      throw new Error("Map trigger did not regain focus");
+  });
+  await map.getByText(draft, { exact: true }).waitFor();
+}
+
+export async function chooseMapPoint(page) {
+  const picker = page.getByRole("region", { name: "Место задания на карте" });
+  await find(picker, "Показать на карте").click();
+  return confirmMapPoint(page);
+}
+
+async function confirmMapPoint(page) {
+  const picker = page.getByRole("region", { name: "Место задания на карте" });
+  const map = mapRegion(picker);
+  await map.locator(".maplibregl-marker").waitFor();
+  const position = map.getByText(/^Координаты:/);
   const [latitude, longitude] = (await position.textContent())
     .replace("Координаты: ", "")
     .split(", ")
