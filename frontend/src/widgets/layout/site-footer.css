@@ -24,13 +24,16 @@
   margin-bottom: 13px;
   font-size: 15px;
   line-height: 1.45;
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
   overflow-wrap: anywhere;
+  transition: text-decoration-color 230ms var(--motion-ease);
 }
 
 .footer-columns nav > a:hover,
 .footer-docs:hover {
-  text-decoration: underline;
+  text-decoration-color: currentColor;
 }
 
 .footer-about p {

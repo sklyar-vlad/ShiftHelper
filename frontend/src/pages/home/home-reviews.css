@@ -26,6 +26,7 @@
   max-width: 970px;
   margin-inline: auto;
   overflow: clip;
+  isolation: isolate;
 }
 
 .home-reviews-slide {
@@ -34,28 +35,36 @@
   grid-template-rows: subgrid;
   min-width: 0;
   margin: 0;
+  opacity: 1;
+  transition: opacity 380ms var(--motion-ease);
 }
 
 .home-reviews-slide[aria-hidden="true"] {
   visibility: hidden;
+  opacity: 0;
+}
+
+.home-reviews-slide[data-leaving="true"] {
+  transition:
+    opacity 260ms ease-out,
+    visibility 0s linear 260ms;
 }
 
 .home-reviews-slides[data-direction] .home-reviews-slide[aria-hidden="false"] {
-  animation: home-review-arrive 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  z-index: 1;
+  animation: home-review-arrive 380ms var(--motion-ease);
 }
 
 .home-reviews-slides[data-direction="previous"] {
-  --review-offset: -12px;
+  --review-offset: -8px;
 }
 
 @keyframes home-review-arrive {
   from {
-    opacity: 0;
-    transform: translateX(var(--review-offset, 12px));
+    transform: translateX(var(--review-offset, 8px));
   }
 
   to {
-    opacity: 1;
     transform: none;
   }
 }
@@ -108,8 +117,12 @@
   background: #fff;
   color: #000;
   font-size: 22px;
+  transition:
+    background-color 230ms var(--motion-ease),
+    border-color 230ms var(--motion-ease);
 }
 
 .home-reviews-controls button:hover {
   background: var(--mint);
+  border-color: var(--green);
 }

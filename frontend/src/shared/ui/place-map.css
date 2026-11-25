@@ -59,11 +59,11 @@
 }
 
 .place-map-overlay[data-entering] {
-  animation: place-map-shade 200ms ease-out;
+  animation: place-map-shade 270ms var(--motion-ease);
 }
 
 .place-map-overlay[data-entering] .place-map-modal {
-  animation: ui-reveal 200ms ease-out;
+  animation: ui-reveal 270ms var(--motion-ease);
 }
 
 @keyframes place-map-shade {

@@ -181,5 +181,5 @@
 }
 
 .date-picker-popover[data-entering] {
-  animation: ui-reveal 160ms ease-out;
+  animation: ui-reveal 220ms var(--motion-ease);
 }

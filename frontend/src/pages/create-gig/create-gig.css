@@ -1,7 +1,7 @@
 .create-gig {
   max-width: 800px;
   margin-inline: auto;
-  animation: ui-reveal 210ms ease-out;
+  animation: ui-reveal 260ms var(--motion-ease);
 }
 .create-gig form {
   padding: 32px;
@@ -14,7 +14,7 @@
 }
 .create-gig .field-error,
 .create-gig .notice-error {
-  animation: ui-reveal 150ms ease-out;
+  animation: ui-reveal 220ms var(--motion-ease);
 }
 .create-gig .gig-submit {
   display: inline-grid;
@@ -27,7 +27,7 @@
   visibility: hidden;
 }
 .gig-submit > span + span[aria-hidden="false"] {
-  animation: ui-reveal 150ms ease-out;
+  animation: ui-reveal 220ms var(--motion-ease);
 }
 @media (max-width: 767px) {
   .create-gig form {
@@ -121,7 +121,7 @@
 .address-input .city-popup {
   position: static;
   margin-top: 6px;
-  animation: ui-reveal 150ms ease-out;
+  animation: ui-reveal 220ms var(--motion-ease);
 }
 
 .address-help {
@@ -130,7 +130,7 @@
 
 .gig-place-picker .place-map {
   width: 100%;
-  animation: ui-reveal 200ms ease-out;
+  animation: ui-reveal 260ms var(--motion-ease);
 }
 
 .gig-place-picker p {

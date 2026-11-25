@@ -1,22 +1,58 @@
-import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from "react-router";
 import { roleNames, useSession } from "@/shared/model/session";
 import { SiteFooter } from "./SiteFooter";
 import { BrandLink } from "./BrandLink";
 import { NotificationBell } from "./NotificationBell";
 
+const mainSections = new Set(["/", "/catalog", "/my-gigs"]);
+
 export function AppLayout() {
   const session = useSession();
   const navigate = useNavigate();
   const { key, pathname, hash } = useLocation();
+  const navigationType = useNavigationType();
+  const main = useRef<HTMLElement>(null);
+  const previousPath = useRef(pathname);
+
+  useLayoutEffect(() => {
+    const from = previousPath.current;
+    previousPath.current = pathname;
+    if (
+      from === pathname ||
+      hash ||
+      !mainSections.has(from) ||
+      !mainSections.has(pathname) ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    const animation = main.current?.animate?.(
+      [{ opacity: 0.8 }, { opacity: 1 }],
+      {
+        duration: 180,
+        easing: "ease-out",
+      },
+    );
+    return () => animation?.cancel();
+  }, [hash, pathname]);
 
   useEffect(() => {
     if (pathname !== "/" || !hash) return;
     const target = document.getElementById(hash.slice(1));
     if (!target) return;
-    target.scrollIntoView();
+    const smooth =
+      navigationType !== "POP" &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: smooth ? "smooth" : "instant" });
     target.focus({ preventScroll: true });
-  }, [hash, key, pathname]);
+  }, [hash, key, navigationType, pathname]);
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -156,7 +192,7 @@ export function AppLayout() {
           </p>
         </div>
       )}
-      <main id="main" className="container page-content">
+      <main id="main" className="container page-content" ref={main}>
         <Outlet />
       </main>
       <SiteFooter role={session.user?.role} />

@@ -156,7 +156,7 @@
   margin-top: 24px;
 }
 .gig-detail[data-just-published="true"] {
-  animation: ui-reveal 220ms ease-out;
+  animation: ui-reveal 270ms var(--motion-ease);
 }
 
 .gig-detail h1 {
@@ -230,7 +230,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .catalog-filter-options[data-expanded="true"] {
-    animation: ui-reveal 180ms ease-out;
+    animation: ui-reveal 230ms var(--motion-ease);
   }
   .catalog-filter-options[data-expanded="false"] {
     display: none;
