@@ -572,6 +572,10 @@ try {
     );
     await link(worker, title).click();
     await verifyMap(worker, original.point);
+    await visible(
+      worker,
+      await mapRegion(customer).locator(".place-map-warning").textContent(),
+    );
     const mobileMap = await mapRegion(worker)
       .locator(".place-map-frame")
       .boundingBox();

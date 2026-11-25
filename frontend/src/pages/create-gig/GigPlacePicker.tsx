@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { GigPointAttribution } from "@/entities/gig/GigPointAttribution";
+import { GigPlaceWarning } from "@/entities/gig/GigPlaceWarning";
 import { searchGigPlace, type GigPoint } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
 import { PlaceMap } from "@/shared/ui/PlaceMap";
@@ -31,13 +32,17 @@ export function GigPlacePicker({
   );
   const draft = preview?.draft ?? point;
   const center = preview?.center ?? point;
+  const draftReference = draft?.addressReference;
+  const confirmedReference = point?.addressReference;
   const confirmed =
     draft &&
     point &&
     draft.latitude === point.latitude &&
     draft.longitude === point.longitude &&
     draft.source === point.source &&
-    draft.attribution === point.attribution;
+    draft.attribution === point.attribution &&
+    draftReference?.latitude === confirmedReference?.latitude &&
+    draftReference?.longitude === confirmedReference?.longitude;
   const canReset =
     center &&
     draft &&
@@ -106,6 +111,7 @@ export function GigPlacePicker({
             center={center}
             point={draft}
             recenter={recenter}
+            notice={<GigPlaceWarning point={draft} />}
             onPointChange={(coords) =>
               setPreview({ center, draft: { ...draft, ...coords } })
             }

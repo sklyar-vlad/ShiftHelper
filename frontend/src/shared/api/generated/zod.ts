@@ -572,6 +572,13 @@ export const suggestGigPlacesResponsePointOneLongitudeMax = 180;
 export const suggestGigPlacesResponsePointOneSourceDefault = `manual`;
 export const suggestGigPlacesResponsePointOneAttributionMax = 300;
 
+export const suggestGigPlacesResponsePointOneAddressReferenceLatitudeMin = -90;
+export const suggestGigPlacesResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const suggestGigPlacesResponsePointOneAddressReferenceLongitudeMin =
+  -180;
+export const suggestGigPlacesResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const SuggestGigPlacesResponseItem = zod.object({
   label: zod.string().describe("Полный текст варианта для выпадающего списка."),
   address: zod
@@ -603,6 +610,21 @@ export const SuggestGigPlacesResponseItem = zod.object({
         .string()
         .max(suggestGigPlacesResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(suggestGigPlacesResponsePointOneAddressReferenceLatitudeMin)
+            .max(suggestGigPlacesResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(suggestGigPlacesResponsePointOneAddressReferenceLongitudeMin)
+            .max(suggestGigPlacesResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -639,6 +661,12 @@ export const searchGigPlaceResponsePointOneLongitudeMax = 180;
 export const searchGigPlaceResponsePointOneSourceDefault = `manual`;
 export const searchGigPlaceResponsePointOneAttributionMax = 300;
 
+export const searchGigPlaceResponsePointOneAddressReferenceLatitudeMin = -90;
+export const searchGigPlaceResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const searchGigPlaceResponsePointOneAddressReferenceLongitudeMin = -180;
+export const searchGigPlaceResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const SearchGigPlaceResponseItem = zod.object({
   label: zod.string(),
   point: zod
@@ -658,6 +686,21 @@ export const SearchGigPlaceResponseItem = zod.object({
         .string()
         .max(searchGigPlaceResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(searchGigPlaceResponsePointOneAddressReferenceLatitudeMin)
+            .max(searchGigPlaceResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(searchGigPlaceResponsePointOneAddressReferenceLongitudeMin)
+            .max(searchGigPlaceResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -1017,6 +1060,12 @@ export const createGigBodyPointOneLongitudeMax = 180;
 export const createGigBodyPointOneSourceDefault = `manual`;
 export const createGigBodyPointOneAttributionMax = 300;
 
+export const createGigBodyPointOneAddressReferenceLatitudeMin = -90;
+export const createGigBodyPointOneAddressReferenceLatitudeMax = 90;
+
+export const createGigBodyPointOneAddressReferenceLongitudeMin = -180;
+export const createGigBodyPointOneAddressReferenceLongitudeMax = 180;
+
 export const createGigBodyTitleMax = 150;
 
 export const createGigBodyDescriptionMax = 5000;
@@ -1054,6 +1103,21 @@ export const CreateGigBody = zod.object({
         .string()
         .max(createGigBodyPointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(createGigBodyPointOneAddressReferenceLatitudeMin)
+            .max(createGigBodyPointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(createGigBodyPointOneAddressReferenceLongitudeMin)
+            .max(createGigBodyPointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -1114,6 +1178,12 @@ export const createGigResponsePointOneLongitudeMax = 180;
 export const createGigResponsePointOneSourceDefault = `manual`;
 export const createGigResponsePointOneAttributionMax = 300;
 
+export const createGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const createGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const createGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const createGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const createGigResponseCancellationCommentMax = 500;
 
 export const createGigResponseTermsVersionDefault = 1;
@@ -1127,6 +1197,14 @@ export const createGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
 
 export const createGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const createGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const createGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const createGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const createGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const createGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const createGigResponsePendingChangeTermsTitleMax = 150;
 
@@ -1252,6 +1330,21 @@ export const CreateGigResponse = zod.object({
         .string()
         .max(createGigResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(createGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(createGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(createGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(createGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -1328,6 +1421,29 @@ export const CreateGigResponse = zod.object({
               .string()
               .max(createGigResponsePendingChangeTermsPointOneAttributionMax)
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    createGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    createGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    createGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    createGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -1628,6 +1744,12 @@ export const getGigResponsePointOneLongitudeMax = 180;
 export const getGigResponsePointOneSourceDefault = `manual`;
 export const getGigResponsePointOneAttributionMax = 300;
 
+export const getGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const getGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const getGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const getGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const getGigResponseCancellationCommentMax = 500;
 
 export const getGigResponseTermsVersionDefault = 1;
@@ -1641,6 +1763,14 @@ export const getGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
 
 export const getGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const getGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const getGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const getGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const getGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const getGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const getGigResponsePendingChangeTermsTitleMax = 150;
 
@@ -1766,6 +1896,21 @@ export const GetGigResponse = zod.object({
         .string()
         .max(getGigResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(getGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(getGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(getGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(getGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -1840,6 +1985,29 @@ export const GetGigResponse = zod.object({
               .string()
               .max(getGigResponsePendingChangeTermsPointOneAttributionMax)
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    getGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    getGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    getGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    getGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -2148,6 +2316,12 @@ export const cancelGigResponsePointOneLongitudeMax = 180;
 export const cancelGigResponsePointOneSourceDefault = `manual`;
 export const cancelGigResponsePointOneAttributionMax = 300;
 
+export const cancelGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const cancelGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const cancelGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const cancelGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const cancelGigResponseCancellationCommentMax = 500;
 
 export const cancelGigResponseTermsVersionDefault = 1;
@@ -2161,6 +2335,14 @@ export const cancelGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
 
 export const cancelGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const cancelGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const cancelGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const cancelGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const cancelGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const cancelGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const cancelGigResponsePendingChangeTermsTitleMax = 150;
 
@@ -2286,6 +2468,21 @@ export const CancelGigResponse = zod.object({
         .string()
         .max(cancelGigResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(cancelGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(cancelGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(cancelGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(cancelGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -2362,6 +2559,29 @@ export const CancelGigResponse = zod.object({
               .string()
               .max(cancelGigResponsePendingChangeTermsPointOneAttributionMax)
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    cancelGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    cancelGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    cancelGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    cancelGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -2662,6 +2882,12 @@ export const submitGigResponsePointOneLongitudeMax = 180;
 export const submitGigResponsePointOneSourceDefault = `manual`;
 export const submitGigResponsePointOneAttributionMax = 300;
 
+export const submitGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const submitGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const submitGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const submitGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const submitGigResponseCancellationCommentMax = 500;
 
 export const submitGigResponseTermsVersionDefault = 1;
@@ -2675,6 +2901,14 @@ export const submitGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
 
 export const submitGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const submitGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const submitGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const submitGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const submitGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const submitGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const submitGigResponsePendingChangeTermsTitleMax = 150;
 
@@ -2800,6 +3034,21 @@ export const SubmitGigResponse = zod.object({
         .string()
         .max(submitGigResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(submitGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(submitGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(submitGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(submitGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -2876,6 +3125,29 @@ export const SubmitGigResponse = zod.object({
               .string()
               .max(submitGigResponsePendingChangeTermsPointOneAttributionMax)
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    submitGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    submitGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    submitGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    submitGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -3176,6 +3448,12 @@ export const confirmGigResponsePointOneLongitudeMax = 180;
 export const confirmGigResponsePointOneSourceDefault = `manual`;
 export const confirmGigResponsePointOneAttributionMax = 300;
 
+export const confirmGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const confirmGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const confirmGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const confirmGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const confirmGigResponseCancellationCommentMax = 500;
 
 export const confirmGigResponseTermsVersionDefault = 1;
@@ -3189,6 +3467,14 @@ export const confirmGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
 
 export const confirmGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const confirmGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const confirmGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const confirmGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const confirmGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const confirmGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const confirmGigResponsePendingChangeTermsTitleMax = 150;
 
@@ -3314,6 +3600,21 @@ export const ConfirmGigResponse = zod.object({
         .string()
         .max(confirmGigResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(confirmGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(confirmGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(confirmGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(confirmGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -3390,6 +3691,29 @@ export const ConfirmGigResponse = zod.object({
               .string()
               .max(confirmGigResponsePendingChangeTermsPointOneAttributionMax)
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    confirmGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    confirmGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    confirmGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    confirmGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -3966,6 +4290,13 @@ export const selectApplicationResponsePointOneLongitudeMax = 180;
 export const selectApplicationResponsePointOneSourceDefault = `manual`;
 export const selectApplicationResponsePointOneAttributionMax = 300;
 
+export const selectApplicationResponsePointOneAddressReferenceLatitudeMin = -90;
+export const selectApplicationResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const selectApplicationResponsePointOneAddressReferenceLongitudeMin =
+  -180;
+export const selectApplicationResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const selectApplicationResponseCancellationCommentMax = 500;
 
 export const selectApplicationResponseTermsVersionDefault = 1;
@@ -3981,6 +4312,14 @@ export const selectApplicationResponsePendingChangeTermsPointOneLongitudeMax = 1
 
 export const selectApplicationResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const selectApplicationResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const selectApplicationResponsePendingChangeTermsTitleMax = 150;
 
@@ -4110,6 +4449,21 @@ export const SelectApplicationResponse = zod.object({
         .string()
         .max(selectApplicationResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(selectApplicationResponsePointOneAddressReferenceLatitudeMin)
+            .max(selectApplicationResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(selectApplicationResponsePointOneAddressReferenceLongitudeMin)
+            .max(selectApplicationResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -4198,6 +4552,29 @@ export const SelectApplicationResponse = zod.object({
                 selectApplicationResponsePendingChangeTermsPointOneAttributionMax,
               )
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -5431,6 +5808,12 @@ export const editGigTermsBodyPointOneLongitudeMax = 180;
 export const editGigTermsBodyPointOneSourceDefault = `manual`;
 export const editGigTermsBodyPointOneAttributionMax = 300;
 
+export const editGigTermsBodyPointOneAddressReferenceLatitudeMin = -90;
+export const editGigTermsBodyPointOneAddressReferenceLatitudeMax = 90;
+
+export const editGigTermsBodyPointOneAddressReferenceLongitudeMin = -180;
+export const editGigTermsBodyPointOneAddressReferenceLongitudeMax = 180;
+
 export const editGigTermsBodyTitleMax = 150;
 
 export const editGigTermsBodyDescriptionMax = 5000;
@@ -5468,6 +5851,21 @@ export const EditGigTermsBody = zod.object({
         .string()
         .max(editGigTermsBodyPointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(editGigTermsBodyPointOneAddressReferenceLatitudeMin)
+            .max(editGigTermsBodyPointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(editGigTermsBodyPointOneAddressReferenceLongitudeMin)
+            .max(editGigTermsBodyPointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -5534,6 +5932,12 @@ export const editGigTermsResponsePointOneLongitudeMax = 180;
 export const editGigTermsResponsePointOneSourceDefault = `manual`;
 export const editGigTermsResponsePointOneAttributionMax = 300;
 
+export const editGigTermsResponsePointOneAddressReferenceLatitudeMin = -90;
+export const editGigTermsResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const editGigTermsResponsePointOneAddressReferenceLongitudeMin = -180;
+export const editGigTermsResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const editGigTermsResponseCancellationCommentMax = 500;
 
 export const editGigTermsResponseTermsVersionDefault = 1;
@@ -5547,6 +5951,14 @@ export const editGigTermsResponsePendingChangeTermsPointOneLongitudeMax = 180;
 
 export const editGigTermsResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const editGigTermsResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const editGigTermsResponsePendingChangeTermsTitleMax = 150;
 
@@ -5672,6 +6084,21 @@ export const EditGigTermsResponse = zod.object({
         .string()
         .max(editGigTermsResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(editGigTermsResponsePointOneAddressReferenceLatitudeMin)
+            .max(editGigTermsResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(editGigTermsResponsePointOneAddressReferenceLongitudeMin)
+            .max(editGigTermsResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -5748,6 +6175,29 @@ export const EditGigTermsResponse = zod.object({
               .string()
               .max(editGigTermsResponsePendingChangeTermsPointOneAttributionMax)
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -6053,6 +6503,14 @@ export const confirmApplicationTermsResponsePointOneLongitudeMax = 180;
 export const confirmApplicationTermsResponsePointOneSourceDefault = `manual`;
 export const confirmApplicationTermsResponsePointOneAttributionMax = 300;
 
+export const confirmApplicationTermsResponsePointOneAddressReferenceLatitudeMin =
+  -90;
+export const confirmApplicationTermsResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const confirmApplicationTermsResponsePointOneAddressReferenceLongitudeMin =
+  -180;
+export const confirmApplicationTermsResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const confirmApplicationTermsResponseCancellationCommentMax = 500;
 
 export const confirmApplicationTermsResponseTermsVersionDefault = 1;
@@ -6068,6 +6526,14 @@ export const confirmApplicationTermsResponsePendingChangeTermsPointOneLongitudeM
 
 export const confirmApplicationTermsResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const confirmApplicationTermsResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const confirmApplicationTermsResponsePendingChangeTermsTitleMax = 150;
 
@@ -6197,6 +6663,29 @@ export const ConfirmApplicationTermsResponse = zod.object({
         .string()
         .max(confirmApplicationTermsResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(
+              confirmApplicationTermsResponsePointOneAddressReferenceLatitudeMin,
+            )
+            .max(
+              confirmApplicationTermsResponsePointOneAddressReferenceLatitudeMax,
+            ),
+          longitude: zod
+            .number()
+            .min(
+              confirmApplicationTermsResponsePointOneAddressReferenceLongitudeMin,
+            )
+            .max(
+              confirmApplicationTermsResponsePointOneAddressReferenceLongitudeMax,
+            ),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -6285,6 +6774,29 @@ export const ConfirmApplicationTermsResponse = zod.object({
                 confirmApplicationTermsResponsePendingChangeTermsPointOneAttributionMax,
               )
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -6616,6 +7128,12 @@ export const acceptGigChangeResponsePointOneLongitudeMax = 180;
 export const acceptGigChangeResponsePointOneSourceDefault = `manual`;
 export const acceptGigChangeResponsePointOneAttributionMax = 300;
 
+export const acceptGigChangeResponsePointOneAddressReferenceLatitudeMin = -90;
+export const acceptGigChangeResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const acceptGigChangeResponsePointOneAddressReferenceLongitudeMin = -180;
+export const acceptGigChangeResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const acceptGigChangeResponseCancellationCommentMax = 500;
 
 export const acceptGigChangeResponseTermsVersionDefault = 1;
@@ -6630,6 +7148,14 @@ export const acceptGigChangeResponsePendingChangeTermsPointOneLongitudeMax = 180
 
 export const acceptGigChangeResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const acceptGigChangeResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const acceptGigChangeResponsePendingChangeTermsTitleMax = 150;
 
@@ -6758,6 +7284,21 @@ export const AcceptGigChangeResponse = zod.object({
         .string()
         .max(acceptGigChangeResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(acceptGigChangeResponsePointOneAddressReferenceLatitudeMin)
+            .max(acceptGigChangeResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(acceptGigChangeResponsePointOneAddressReferenceLongitudeMin)
+            .max(acceptGigChangeResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -6842,6 +7383,29 @@ export const AcceptGigChangeResponse = zod.object({
                 acceptGigChangeResponsePendingChangeTermsPointOneAttributionMax,
               )
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -7148,6 +7712,12 @@ export const rejectGigChangeResponsePointOneLongitudeMax = 180;
 export const rejectGigChangeResponsePointOneSourceDefault = `manual`;
 export const rejectGigChangeResponsePointOneAttributionMax = 300;
 
+export const rejectGigChangeResponsePointOneAddressReferenceLatitudeMin = -90;
+export const rejectGigChangeResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const rejectGigChangeResponsePointOneAddressReferenceLongitudeMin = -180;
+export const rejectGigChangeResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const rejectGigChangeResponseCancellationCommentMax = 500;
 
 export const rejectGigChangeResponseTermsVersionDefault = 1;
@@ -7162,6 +7732,14 @@ export const rejectGigChangeResponsePendingChangeTermsPointOneLongitudeMax = 180
 
 export const rejectGigChangeResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const rejectGigChangeResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const rejectGigChangeResponsePendingChangeTermsTitleMax = 150;
 
@@ -7290,6 +7868,21 @@ export const RejectGigChangeResponse = zod.object({
         .string()
         .max(rejectGigChangeResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(rejectGigChangeResponsePointOneAddressReferenceLatitudeMin)
+            .max(rejectGigChangeResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(rejectGigChangeResponsePointOneAddressReferenceLongitudeMin)
+            .max(rejectGigChangeResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -7374,6 +7967,29 @@ export const RejectGigChangeResponse = zod.object({
                 rejectGigChangeResponsePendingChangeTermsPointOneAttributionMax,
               )
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(
@@ -7680,6 +8296,13 @@ export const withdrawGigChangeResponsePointOneLongitudeMax = 180;
 export const withdrawGigChangeResponsePointOneSourceDefault = `manual`;
 export const withdrawGigChangeResponsePointOneAttributionMax = 300;
 
+export const withdrawGigChangeResponsePointOneAddressReferenceLatitudeMin = -90;
+export const withdrawGigChangeResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const withdrawGigChangeResponsePointOneAddressReferenceLongitudeMin =
+  -180;
+export const withdrawGigChangeResponsePointOneAddressReferenceLongitudeMax = 180;
+
 export const withdrawGigChangeResponseCancellationCommentMax = 500;
 
 export const withdrawGigChangeResponseTermsVersionDefault = 1;
@@ -7695,6 +8318,14 @@ export const withdrawGigChangeResponsePendingChangeTermsPointOneLongitudeMax = 1
 
 export const withdrawGigChangeResponsePendingChangeTermsPointOneSourceDefault = `manual`;
 export const withdrawGigChangeResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
 
 export const withdrawGigChangeResponsePendingChangeTermsTitleMax = 150;
 
@@ -7824,6 +8455,21 @@ export const WithdrawGigChangeResponse = zod.object({
         .string()
         .max(withdrawGigChangeResponsePointOneAttributionMax)
         .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(withdrawGigChangeResponsePointOneAddressReferenceLatitudeMin)
+            .max(withdrawGigChangeResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(withdrawGigChangeResponsePointOneAddressReferenceLongitudeMin)
+            .max(withdrawGigChangeResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
     })
     .nullable()
     .describe(
@@ -7912,6 +8558,29 @@ export const WithdrawGigChangeResponse = zod.object({
                 withdrawGigChangeResponsePendingChangeTermsPointOneAttributionMax,
               )
               .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
           })
           .nullable()
           .describe(

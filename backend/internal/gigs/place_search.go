@@ -47,9 +47,11 @@ type geoapifyPlace struct {
 }
 
 func (p geoapifyPlace) point() gigPoint {
+	addressReference := coordinates{Latitude: p.Latitude, Longitude: p.Longitude}
 	return gigPoint{
-		Latitude: p.Latitude, Longitude: p.Longitude, Source: "geoapify",
-		Attribution: strings.TrimSpace(p.Datasource.Attribution),
+		coordinates: addressReference, Source: "geoapify",
+		Attribution:      strings.TrimSpace(p.Datasource.Attribution),
+		AddressReference: &addressReference,
 	}
 }
 

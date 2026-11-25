@@ -283,6 +283,22 @@ export const GigPointSource = {
 } as const;
 
 /**
+ * Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.
+ */
+export type GigPointAddressReference = {
+  /**
+   * @minimum -90
+   * @maximum 90
+   */
+  latitude: number;
+  /**
+   * @minimum -180
+   * @maximum 180
+   */
+  longitude: number;
+};
+
+/**
  * Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.
  * @nullable
  */
@@ -300,6 +316,8 @@ export type GigPoint = {
   source?: GigPointSource;
   /** @maxLength 300 */
   attribution?: string;
+  /** Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса. */
+  addressReference?: GigPointAddressReference;
 } | null;
 
 export interface CreateGigRequest {

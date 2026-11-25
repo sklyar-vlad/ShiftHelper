@@ -9,6 +9,7 @@ export const mapRegion = (page) =>
   page.getByRole("region", { name: "Карта места", exact: true });
 
 const attribution = "© OpenStreetMap contributors";
+const warningText = /^Метка находится в .+ от указанного адреса\.$/;
 const style = {
   version: 8,
   sources: {
@@ -150,6 +151,7 @@ export async function chooseSuggestedPoint(page) {
   const response = await matched;
   assert.equal(response.status(), 200);
   assert.doesNotMatch(await response.text(), /smoke-geocoder-key/);
+  const [{ point }] = await response.json();
   await address.press("ArrowDown");
   await address.press("Enter");
   assert.equal(await address.inputValue(), "Мира, 1");
@@ -162,7 +164,7 @@ export async function chooseSuggestedPoint(page) {
   const bounds = await map.locator(".place-map-frame").boundingBox();
   assert.ok(bounds.height >= 440, "desktop map height");
   await checkExpandedMap(page, true);
-  return confirmMapPoint(page);
+  return confirmMapPoint(page, point.addressReference);
 }
 
 export async function checkExpandedMap(page, adjust = false) {
@@ -193,6 +195,9 @@ export async function checkExpandedMap(page, adjust = false) {
     const before = await position.textContent();
     await marker.press("ArrowRight");
     await position.filter({ hasNotText: before }).waitFor();
+    const bounds = await canvas.boundingBox();
+    await canvas.click({ position: { x: 30, y: bounds.height / 2 } });
+    await dialog.getByText(warningText).waitFor();
   }
   const draft = await position.textContent();
   await page.keyboard.press("Escape");
@@ -202,15 +207,20 @@ export async function checkExpandedMap(page, adjust = false) {
       throw new Error("Map trigger did not regain focus");
   });
   await map.getByText(draft, { exact: true }).waitFor();
+  if (adjust) await map.getByText(warningText).waitFor();
 }
 
 export async function chooseMapPoint(page) {
   const picker = page.getByRole("region", { name: "Место задания на карте" });
+  const searched = page.waitForResponse(searchAPI);
   await find(picker, "Показать на карте").click();
-  return confirmMapPoint(page);
+  const response = await searched;
+  assert.equal(response.status(), 200);
+  const [{ point }] = await response.json();
+  return confirmMapPoint(page, point.addressReference);
 }
 
-async function confirmMapPoint(page) {
+async function confirmMapPoint(page, addressReference) {
   const picker = page.getByRole("region", { name: "Место задания на карте" });
   const map = mapRegion(picker);
   await map.locator(".maplibregl-marker").waitFor();
@@ -220,7 +230,13 @@ async function confirmMapPoint(page) {
     .split(", ")
     .map(Number);
   await find(picker, "Подтвердить точку").click();
-  return { latitude, longitude, source: "geoapify", attribution };
+  return {
+    latitude,
+    longitude,
+    source: "geoapify",
+    attribution,
+    addressReference,
+  };
 }
 
 export function compactPoint(point) {

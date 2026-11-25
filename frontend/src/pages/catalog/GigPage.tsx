@@ -7,6 +7,7 @@ import { PlaceMap } from "@/shared/ui/PlaceMap";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { GigFacts, gigStatusNames } from "@/entities/gig/GigFacts";
 import { GigPointAttribution } from "@/entities/gig/GigPointAttribution";
+import { GigPlaceWarning } from "@/entities/gig/GigPlaceWarning";
 import { ReportAction } from "@/entities/report/ReportAction";
 import { UserCard } from "@/entities/user/UserCard";
 import { ReviewPanel } from "@/entities/review/ReviewPanel";
@@ -126,6 +127,7 @@ export function GigPage() {
                 key={session.user?.id ?? "guest"}
                 center={query.data.point}
                 point={query.data.point}
+                notice={<GigPlaceWarning point={query.data.point} />}
               />
               {query.data.point.source === "geoapify" && (
                 <GigPointAttribution point={query.data.point} />

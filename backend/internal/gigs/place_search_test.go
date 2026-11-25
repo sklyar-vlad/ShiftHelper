@@ -66,6 +66,7 @@ func TestPlaceSearch(t *testing.T) {
 	if recorder.Code != http.StatusOK || recorder.Header().Get("Cache-Control") != "no-store" || len(results) != 1 ||
 		results[0].Label != "Москва, Тверская улица, 13" || *results[0].Point.Latitude != 55.76 ||
 		results[0].Point.Source != "geoapify" || results[0].Point.Attribution != "© OpenStreetMap contributors" ||
+		results[0].Point.AddressReference == nil || *results[0].Point.AddressReference.Latitude != 55.76 ||
 		strings.Contains(recorder.Body.String(), search.key) {
 		t.Fatalf("incorrect place results: %s", recorder.Body.String())
 	}
@@ -133,7 +134,8 @@ func TestPlaceSuggestions(t *testing.T) {
 		t.Fatalf("invalid street suggestion: %#v", items[0])
 	}
 	if house := items[1]; !house.Complete || house.Point == nil || house.Point.Source != "geoapify" ||
-		*house.Point.Longitude != 34.32 || house.Point.Attribution == "" {
+		*house.Point.Longitude != 34.32 || house.Point.Attribution == "" ||
+		house.Point.AddressReference == nil || *house.Point.AddressReference.Longitude != 34.32 {
 		t.Fatalf("invalid house suggestion: %#v", house)
 	}
 	if items[2].Complete || items[2].Point != nil {
