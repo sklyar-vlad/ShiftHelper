@@ -97,7 +97,8 @@
 }
 
 .address-input .city-popup {
-  z-index: 32;
+  position: static;
+  margin-top: 6px;
 }
 
 .address-help {

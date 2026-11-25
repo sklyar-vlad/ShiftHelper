@@ -12,7 +12,6 @@ const expectedParams = {
   filter: "countrycode:ru",
   format: "json",
   lang: "ru",
-  limit: "3",
 };
 
 createServer(
@@ -27,13 +26,14 @@ createServer(
     );
     const params = Object.fromEntries(searchParams);
     const { text, ...rest } = params;
+    const autocomplete = pathname === "/v1/geocode/autocomplete";
     if (
       request.method !== "GET" ||
-      pathname !== "/v1/geocode/search" ||
+      (!autocomplete && pathname !== "/v1/geocode/search") ||
       request.headers.cookie ||
       request.headers.authorization ||
       [...searchParams].length !== 6 ||
-      Object.keys(rest).length !== Object.keys(expectedParams).length ||
+      rest.limit !== (autocomplete ? "7" : "3") ||
       !Object.entries(expectedParams).every(
         ([key, value]) => rest[key] === value,
       )
@@ -57,7 +57,9 @@ createServer(
         ]
       : [];
     setTimeout(() => {
-      if (text === `Сбой, 1, ${cities}`) {
+      if (autocomplete) {
+        response.writeHead(200, headers).end(JSON.stringify({ results: [] }));
+      } else if (text === `Сбой, 1, ${cities}`) {
         response.writeHead(503).end();
       } else if (point || text === `Ненайденная, 1, ${cities}`) {
         response.writeHead(200, headers).end(JSON.stringify({ results }));
