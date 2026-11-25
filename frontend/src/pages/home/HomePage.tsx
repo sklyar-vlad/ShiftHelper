@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { useSession } from "@/shared/model/session";
 import { WorkPreview } from "@/shared/ui/WorkPreview";
 import { HomeFaq } from "./HomeFaq";
+import { HomeReviews } from "./HomeReviews";
 import { HomeSocials } from "./HomeSocials";
 
 export function HomePage() {
@@ -89,6 +90,7 @@ export function HomePage() {
           ))}
         </div>
       </section>
+      <HomeReviews />
       <HomeFaq />
       <HomeSocials />
     </>
