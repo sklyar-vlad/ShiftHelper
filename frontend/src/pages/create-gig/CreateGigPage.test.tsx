@@ -819,6 +819,15 @@ it("debounces focused address text and previews only a selected house", async ()
   fireEvent.click(
     screen.getByRole("button", { name: "Уточнить тестовую метку" }),
   );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Вернуть исходную метку" }),
+  );
+  expect(
+    screen.queryByRole("button", { name: "Вернуть исходную метку" }),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Уточнить тестовую метку" }),
+  );
   fireEvent.click(screen.getByRole("button", confirmPoint));
   vi.useRealTimers();
   submit();

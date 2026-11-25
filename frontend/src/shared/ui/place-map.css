@@ -4,7 +4,8 @@
 
 .place-map-frame {
   position: relative;
-  height: 280px;
+  height: clamp(320px, 55svh, 460px);
+  max-height: 68svh;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -38,4 +39,48 @@
 
 .place-map > :not(:first-child) {
   margin-top: 8px;
+}
+
+@media (max-width: 767px) {
+  .place-map-frame {
+    height: clamp(320px, 50svh, 380px);
+  }
+}
+
+.place-map-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  padding: 12px;
+  background: rgb(0 0 0 / 45%);
+}
+
+.place-map-modal {
+  width: min(100%, 1120px);
+  max-height: 100%;
+  overflow: auto;
+  padding: clamp(12px, 3vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: white;
+}
+
+.place-map-dialog-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.place-map-dialog-header h2 {
+  margin: 0;
+}
+
+.place-map-dialog .place-map-frame {
+  height: min(68dvh, 640px);
+  max-height: none;
 }

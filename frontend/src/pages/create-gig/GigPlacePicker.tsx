@@ -25,6 +25,7 @@ export function GigPlacePicker({
   const [message, setMessage] = useState("");
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+  const [recenter, setRecenter] = useState(0);
   const [preview, setPreview] = useState<{
     center: Point;
     draft: Point;
@@ -40,6 +41,11 @@ export function GigPlacePicker({
     draft.longitude === point.longitude &&
     draft.source === point.source &&
     draft.attribution === point.attribution;
+  const canReset =
+    center &&
+    draft &&
+    (center.latitude !== draft.latitude ||
+      center.longitude !== draft.longitude);
 
   useEffect(() => () => request.current?.abort(), []);
 
@@ -121,17 +127,35 @@ export function GigPlacePicker({
           <PlaceMap
             center={center}
             point={draft}
+            recenter={recenter}
             onPointChange={(coords) =>
               setPreview({ center, draft: { ...draft, ...coords } })
             }
           />
           {!confirmed && (
+            <>
+              <p className="small muted" role="status">
+                Подтвердите точку, чтобы сохранить её.
+              </p>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => onChange(draft)}
+              >
+                Подтвердить точку
+              </button>
+            </>
+          )}
+          {canReset && (
             <button
-              className="button button-secondary"
+              className="text-button"
               type="button"
-              onClick={() => onChange(draft)}
+              onClick={() => {
+                setPreview({ center, draft: center });
+                setRecenter((value) => value + 1);
+              }}
             >
-              Подтвердить точку
+              Вернуть исходную метку
             </button>
           )}
         </>
