@@ -38,6 +38,7 @@ export function HomeReviews() {
   return (
     <section
       id="reviews"
+      tabIndex={-1}
       className="home-reviews"
       aria-labelledby="reviews-title"
     >

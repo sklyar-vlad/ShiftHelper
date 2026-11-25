@@ -49,7 +49,12 @@ export function HomeFaq() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <section id="faq" className="home-faq" aria-labelledby={`${id}-title`}>
+    <section
+      id="faq"
+      tabIndex={-1}
+      className="home-faq"
+      aria-labelledby={`${id}-title`}
+    >
       <h2 id={`${id}-title`}>Ответы на вопросы</h2>
       <div className="home-faq-list">
         {questions.map(([question, answer], index) => {
