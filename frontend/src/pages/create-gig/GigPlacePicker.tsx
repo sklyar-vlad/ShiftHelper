@@ -5,7 +5,6 @@ import { ApiError } from "@/shared/api/http";
 import { PlaceMap } from "@/shared/ui/PlaceMap";
 
 type Point = NonNullable<GigPoint>;
-type PlaceResult = Awaited<ReturnType<typeof searchGigPlace>>[number];
 
 export function GigPlacePicker({
   city,
@@ -23,8 +22,7 @@ export function GigPlacePicker({
   const request = useRef<AbortController | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [results, setResults] = useState<PlaceResult[]>([]);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [recenter, setRecenter] = useState(0);
   const [preview, setPreview] = useState<{
     center: Point;
     draft: Point;
@@ -40,6 +38,11 @@ export function GigPlacePicker({
     draft.longitude === point.longitude &&
     draft.source === point.source &&
     draft.attribution === point.attribution;
+  const canReset =
+    center &&
+    draft &&
+    (center.latitude !== draft.latitude ||
+      center.longitude !== draft.longitude);
 
   useEffect(() => () => request.current?.abort(), []);
 
@@ -55,11 +58,13 @@ export function GigPlacePicker({
         { signal: controller.signal },
       );
       if (controller.signal.aborted) return;
-      setResults(matches);
-      setSelected(null);
-      setPreview(null);
-      if (!matches.length)
-        setMessage("Подходящий адрес не найден. Проверьте улицу и номер дома.");
+      const match = matches.find(({ point }) => point)?.point;
+      setPreview(match ? { center: match, draft: match } : null);
+      if (match) {
+        setRecenter((value) => value + 1);
+      } else {
+        setMessage("Подходящий адрес не найден. Проверьте адрес.");
+      }
     } catch (error) {
       if (controller.signal.aborted) return;
       setMessage(
@@ -95,43 +100,40 @@ export function GigPlacePicker({
           {message}
         </p>
       )}
-      {results.length > 0 && (
-        <ul className="gig-place-results" aria-label="Найденные адреса">
-          {results.map(({ label, point }, index) => (
-            <li key={index}>
-              <button
-                className="button button-secondary"
-                type="button"
-                aria-pressed={selected === index}
-                onClick={() => {
-                  if (!point) return;
-                  setSelected(index);
-                  setPreview({ center: point, draft: point });
-                }}
-              >
-                {label}
-              </button>
-              {point && <GigPointAttribution point={point} />}
-            </li>
-          ))}
-        </ul>
-      )}
       {center && draft && (
         <>
           <PlaceMap
             center={center}
             point={draft}
+            recenter={recenter}
             onPointChange={(coords) =>
               setPreview({ center, draft: { ...draft, ...coords } })
             }
           />
           {!confirmed && (
+            <>
+              <p className="small muted" role="status">
+                Подтвердите точку, чтобы сохранить её.
+              </p>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => onChange(draft)}
+              >
+                Подтвердить точку
+              </button>
+            </>
+          )}
+          {canReset && (
             <button
-              className="button button-secondary"
+              className="text-button"
               type="button"
-              onClick={() => onChange(draft)}
+              onClick={() => {
+                setPreview({ center, draft: center });
+                setRecenter((value) => value + 1);
+              }}
             >
-              Подтвердить точку
+              Вернуть исходную метку
             </button>
           )}
         </>
@@ -151,7 +153,6 @@ export function GigPlacePicker({
             type="button"
             onClick={() => {
               setPreview(null);
-              setSelected(null);
               onChange(null);
             }}
           >

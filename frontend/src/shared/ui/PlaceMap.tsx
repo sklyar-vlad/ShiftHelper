@@ -1,5 +1,9 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { LngLat, Map as MapInstance, Marker } from "maplibre-gl";
+import { Button } from "react-aria-components/Button";
+import { Dialog, DialogTrigger } from "react-aria-components/Dialog";
+import { Heading } from "react-aria-components/Heading";
+import { Modal, ModalOverlay } from "react-aria-components/Modal";
 import "./place-map.css";
 
 type Coordinates = { latitude: number; longitude: number };
@@ -8,6 +12,7 @@ type PlaceMapProps = {
   center: Coordinates;
   point?: Coordinates | null;
   zoom?: number;
+  recenter?: number;
   onPointChange?: (point: Coordinates) => void;
 };
 
@@ -31,13 +36,57 @@ function coordinates(location: LngLat): Coordinates {
   };
 }
 
-export function PlaceMap({
+export function PlaceMap(props: PlaceMapProps) {
+  const [expanded, setExpanded] = useState(false);
+  const apiKey = import.meta.env.VITE_GEOAPIFY_TILES_PUBLIC?.trim();
+  return (
+    <section className="place-map" aria-label="Карта места">
+      {expanded ? (
+        <div className="place-map-frame" aria-hidden="true" />
+      ) : (
+        <PlaceMapView {...props} apiKey={apiKey} />
+      )}
+      {apiKey && (
+        <DialogTrigger isOpen={expanded} onOpenChange={setExpanded}>
+          <Button className="text-button">Развернуть карту</Button>
+          <ModalOverlay className="place-map-overlay" isDismissable>
+            <Modal className="place-map-modal">
+              <Dialog className="place-map place-map-dialog">
+                <header className="place-map-dialog-header">
+                  <Heading level={2} slot="title">
+                    Карта места
+                  </Heading>
+                  <Button
+                    slot="close"
+                    className="button button-secondary"
+                    autoFocus
+                  >
+                    Закрыть карту
+                  </Button>
+                </header>
+                <PlaceMapView {...props} apiKey={apiKey} />
+                {props.onPointChange && (
+                  <p className="small muted">
+                    Закройте карту, чтобы подтвердить точку в форме.
+                  </p>
+                )}
+              </Dialog>
+            </Modal>
+          </ModalOverlay>
+        </DialogTrigger>
+      )}
+    </section>
+  );
+}
+
+function PlaceMapView({
+  apiKey,
   center,
   point,
   zoom = 14,
+  recenter = 0,
   onPointChange,
-}: PlaceMapProps) {
-  const apiKey = import.meta.env.VITE_GEOAPIFY_TILES_PUBLIC?.trim();
+}: PlaceMapProps & { apiKey?: string }) {
   const container = useRef<HTMLDivElement>(null);
   const instance = useRef<{ map: MapInstance; marker: Marker }>(null);
   const [attempt, setAttempt] = useState(0);
@@ -94,6 +143,7 @@ export function PlaceMap({
           container: element,
           style: `https://maps.geoapify.com/v1/styles/osm-bright/style.json?apiKey=${encodeURIComponent(apiKey)}`,
           attributionControl: { compact: false },
+          trackResize: true,
           cooperativeGestures: true,
           dragRotate: false,
           pitchWithRotate: false,
@@ -147,7 +197,7 @@ export function PlaceMap({
 
   useEffect(() => {
     instance.current?.map.jumpTo({ center: [longitude, latitude], zoom });
-  }, [latitude, longitude, status, zoom]);
+  }, [latitude, longitude, recenter, status, zoom]);
 
   useEffect(() => {
     const current = instance.current;
@@ -168,7 +218,7 @@ export function PlaceMap({
   }, [editable, pointLatitude, pointLongitude, status]);
 
   return (
-    <section className="place-map" aria-label="Карта места">
+    <>
       <div className="place-map-frame">
         <div
           ref={container}
@@ -200,22 +250,25 @@ export function PlaceMap({
         )}
       </div>
       {editable && apiKey && status === "ready" && (
-        <button
-          className="text-button"
-          type="button"
-          onClick={() => {
-            const map = instance.current?.map;
-            if (map) onPointChange(coordinates(map.getCenter()));
-          }}
-        >
-          Поставить метку в центре карты
-        </button>
+        <>
+          <p className="small muted">Переместите метку к нужному месту.</p>
+          <button
+            className="text-button"
+            type="button"
+            onClick={() => {
+              const map = instance.current?.map;
+              if (map) onPointChange(coordinates(map.getCenter()));
+            }}
+          >
+            Поставить метку в центре карты
+          </button>
+        </>
       )}
       {point && (
         <p className="small muted">
           Координаты: {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
         </p>
       )}
-    </section>
+    </>
   );
 }

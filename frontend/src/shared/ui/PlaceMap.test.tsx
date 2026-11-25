@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -98,7 +99,11 @@ describe("PlaceMap", () => {
     );
     await finishLoading();
     expect(sdk.Map).toHaveBeenCalledWith(
-      expect.objectContaining({ center: [37, 55], cooperativeGestures: true }),
+      expect.objectContaining({
+        center: [37, 55],
+        cooperativeGestures: true,
+        trackResize: true,
+      }),
     );
     expect(sdk.marker.setLngLat).toHaveBeenCalledWith([37, 55]);
     expect(sdk.marker.setDraggable).toHaveBeenCalledWith(true);
@@ -121,11 +126,47 @@ describe("PlaceMap", () => {
     );
     expect(sdk.marker.setLngLat).toHaveBeenLastCalledWith([38, 56]);
     expect(sdk.marker.setDraggable).toHaveBeenLastCalledWith(false);
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Поставить метку в центре карты" }),
+    ).toBeNull();
     expect(sdk.Map).toHaveBeenCalledTimes(1);
     unmount();
     expect(sdk.map.remove).toHaveBeenCalledTimes(1);
     expect(sdk.marker.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it("reopens a single map when expanding or closing the dialog", async () => {
+    render(<PlaceMap center={center} point={center} />);
+    await finishLoading();
+    fireEvent.click(screen.getByRole("button", { name: "Развернуть карту" }));
+    const dialog = await screen.findByRole("dialog", { name: "Карта места" });
+    await waitFor(() => expect(sdk.Map).toHaveBeenCalledTimes(2));
+    expect(sdk.map.remove).toHaveBeenCalledTimes(1);
+    await finishLoading();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Поставить метку в центре карты",
+      }),
+    ).toBeNull();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Закрыть карту" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(sdk.Map).toHaveBeenCalledTimes(3));
+    expect(sdk.map.remove).toHaveBeenCalledTimes(2);
+  });
+
+  it("recenters without creating another map when the original marker is restored", async () => {
+    const { rerender } = render(
+      <PlaceMap center={center} point={{ latitude: 56, longitude: 38 }} />,
+    );
+    await finishLoading();
+    sdk.map.jumpTo.mockClear();
+    rerender(<PlaceMap center={center} point={center} recenter={1} />);
+    expect(sdk.map.jumpTo).toHaveBeenCalledWith({ center: [37, 55], zoom: 14 });
+    expect(sdk.marker.setLngLat).toHaveBeenLastCalledWith([37, 55]);
+    expect(sdk.Map).toHaveBeenCalledTimes(1);
   });
 
   it("ignores loading that finishes after unmount", async () => {

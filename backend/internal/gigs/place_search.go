@@ -53,6 +53,11 @@ func (p geoapifyPlace) point() gigPoint {
 	}
 }
 
+func (p geoapifyPlace) inCity(city, region string) bool {
+	return city != "" && p.Country == "ru" && normalizePlaceName(p.City) == city &&
+		(region == "" || normalizePlaceName(p.Region) == region)
+}
+
 type placeResult struct {
 	Label string   `json:"label"`
 	Point gigPoint `json:"point"`
@@ -115,6 +120,7 @@ func (s *placeSearch) find(c *gin.Context) {
 	if !ok {
 		return
 	}
+	city, region := splitPlaceCity(input.City)
 	found, ok := s.lookup(c, input, geoapifySearch, 3)
 	if !ok {
 		return
@@ -123,7 +129,7 @@ func (s *placeSearch) find(c *gin.Context) {
 	for _, result := range found {
 		label := strings.TrimSpace(result.Label)
 		point := result.point()
-		if result.Country != "ru" || (result.Type != "building" && result.Type != "amenity") || label == "" || !point.valid() {
+		if !result.inCity(city, region) || (result.Type != "building" && result.Type != "amenity") || label == "" || !point.valid() {
 			continue
 		}
 		results = append(results, placeResult{Label: label, Point: point})
@@ -139,9 +145,7 @@ func (s *placeSearch) suggest(c *gin.Context) {
 	if !ok {
 		return
 	}
-	city, region, _ := strings.Cut(input.City, ",")
-	city = normalizePlaceName(city)
-	region = normalizePlaceName(strings.TrimSuffix(strings.TrimSpace(region), " (город федерального значения)"))
+	city, region := splitPlaceCity(input.City)
 	if city == "" {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Укажите город.")
 		return
@@ -154,8 +158,7 @@ func (s *placeSearch) suggest(c *gin.Context) {
 	results := make([]placeSuggestion, 0, suggestionLimit)
 	seen := make(map[string]struct{}, suggestionLimit)
 	for _, result := range found {
-		if result.Country != "ru" || normalizePlaceName(result.City) != city ||
-			(region != "" && normalizePlaceName(result.Region) != region) {
+		if !result.inCity(city, region) {
 			continue
 		}
 		if result.Type != "street" && result.Type != "building" && result.Type != "amenity" {
@@ -189,6 +192,11 @@ func (s *placeSearch) suggest(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, results)
+}
+
+func splitPlaceCity(value string) (string, string) {
+	city, region, _ := strings.Cut(value, ",")
+	return normalizePlaceName(city), normalizePlaceName(strings.TrimSuffix(strings.TrimSpace(region), " (город федерального значения)"))
 }
 
 func normalizePlaceName(value string) string {
