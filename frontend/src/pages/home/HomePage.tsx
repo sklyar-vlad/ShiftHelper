@@ -4,6 +4,7 @@ import { WorkPreview } from "@/shared/ui/WorkPreview";
 import { HomeFaq } from "./HomeFaq";
 import { HomeReviews } from "./HomeReviews";
 import { HomeSocials } from "./HomeSocials";
+import { HomeSteps } from "./HomeSteps";
 
 export function HomePage() {
   const { user } = useSession();
@@ -55,41 +56,7 @@ export function HomePage() {
         <b aria-hidden="true">✳</b>
         <span>Взаимные отзывы</span>
       </div>
-      <section className="how-section" aria-labelledby="how-title">
-        <div className="section-heading">
-          <p className="eyebrow">От первого шага к результату</p>
-          <h2 id="how-title">
-            Меньше сложностей.
-            <br />
-            Больше возможностей.
-          </h2>
-        </div>
-        <div className="steps-grid">
-          {[
-            [
-              "01",
-              "Выберите свою роль",
-              "Ищите подработку или находите исполнителей для своих задач.",
-            ],
-            [
-              "02",
-              "Найдите совпадение",
-              "Посмотрите условия, откликнитесь или выберите исполнителя.",
-            ],
-            [
-              "03",
-              "Сделайте дело",
-              "Подтвердите результат вместе и поделитесь впечатлениями.",
-            ],
-          ].map(([number, title, text]) => (
-            <article className="step-card" key={number}>
-              <span className="step-number">{number}</span>
-              <h3>{title}</h3>
-              <p>{text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      <HomeSteps />
       <HomeReviews />
       <HomeFaq />
       <HomeSocials />
