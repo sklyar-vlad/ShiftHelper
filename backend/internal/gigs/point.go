@@ -43,5 +43,9 @@ func (point gigPoint) valid() bool {
 	return point.Latitude != nil && point.Longitude != nil &&
 		*point.Latitude >= -90 && *point.Latitude <= 90 && *point.Longitude >= -180 && *point.Longitude <= 180 &&
 		(point.Source == "manual" || (point.Source == "geoapify" && point.Attribution != "")) &&
-		utf8.RuneCountInString(point.Attribution) <= 300 && !strings.ContainsRune(point.Attribution, 0)
+		validAttribution(point.Attribution)
+}
+
+func validAttribution(value string) bool {
+	return utf8.RuneCountInString(value) <= 300 && !strings.ContainsRune(value, 0)
 }

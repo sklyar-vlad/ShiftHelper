@@ -261,6 +261,94 @@ paths:
         schema:
           type: string
           format: uuid
+  /api/v1/gig-place-suggestions:
+    post:
+      operationId: suggestGigPlaces
+      tags:
+      - Gigs
+      summary: Подсказать адрес задания по неполному вводу
+      description: Только для заказчика. Возвращает до семи вариантов в выбранном городе РФ с учётом явно указанного региона.
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [city, address]
+              properties:
+                city:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: Название города или город и регион через запятую.
+                address:
+                  type: string
+                  minLength: 3
+                  maxLength: 300
+                  description: Часть адреса. Длина проверяется после обрезки пробелов.
+      responses:
+        '200':
+          description: Подсказки адреса. Пустой список означает, что подходящих вариантов нет.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 7
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [label, address, city, kind, complete, attribution]
+                  properties:
+                    label:
+                      type: string
+                      description: Полный текст варианта для выпадающего списка.
+                    address:
+                      type: string
+                      description: Улица, номер дома или название места для поля адреса.
+                    city:
+                      type: string
+                    region:
+                      type: string
+                    kind:
+                      type: string
+                      enum: [street, building, amenity]
+                    complete:
+                      type: boolean
+                      description: Вариант с номером дома и точкой, которую можно показать для уточнения.
+                    attribution:
+                      type: string
+                      description: Атрибуция источника адреса Geoapify.
+                    point:
+                      allOf:
+                      - $ref: '#/components/schemas/GigPoint'
+                      description: Только для complete=true. Для улиц и неполных вариантов точка отсутствует.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          description: Превышен лимит подсказок или общий лимит геокодирования. Используйте Retry-After перед следующим запросом.
+          headers:
+            Retry-After:
+              description: Минимальное число секунд до следующей попытки.
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Адресный поиск не настроен или временно недоступен. Ручной ввод адреса доступен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/gig-place-search:
     post:
       operationId: searchGigPlace
