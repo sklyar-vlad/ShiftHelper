@@ -37,6 +37,69 @@ async function session(index, mobile = false, timezoneId = "UTC") {
   return page;
 }
 
+async function checkHome(guest) {
+  const footer = guest.getByRole("contentinfo");
+  const main = guest.getByRole("main");
+  const viewport = guest.viewportSize();
+  await link(footer, "Как это работает").press("Enter");
+  await guest.waitForURL("**/#how-it-works");
+  await guest.waitForFunction(
+    () => document.activeElement?.id === "how-it-works",
+  );
+  assert.deepEqual(
+    await main
+      .locator(":scope > *")
+      .evaluateAll((sections) =>
+        sections.map((section) => section.id || section.className),
+      ),
+    [
+      "home-hero",
+      "home-ticker",
+      "how-it-works",
+      "reviews",
+      "faq",
+      "home-socials",
+    ],
+  );
+  assert.equal(await main.locator("#how-it-works li img").count(), 3);
+  assert.equal(await guest.getByRole("contentinfo").count(), 1);
+  await footer
+    .getByText("Большая Морская улица, 67", { exact: false })
+    .waitFor();
+  for (const icons of [
+    main.locator(".home-socials-icons"),
+    footer.locator(".footer-socials"),
+  ]) {
+    assert.equal(await icons.getByRole("img").count(), 4);
+    assert.equal(await icons.locator("a, button, [tabindex]").count(), 0);
+  }
+
+  const reviews = main.getByRole("region", { name: "Отзывы", exact: true });
+  await button(reviews, "Назад").press("Enter");
+  await visible(reviews.getByRole("figure"), "Дарья");
+  await button(reviews, "Далее").press("Space");
+  await visible(reviews.getByRole("figure"), "Ирина");
+  const faq = main.getByRole("region", {
+    name: "Ответы на вопросы",
+    exact: true,
+  });
+  const question = button(faq, "Как откликнуться и узнать, выбрали ли меня?");
+  await question.press("Enter");
+  await faq.getByText(/Решение заказчика появится/).waitFor();
+  for (const width of [1440, 1280, 768, 375]) {
+    await guest.setViewportSize({ ...viewport, width });
+    assert.ok(
+      await guest.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      `horizontal overflow on the homepage at ${width}px`,
+    );
+  }
+  await question.press("Space");
+  assert.equal(await question.getAttribute("aria-expanded"), "false");
+  await guest.setViewportSize(viewport);
+}
+
 async function post(page, path, data, status = 200) {
   const response = await page.request.post(`/api/v1${path}`, {
     headers: { Origin: baseURL },
@@ -308,6 +371,7 @@ try {
     await guest.waitForURL("**/login");
     await guest.goto("/catalog");
     await visible(guest, "Заданий пока нет");
+    await checkHome(guest);
     await guest.goto("/gigs/00000000-0000-4000-8000-000000000000");
     await visible(guest, "Задание недоступно");
     assert.equal((await guest.request.get("/api/v1/me")).status(), 401);
@@ -356,6 +420,20 @@ try {
         );
       }
     }
+    const workerFooter = worker.getByRole("contentinfo");
+    await link(workerFooter, "Личный кабинет исполнителя").waitFor();
+    assert.equal(await link(workerFooter, "Создать задание").count(), 0);
+    await link(workerFooter, "Отзывы о платформе").click();
+    await worker.waitForURL("**/#reviews");
+    await worker.waitForFunction(
+      () => document.activeElement?.id === "reviews",
+    );
+    const customerFooter = customer.getByRole("contentinfo");
+    await link(customerFooter, "Создать задание").waitFor();
+    assert.equal(
+      await link(customerFooter, "Личный кабинет исполнителя").count(),
+      0,
+    );
     await customer.goto("/my-gigs");
     await visible(customer, "Заданий пока нет");
     await worker.goto("/my-gigs");
@@ -673,6 +751,13 @@ try {
     } finally {
       await worker.unroute(profileAPI, disconnectSave);
     }
+    await link(workerFooter, "Ответы на вопросы").click();
+    const footerGuard = worker.getByRole("alertdialog", {
+      name: "Останутся несохранённые изменения",
+    });
+    await button(footerGuard, "Остаться").click();
+    await footerGuard.waitFor({ state: "hidden" });
+    assert.equal(await bio.inputValue(), savedBio);
     const workerBell = button(worker, "Уведомления");
     await workerBell.getByText("1", { exact: true }).waitFor();
     await workerBell.focus();
