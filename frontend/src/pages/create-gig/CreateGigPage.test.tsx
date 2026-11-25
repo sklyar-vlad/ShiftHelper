@@ -644,11 +644,8 @@ it.each([true, false])(
     fill();
     expect(search).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", searchButton));
-    await screen.findByRole("list", { name: "Найденные адреса" });
-    expect(screen.queryByRole("button", confirmPoint)).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: addressOptions[1].label }),
-    );
+    await screen.findByRole("button", confirmPoint);
+    expect(screen.queryByRole("list", { name: "Найденные адреса" })).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "Уточнить тестовую метку" }),
     );
@@ -689,7 +686,7 @@ it("ignores previous searches after A to B to A and recovers from a limit", asyn
   fireEvent.change(address, { target: { value: "Мира, 1" } });
   expect(search.mock.calls[0][0].signal?.aborted).toBe(true);
   await act(async () => finish(json(addressOptions)));
-  expect(screen.queryByRole("list", { name: "Найденные адреса" })).toBeNull();
+  expect(screen.queryByRole("button", confirmPoint)).toBeNull();
 
   fireEvent.click(screen.getByRole("button", searchButton));
   await screen.findByText(/Слишком много попыток/);

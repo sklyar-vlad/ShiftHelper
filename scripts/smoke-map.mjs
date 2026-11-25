@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 
 const searchAPI = "**/api/v1/gig-place-search";
 const mapAPI = "https://maps.geoapify.com/**";
-const options = { name: "Найденные адреса" };
 const find = (target, name) =>
   target.getByRole("button", { name, exact: true });
 export const mapRegion = (page) =>
@@ -127,7 +126,7 @@ export async function checkAddressSearch(page) {
     await page.unroute(searchAPI, held);
     release.resolve();
   }
-  assert.equal(await page.getByRole("list", options).count(), 0);
+  assert.equal(await mapRegion(page).count(), 0);
   await address.fill("Мира, 1");
 }
 
@@ -138,8 +137,6 @@ export async function chooseMapPoint(
 ) {
   const picker = page.getByRole("region", { name: "Место задания на карте" });
   await find(picker, "Показать на карте").click();
-  const list = picker.getByRole("list", options);
-  await find(list, `${address}, Киров, Калужская область`).click();
   const map = mapRegion(picker);
   if (retry) {
     await map

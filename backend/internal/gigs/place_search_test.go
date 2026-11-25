@@ -22,11 +22,12 @@ func (transport placeTransport) RoundTrip(request *http.Request) (*http.Response
 func TestPlaceSearch(t *testing.T) {
 	const input = `{"city":" Москва ","address":"Тверская, 13"}`
 	const response = `{"results":[
-		{"formatted":"Москва","result_type":"city","country_code":"ru","lat":55,"lon":37},
-		{"formatted":"Другой адрес","result_type":"building","country_code":"by","lat":55,"lon":37,"datasource":{"attribution":"OpenStreetMap"}},
-		{"formatted":"Москва, Тверская улица, 13","result_type":"building","country_code":"ru","lat":55.76,"lon":37.61,"datasource":{"attribution":"© OpenStreetMap contributors"}},
-		{"formatted":"Нет координаты","result_type":"building","country_code":"ru","lon":37,"datasource":{"attribution":"OpenStreetMap"}},
-		{"formatted":"Нет атрибуции","result_type":"building","country_code":"ru","lat":55,"lon":37}
+		{"formatted":"Санкт-Петербург, Тверская улица, 13","result_type":"building","country_code":"ru","city":"Санкт-Петербург","lat":59.95,"lon":30.39,"datasource":{"attribution":"OpenStreetMap"}},
+		{"formatted":"Москва","result_type":"city","country_code":"ru","city":"Москва","lat":55,"lon":37},
+		{"formatted":"Другой адрес","result_type":"building","country_code":"by","city":"Москва","lat":55,"lon":37,"datasource":{"attribution":"OpenStreetMap"}},
+		{"formatted":"Москва, Тверская улица, 13","result_type":"building","country_code":"ru","city":"Москва","lat":55.76,"lon":37.61,"datasource":{"attribution":"© OpenStreetMap contributors"}},
+		{"formatted":"Нет координаты","result_type":"building","country_code":"ru","city":"Москва","lon":37,"datasource":{"attribution":"OpenStreetMap"}},
+		{"formatted":"Нет атрибуции","result_type":"building","country_code":"ru","city":"Москва","lat":55,"lon":37}
 	]}`
 	gin.SetMode(gin.TestMode)
 	search := &placeSearch{client: &http.Client{}}

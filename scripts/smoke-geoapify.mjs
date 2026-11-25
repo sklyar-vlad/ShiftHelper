@@ -52,6 +52,8 @@ createServer(
             lon: point[1],
             result_type: "building",
             country_code: "ru",
+            city: "Киров",
+            state: "Калужская область",
             datasource: { attribution: "© OpenStreetMap contributors" },
           },
         ]
