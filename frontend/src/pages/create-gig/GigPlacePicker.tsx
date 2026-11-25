@@ -81,7 +81,12 @@ export function GigPlacePicker({
         className="button button-secondary"
         type="button"
         disabled={loading || !city.trim() || !address.trim()}
-        onClick={() => void search()}
+        onPointerDown={(event) => event.preventDefault()}
+        onClick={(event) => {
+          // Moving focus before the click would collapse the suggestions and move this button.
+          event.currentTarget.focus();
+          void search();
+        }}
       >
         {loading ? "Ищем адрес…" : "Показать на карте"}
       </button>
