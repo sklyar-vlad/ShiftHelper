@@ -13,20 +13,26 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { SessionProvider } from "@/shared/model/session";
 import { RequireUser } from "@/shared/ui/RequireUser";
 import type { Gig } from "@/shared/api/generated/api";
+import type { ReactNode } from "react";
 import { CreateGigPage, GigForm, parseRubles } from "./CreateGigPage";
 
 vi.mock("@/shared/ui/PlaceMap", () => ({
   PlaceMap: ({
+    notice,
     onPointChange,
   }: {
+    notice?: ReactNode;
     onPointChange: (point: { latitude: number; longitude: number }) => void;
   }) => (
-    <button
-      type="button"
-      onClick={() => onPointChange({ latitude: 55.76, longitude: 37.63 })}
-    >
-      Уточнить тестовую метку
-    </button>
+    <>
+      {notice}
+      <button
+        type="button"
+        onClick={() => onPointChange({ latitude: 55.76, longitude: 37.63 })}
+      >
+        Уточнить тестовую метку
+      </button>
+    </>
   ),
 }));
 
@@ -623,7 +629,13 @@ const foundPoint = {
   attribution: "© OpenStreetMap contributors",
 };
 const addressOptions = [
-  { label: "Москва, улица Мира, 1", point: foundPoint },
+  {
+    label: "Москва, улица Мира, 1",
+    point: {
+      ...foundPoint,
+      addressReference: { latitude: 55.75, longitude: 37.62 },
+    },
+  },
   {
     label: "Москва, улица Мира, 1с2",
     point: { ...foundPoint, longitude: 37.64 },
@@ -646,9 +658,18 @@ it.each([true, false])(
     fireEvent.click(screen.getByRole("button", searchButton));
     await screen.findByRole("button", confirmPoint);
     expect(screen.queryByRole("list", { name: "Найденные адреса" })).toBeNull();
+    const warning = /Метка находится в 1,3 км от указанного адреса/;
+    const marker = screen.getByRole("button", {
+      name: "Уточнить тестовую метку",
+    });
+    expect(screen.queryByText(warning)).toBeNull();
+    fireEvent.click(marker);
+    expect(screen.getByText(warning)).toBeTruthy();
     fireEvent.click(
-      screen.getByRole("button", { name: "Уточнить тестовую метку" }),
+      screen.getByRole("button", { name: "Вернуть исходную метку" }),
     );
+    expect(screen.queryByText(warning)).toBeNull();
+    fireEvent.click(marker);
     expect(screen.getByLabelText<HTMLInputElement>("Адрес").value).toBe(
       "Мира, 1",
     );
@@ -658,7 +679,7 @@ it.each([true, false])(
     const payload = JSON.parse(send.mock.calls[0][0].body as string);
     expect(payload.point).toEqual(
       confirm
-        ? { ...foundPoint, latitude: 55.76, longitude: 37.63 }
+        ? { ...addressOptions[0].point, latitude: 55.76, longitude: 37.63 }
         : undefined,
     );
   },

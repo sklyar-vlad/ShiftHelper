@@ -1,4 +1,10 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { LngLat, Map as MapInstance, Marker } from "maplibre-gl";
 import { Button } from "react-aria-components/Button";
 import { Dialog, DialogTrigger } from "react-aria-components/Dialog";
@@ -13,6 +19,7 @@ type PlaceMapProps = {
   point?: Coordinates | null;
   zoom?: number;
   recenter?: number;
+  notice?: ReactNode;
   onPointChange?: (point: Coordinates) => void;
 };
 
@@ -36,7 +43,7 @@ function coordinates(location: LngLat): Coordinates {
   };
 }
 
-export function PlaceMap(props: PlaceMapProps) {
+export function PlaceMap({ notice, ...props }: PlaceMapProps) {
   const [expanded, setExpanded] = useState(false);
   const apiKey = import.meta.env.VITE_GEOAPIFY_TILES_PUBLIC?.trim();
   return (
@@ -44,7 +51,10 @@ export function PlaceMap(props: PlaceMapProps) {
       {expanded ? (
         <div className="place-map-frame" aria-hidden="true" />
       ) : (
-        <PlaceMapView {...props} apiKey={apiKey} />
+        <>
+          {notice}
+          <PlaceMapView {...props} apiKey={apiKey} />
+        </>
       )}
       {apiKey && (
         <DialogTrigger isOpen={expanded} onOpenChange={setExpanded}>
@@ -64,6 +74,7 @@ export function PlaceMap(props: PlaceMapProps) {
                     Закрыть карту
                   </Button>
                 </header>
+                {notice}
                 <PlaceMapView {...props} apiKey={apiKey} />
                 {props.onPointChange && (
                   <p className="small muted">

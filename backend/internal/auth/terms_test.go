@@ -206,9 +206,13 @@ func TestGigTerms(t *testing.T) {
 	})
 	t.Run("confirmed gig point", func(t *testing.T) {
 		zero := map[string]any{"latitude": 0, "longitude": 0}
-		geocoded := map[string]any{"latitude": 90, "longitude": -180, "source": "geoapify", "attribution": "OpenStreetMap contributors"}
+		geocoded := map[string]any{
+			"latitude": 90, "longitude": -180, "source": "geoapify", "attribution": "OpenStreetMap contributors",
+			"addressReference": map[string]any{"latitude": 89, "longitude": -179},
+		}
 		const zeroPoint = `{"latitude":0,"longitude":0,"source":"manual"}`
-		const geoPoint = `{"latitude":90,"longitude":-180,"source":"geoapify","attribution":"OpenStreetMap contributors"}`
+		const geoPoint = `{"latitude":90,"longitude":-180,"source":"geoapify","attribution":"OpenStreetMap contributors",
+			"addressReference":{"latitude":89,"longitude":-179}}`
 		assertPoint := func(raw json.RawMessage, want string) {
 			t.Helper()
 			var got, expected any
@@ -235,6 +239,8 @@ func TestGigTerms(t *testing.T) {
 			`{"latitude":1e999,"longitude":0}`, `{"latitude":"0","longitude":0}`,
 			`{"latitude":0,"longitude":0,"source":"geoapify"}`,
 			`{"latitude":0,"longitude":0,"unexpected":true}`,
+			`{"latitude":0,"longitude":0,"addressReference":{"latitude":0,"longitude":0}}`,
+			`{"latitude":0,"longitude":0,"source":"geoapify","attribution":"Geoapify","addressReference":{"latitude":91,"longitude":0}}`,
 		} {
 			createBody["point"] = json.RawMessage(bad)
 			expect(send("POST", "/gigs", createBody, 0), 400)

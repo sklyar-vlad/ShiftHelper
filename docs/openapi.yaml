@@ -1446,6 +1446,20 @@ components:
         attribution:
           type: string
           maxLength: 300
+        addressReference:
+          type: object
+          additionalProperties: false
+          description: Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.
+          required: [latitude, longitude]
+          properties:
+            latitude:
+              type: number
+              minimum: -90
+              maximum: 90
+            longitude:
+              type: number
+              minimum: -180
+              maximum: 180
     CreateGigRequest:
       type: object
       additionalProperties: false
