@@ -17,6 +17,7 @@ export function HomeSteps() {
   return (
     <section
       id="how-it-works"
+      tabIndex={-1}
       className="home-steps"
       aria-labelledby="home-steps-title"
     >
