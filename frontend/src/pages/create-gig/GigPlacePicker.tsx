@@ -11,11 +11,13 @@ export function GigPlacePicker({
   city,
   address,
   point,
+  suggestedPoint,
   onChange,
 }: {
   city: string;
   address: string;
   point: GigPoint;
+  suggestedPoint: GigPoint;
   onChange: (point: GigPoint) => void;
 }) {
   const request = useRef<AbortController | null>(null);
@@ -26,7 +28,9 @@ export function GigPlacePicker({
   const [preview, setPreview] = useState<{
     center: Point;
     draft: Point;
-  } | null>(null);
+  } | null>(() =>
+    suggestedPoint ? { center: suggestedPoint, draft: suggestedPoint } : null,
+  );
   const draft = preview?.draft ?? point;
   const center = preview?.center ?? point;
   const confirmed =
@@ -77,7 +81,12 @@ export function GigPlacePicker({
         className="button button-secondary"
         type="button"
         disabled={loading || !city.trim() || !address.trim()}
-        onClick={() => void search()}
+        onPointerDown={(event) => event.preventDefault()}
+        onClick={(event) => {
+          // Moving focus before the click would collapse the suggestions and move this button.
+          event.currentTarget.focus();
+          void search();
+        }}
       >
         {loading ? "Ищем адрес…" : "Показать на карте"}
       </button>
