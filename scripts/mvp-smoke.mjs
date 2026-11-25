@@ -4,9 +4,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright";
 import {
   checkAddressSearch,
+  checkExpandedMap,
   checkMapNavigation,
   checkMobileMapScroll,
   chooseMapPoint,
+  chooseSuggestedPoint,
   compactPoint,
   interceptMaps,
   mapRegion,
@@ -413,10 +415,7 @@ try {
     await fourHours.click();
     assert.equal(await fourHours.getAttribute("aria-pressed"), "true");
     await checkAddressSearch(customer);
-    const placed = await chooseMapPoint(customer, "Мира, 1", {
-      retry: true,
-      adjust: true,
-    });
+    const placed = await chooseSuggestedPoint(customer);
     await button(customer, "Опубликовать").click();
     await customer.waitForURL(/\/gigs\/[0-9a-f-]+$/);
     const gigId = customer.url().split("/").at(-1);
@@ -573,6 +572,11 @@ try {
     );
     await link(worker, title).click();
     await verifyMap(worker, original.point);
+    const mobileMap = await mapRegion(worker)
+      .locator(".place-map-frame")
+      .boundingBox();
+    assert.ok(mobileMap.height >= 360, "mobile map height");
+    await checkExpandedMap(worker);
     await checkMobileMapScroll(worker);
     await worker
       .getByLabel("Комментарий (необязательно)", { exact: true })
@@ -610,6 +614,16 @@ try {
     await customer.keyboard.press("Escape");
     assert.equal(await button(guest, "Уведомления").count(), 0);
     await customer.reload();
+    let editSearches = 0;
+    const trackSearch = (request) => {
+      if (
+        /\/api\/v1\/gig-place-(search|suggestions)$/.test(
+          new URL(request.url()).pathname,
+        )
+      )
+        editSearches++;
+    };
+    customer.on("request", trackSearch);
     await button(customer, "Изменить условия").click();
     await customer
       .getByLabel("Описание", { exact: true })
@@ -622,6 +636,11 @@ try {
       .getByText("Кандидат ещё не подтвердил новые условия.", { exact: true })
       .first()
       .waitFor();
+    customer.off("request", trackSearch);
+    assert.equal(editSearches, 0);
+    const edited = await (await customer.request.get(`/api/v1${path}`)).json();
+    assert.equal(edited.address, original.address);
+    assert.deepEqual(edited.point, original.point);
     await worker.goto("/profile");
     await button(worker, "Редактировать профиль").click();
     const bio = worker.getByLabel("О себе", { exact: true });
@@ -776,8 +795,12 @@ try {
       await chooseDateTime(customer, "Окончание работы", proposedEnd);
       let newPoint;
       if (action !== "withdraw") {
-        await customer.getByLabel("Адрес", { exact: true }).fill("Мира, 2");
-        newPoint = await chooseMapPoint(customer, "Мира, 2");
+        const editor = customer.getByRole("form", {
+          name: "Изменение условий",
+        });
+        await editor.getByLabel("Адрес", { exact: true }).fill("Мира, 2");
+        await mapRegion(editor).waitFor({ state: "hidden" });
+        newPoint = await chooseMapPoint(customer);
       }
       await button(customer, "Предложить изменения").click();
       await Promise.race([
