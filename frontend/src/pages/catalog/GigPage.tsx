@@ -14,6 +14,7 @@ import { UserCard } from "@/entities/user/UserCard";
 import { ReviewPanel } from "@/entities/review/ReviewPanel";
 import { useSession } from "@/shared/model/session";
 import { ApplicationPanel } from "./ApplicationPanel";
+import { WorkProgress } from "./WorkProgress";
 import "./catalog.css";
 
 function CopyGigLink({ gigId }: { gigId: string }) {
@@ -63,6 +64,11 @@ export function GigPage() {
       retry: false,
       enabled: !session.isPending && (!session.isError || !!session.user),
       queryKey: [...getGetGigQueryKey(gigId), session.user?.id ?? "guest"],
+      refetchInterval: ({ state }) =>
+        state.data?.customer.id === session.user?.id &&
+        state.data?.status === "in_progress"
+          ? 5000
+          : false,
     },
   });
   const saved = location.state?.myGigs ?? location.state?.catalog;
@@ -192,6 +198,12 @@ export function GigPage() {
                 }
               />
             )}
+          <WorkProgress
+            key={`progress:${gigId}:${session.user?.id ?? "guest"}`}
+            gig={query.data}
+            viewerId={session.user?.id}
+            refresh={() => query.refetch()}
+          />
           <TermsPanel
             key={`terms:${gigId}:${session.user?.id ?? "guest"}:${location.key}`}
             gig={query.data}

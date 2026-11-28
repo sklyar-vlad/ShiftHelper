@@ -5,7 +5,6 @@ import {
   createApplication,
   confirmApplicationTerms,
   withdrawApplication,
-  submitGig,
   type CurrentUser,
   type Gig,
 } from "@/shared/api/generated/api";
@@ -30,9 +29,7 @@ export function ApplicationPanel({
   const [message, setMessage] = useState("");
   const application = gig.myApplication;
 
-  async function send(
-    action: "apply" | "withdraw" | "submit" | "confirm-terms",
-  ) {
+  async function send(action: "apply" | "withdraw" | "confirm-terms") {
     if (busy.current) return;
     if (action === "apply" && Array.from(comment.trim()).length > 1000) {
       setMessage("Комментарий должен содержать не больше 1000 символов.");
@@ -44,7 +41,6 @@ export function ApplicationPanel({
     try {
       if (action === "withdraw")
         await withdrawApplication(gig.id, application!.id);
-      else if (action === "submit") await submitGig(gig.id);
       else if (action === "confirm-terms")
         await confirmApplicationTerms(gig.id, application!.id, {
           termsVersion: gig.termsVersion ?? 1,
@@ -161,15 +157,6 @@ export function ApplicationPanel({
         </form>
       ) : (
         <p>Задание больше не принимает отклики.</p>
-      )}
-      {gig.status === "in_progress" && gig.selectedWorker?.id === user.id && (
-        <button
-          className="button"
-          disabled={working}
-          onClick={() => void send("submit")}
-        >
-          {working ? "Сдаём работу…" : "Работа выполнена"}
-        </button>
       )}
       {message && (
         <p className="notice notice-error" role="alert">

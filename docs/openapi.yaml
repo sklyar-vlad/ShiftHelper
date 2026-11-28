@@ -620,6 +620,44 @@ paths:
           $ref: '#/components/responses/InternalError'
       parameters:
       - $ref: '#/components/parameters/GigId'
+  /api/v1/gigs/{gigId}/progress:
+    post:
+      operationId: advanceGigProgress
+      tags:
+      - Gigs
+      summary: Отметить этап работы
+      description: Только выбранный исполнитель в in_progress. Сначала arrived, затем started. Повтор текущей отметки безопасен.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [stage]
+              properties:
+                stage:
+                  type: string
+                  enum: [arrived, started]
+      responses:
+        '204':
+          description: Этап сохранён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/gigs/{gigId}/submit:
     post:
       operationId: submitGig
@@ -1732,6 +1770,10 @@ components:
       - cancelledAt
       - myApplication
       properties:
+        workStage:
+          type: string
+          enum: [assigned, arrived, started]
+          description: Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.
         hiddenFromMyGigs:
           type: boolean
           description: Присутствует со значением true только у владельца, скрывшего задание.

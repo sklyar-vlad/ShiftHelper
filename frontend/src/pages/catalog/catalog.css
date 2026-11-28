@@ -159,6 +159,19 @@
   animation: ui-reveal 270ms var(--motion-ease);
 }
 
+.work-progress {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 16px;
+  padding-inline-start: 24px;
+  color: var(--muted);
+}
+
+.work-progress [aria-current="step"] {
+  color: var(--green-dark);
+  font-weight: 700;
+}
+
 .gig-detail h1 {
   font-size: 42px;
   margin-block: 24px;

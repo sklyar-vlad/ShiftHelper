@@ -1059,8 +1059,24 @@ try {
     await post(customer, `${path}/submit`, undefined, 403);
     await post(customer, `${path}/confirm`, undefined, 409);
     await worker.reload();
+    const progress = `${path}/progress`;
+    await post(customer, progress, { stage: "arrived" }, 403);
+    await post(second, progress, { stage: "arrived" }, 404);
+    await post(worker, progress, { stage: "started" }, 409);
+    await button(worker, "Я на месте").click();
+    await visible(customer, "Текущий этап: На месте");
+    await post(worker, progress, { stage: "arrived" }, 204);
+    assert.equal(
+      (await (await second.request.get(`/api/v1${path}`)).json()).workStage,
+      undefined,
+    );
+    await worker.reload();
+    await button(worker, "Начал работу").click();
+    await visible(customer, "Текущий этап: Работа начата");
     await button(worker, "Работа выполнена").click();
     await visible(worker, "Работа сдана. Ожидайте подтверждения заказчика.");
+    await visible(customer, "Текущий этап: Работа сдана");
+    await post(worker, progress, { stage: "started" }, 409);
     await post(worker, `${path}/submit`, undefined, 409);
     await post(worker, `${path}/confirm`, undefined, 403);
     await customer.reload();

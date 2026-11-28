@@ -487,6 +487,17 @@ export interface Application {
 }
 
 /**
+ * Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.
+ */
+export type GigWorkStage = (typeof GigWorkStage)[keyof typeof GigWorkStage];
+
+export const GigWorkStage = {
+  assigned: "assigned",
+  arrived: "arrived",
+  started: "started",
+} as const;
+
+/**
  * null до выбора исполнителя.
  * @nullable
  */
@@ -526,6 +537,8 @@ export interface TermsChange {
 }
 
 export interface Gig {
+  /** Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания. */
+  workStage?: GigWorkStage;
   /** Присутствует со значением true только у владельца, скрывшего задание. */
   hiddenFromMyGigs?: boolean;
   /** Текущая точка, доступна в тех же ответах, что и адрес задания. */
@@ -964,6 +977,18 @@ export const ListGigsSort = {
   amount_asc: "amount_asc",
   amount_desc: "amount_desc",
 } as const;
+
+export type AdvanceGigProgressBodyStage =
+  (typeof AdvanceGigProgressBodyStage)[keyof typeof AdvanceGigProgressBodyStage];
+
+export const AdvanceGigProgressBodyStage = {
+  arrived: "arrived",
+  started: "started",
+} as const;
+
+export type AdvanceGigProgressBody = {
+  stage: AdvanceGigProgressBodyStage;
+};
 
 export type ListGigApplicationsParams = {
   /**
@@ -3191,6 +3216,149 @@ export const useCancelGig = <
   TContext
 > => {
   return useMutation(getCancelGigMutationOptions(options), queryClient);
+};
+
+export const getAdvanceGigProgressUrl = (gigId: string) => {
+  return `/api/v1/gigs/${gigId}/progress`;
+};
+
+/**
+ * Только выбранный исполнитель в in_progress. Сначала arrived, затем started. Повтор текущей отметки безопасен.
+ * @summary Отметить этап работы
+ */
+export const advanceGigProgress = async (
+  gigId: string,
+  advanceGigProgressBody: AdvanceGigProgressBody,
+  options?: Parameters<typeof http>[1],
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return http<void>(getAdvanceGigProgressUrl(gigId), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(advanceGigProgressBody),
+  });
+};
+
+export const getAdvanceGigProgressMutationKey = () =>
+  ["advanceGigProgress"] as const;
+
+export const getAdvanceGigProgressMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof advanceGigProgress>>,
+    TError,
+    AdvanceGigProgressMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof advanceGigProgress>>,
+  TError,
+  AdvanceGigProgressMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAdvanceGigProgressMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof advanceGigProgress>>,
+    AdvanceGigProgressMutationVariables
+  > = (props) => {
+    const { gigId, data } = props ?? {};
+
+    return advanceGigProgress(gigId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdvanceGigProgressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof advanceGigProgress>>
+>;
+export type AdvanceGigProgressMutationBody = AdvanceGigProgressBody;
+export type AdvanceGigProgressMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type AdvanceGigProgressMutationVariables = {
+  gigId: string;
+  data: AdvanceGigProgressBody;
+};
+
+/**
+ * @summary Отметить этап работы
+ */
+export const useAdvanceGigProgress = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof advanceGigProgress>>,
+      TError,
+      AdvanceGigProgressMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof advanceGigProgress>>,
+  TError,
+  AdvanceGigProgressMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAdvanceGigProgressMutationOptions(options),
+    queryClient,
+  );
 };
 
 export const getSubmitGigUrl = (gigId: string) => {

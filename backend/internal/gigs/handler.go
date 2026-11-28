@@ -54,6 +54,7 @@ type Cancellation struct {
 }
 
 type Gig struct {
+	WorkStage           string          `json:"workStage,omitempty"`
 	HiddenFromMyGigs    bool            `json:"hiddenFromMyGigs,omitempty"`
 	Point               json.RawMessage `json:"point,omitempty"`
 	PendingChange       *TermsChange    `json:"pendingChange,omitempty"`
@@ -88,6 +89,7 @@ func (h *Handler) Register(api *gin.RouterGroup, requireUser, optionalUser gin.H
 		write.POST("/gigs/:gigId/changes/:changeId/"+action, requireUser, func(c *gin.Context) { h.resolveChange(c, action) })
 	}
 	write.POST("/gigs/:gigId/cancel", requireUser, auth.RequireRole("customer"), h.cancel)
+	write.POST("/gigs/:gigId/progress", requireUser, auth.RequireRole("worker"), h.progress)
 	write.POST("/gigs/:gigId/submit", requireUser, auth.RequireRole("worker"), func(c *gin.Context) { h.finish(c, false) })
 	write.POST("/gigs/:gigId/confirm", requireUser, auth.RequireRole("customer"), func(c *gin.Context) { h.finish(c, true) })
 	write.POST("/gigs/:gigId/applications", requireUser, auth.RequireRole("worker"), h.apply)
