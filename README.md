@@ -2,16 +2,14 @@
 
 **English** · [Русский](README.ru.md)
 
-[![CI for dev](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml)
-
 A platform for short-term gigs. Customers post jobs and choose a worker. Workers find gigs, mark their progress, and submit the finished work.
 
-[![Tech stack: React, TypeScript, Vite, Go, PostgreSQL, Redis, Docker, nginx, and GitHub Actions](https://skillicons.dev/icons?i=react,ts,vite,go,postgres,redis,docker,nginx,githubactions)](https://skillicons.dev/)
+[![Tech stack: React, TypeScript, Vite, Go, PostgreSQL, Redis, Docker, and nginx](https://skillicons.dev/icons?i=react,ts,vite,go,postgres,redis,docker,nginx)](https://skillicons.dev/)
 
 <p>
   <img src="docs/readme/home.png" width="240" alt="ShiftHelper home page on mobile">
   <img src="docs/readme/catalog.png" width="240" alt="Gig catalog on mobile">
-  <img src="docs/readme/progress.png" width="240" alt="Work progress in the worker's view">
+  <img src="docs/readme/gig-map.png" width="240" alt="Open gig with an address and map pin">
 </p>
 
 <!-- Room for GIFs showing a job posted with a map pin and progress updates on both sides. -->
@@ -36,3 +34,5 @@ React, TypeScript, and Vite on the frontend. Go, Gin, PostgreSQL, and Redis on t
 - [Local Swagger UI](http://shifthelper.localhost/docs/swagger.html) and [API contract](docs/openapi.yaml)
 - [Environment, maps, and checks](docs/agents/development.md)
 - [Project commands](Taskfile.yml) and [team guidelines](AGENTS.md)
+
+[![CI for dev](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml)
