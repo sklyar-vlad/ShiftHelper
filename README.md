@@ -6,6 +6,8 @@
 
 A platform for short-term gigs. Customers post jobs and choose a worker. Workers find gigs, mark their progress, and submit the finished work.
 
+[![Tech stack: React, TypeScript, Vite, Go, PostgreSQL, Redis, Docker, nginx, and GitHub Actions](https://skillicons.dev/icons?i=react,ts,vite,go,postgres,redis,docker,nginx,githubactions)](https://skillicons.dev/)
+
 <p>
   <img src="docs/readme/home.png" width="240" alt="ShiftHelper home page on mobile">
   <img src="docs/readme/catalog.png" width="240" alt="Gig catalog on mobile">

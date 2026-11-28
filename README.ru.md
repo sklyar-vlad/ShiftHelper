@@ -6,6 +6,8 @@
 
 Сервис краткосрочных подработок. Заказчик публикует задание и выбирает исполнителя. Исполнитель находит работу, отмечает этапы и сдаёт результат.
 
+[![Стек: React, TypeScript, Vite, Go, PostgreSQL, Redis, Docker, nginx и GitHub Actions](https://skillicons.dev/icons?i=react,ts,vite,go,postgres,redis,docker,nginx,githubactions)](https://skillicons.dev/)
+
 <p>
   <img src="docs/readme/home.png" width="240" alt="Главная ShiftHelper на телефоне">
   <img src="docs/readme/catalog.png" width="240" alt="Каталог подработок на телефоне">
