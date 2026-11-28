@@ -15,6 +15,7 @@ import (
 )
 
 func TestGigPublicationAndCancellation(t *testing.T) {
+	t.Setenv("GEOAPIFY_GEOCODING_KEY", "")
 	ctx, pool := testDatabase(t)
 	const origin = "http://shifthelper.localhost"
 	router := handler.NewRouter(zap.NewNop(), pool, "", origin)
@@ -56,6 +57,18 @@ func TestGigPublicationAndCancellation(t *testing.T) {
 		}
 		accounts = append(accounts, user)
 		cookies = append(cookies, response.Result().Cookies()[0])
+	}
+	const placeSearch = "/api/v1/gig-place-search"
+	const placeInput = `{"city":"Москва","address":"Тверская, 13"}`
+	expect(send(placeSearch, placeInput, nil), 401, "UNAUTHORIZED")
+	expect(send(placeSearch, placeInput, cookies[2]), 403, "FORBIDDEN")
+	expect(send(placeSearch, placeInput, cookies[0]), 503, "INTERNAL_ERROR")
+	const suggestions = "/api/v1/gig-place-suggestions"
+	expect(send(suggestions, placeInput, nil), 401, "UNAUTHORIZED")
+	expect(send(suggestions, placeInput, cookies[2]), 403, "FORBIDDEN")
+	expect(send(suggestions, `{"city":"Москва","address":"Тв"}`, cookies[0]), 400, "VALIDATION_ERROR")
+	for range 10 {
+		expect(send(suggestions, placeInput, cookies[0]), 503, "INTERNAL_ERROR")
 	}
 	start := time.Now().Add(24 * time.Hour).Truncate(time.Second).In(time.FixedZone("MSK", 3*60*60))
 	body := func(overrides map[string]any) string {
@@ -124,6 +137,9 @@ func TestGigPublicationAndCancellation(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &cancelled); err != nil || cancelled.Status != "cancelled" || cancelled.CancelledAt == nil || cancelled.PendingApplicationsCount != 0 {
 		t.Fatal("incorrect cancellation response")
 	}
+	if cancelled.Cancellation == nil || *cancelled.Cancellation != (gigs.Cancellation{}) {
+		t.Fatal("legacy cancellation should have no reason or comment")
+	}
 	var applicationStatus string
 	if err := pool.QueryRow(ctx, "SELECT status FROM applications WHERE gig_id = $1", gig.ID).Scan(&applicationStatus); err != nil || applicationStatus != "rejected" {
 		t.Fatal("pending application was not rejected")
@@ -152,6 +168,62 @@ func TestGigPublicationAndCancellation(t *testing.T) {
 	statuses[<-results]++
 	if statuses[200] != 1 || statuses[409] != 1 {
 		t.Fatal("concurrent cancellation must have one success and one conflict")
+	}
+	reasoned := create(body(nil))
+	detail := "/api/v1/gigs/" + reasoned.ID
+	if _, err := pool.Exec(ctx, "INSERT INTO applications (gig_id, worker_id) VALUES ($1, $2)", reasoned.ID, accounts[2].ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, invalid := range []string{
+		`{"reason":"unknown"}`, `{"reason":null}`, `{"comment":null}`, `null`,
+		`{"comment":"\u0000"}`, `{"comment":"` + strings.Repeat("😀", 501) + `"}`,
+	} {
+		expect(send(detail+"/cancel", invalid, cookies[0]), 400, "VALIDATION_ERROR")
+	}
+	if _, err := pool.Exec(ctx, "ALTER TABLE gigs ADD CHECK (cancellation_comment <> 'rollback test')"); err != nil {
+		t.Fatal(err)
+	}
+	expect(send(detail+"/cancel", `{"reason":"other","comment":"rollback test"}`, cookies[0]), 500, "INTERNAL_ERROR")
+	var status, pending string
+	if err := pool.QueryRow(ctx, `SELECT g.status, a.status FROM gigs g JOIN applications a ON a.gig_id = g.id WHERE g.id = $1`, reasoned.ID).Scan(&status, &pending); err != nil ||
+		status != "open" || pending != "pending" {
+		t.Fatal("failed cancellation left partial changes")
+	}
+	comment := strings.Repeat("😀", 500)
+	response = send(detail+"/cancel", `{"reason":"schedule_changed","comment":"`+comment+`"}`, cookies[0])
+	expect(response, 200, "")
+	var result gigs.Gig
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || result.Cancellation == nil ||
+		*result.Cancellation != (gigs.Cancellation{Reason: "schedule_changed", Comment: comment}) {
+		t.Fatal("incorrect cancellation details")
+	}
+	get := func(path string, cookie *http.Cookie) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", origin+path, nil).WithContext(ctx)
+		if cookie != nil {
+			req.AddCookie(cookie)
+		}
+		res := httptest.NewRecorder()
+		router.ServeHTTP(res, req)
+		return res
+	}
+	for _, authorized := range []struct {
+		path   string
+		cookie *http.Cookie
+	}{
+		{detail, cookies[0]}, {detail, cookies[2]},
+		{"/api/v1/me/gigs?scope=history", cookies[0]},
+		{"/api/v1/me/applications?scope=history", cookies[2]},
+	} {
+		res := get(authorized.path, authorized.cookie)
+		expect(res, 200, "")
+		if !strings.Contains(res.Body.String(), "schedule_changed") || !strings.Contains(res.Body.String(), comment) {
+			t.Fatalf("missing cancellation details in %s", authorized.path)
+		}
+	}
+	expect(get(detail, nil), 404, "NOT_FOUND")
+	expect(get(detail, cookies[1]), 404, "NOT_FOUND")
+	if res := get("/api/v1/gigs", nil); res.Code != 200 || strings.Contains(res.Body.String(), reasoned.ID) {
+		t.Fatal("public catalog exposes cancelled gig")
 	}
 	create(body(map[string]any{"title": strings.Repeat("😀", 150), "description": strings.Repeat("😀", 5000),
 		"requirements": strings.Repeat("😀", 2000), "city": strings.Repeat("😀", 100), "address": strings.Repeat("😀", 300), "amountKopecks": 10000000000}))

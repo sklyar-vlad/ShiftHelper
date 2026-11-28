@@ -109,6 +109,8 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile.frontend
+      args:
+        VITE_GEOAPIFY_TILES_PUBLIC: ${VITE_GEOAPIFY_TILES_PUBLIC:-}
     environment:
       HTTP_PORT: ${HTTP_PORT:-8081}
     depends_on:
@@ -125,9 +127,11 @@ services:
     environment:
       <<: *postgres-client
       APP_ORIGIN: ${APP_ORIGIN:-http://${APP_DOMAIN:-shifthelper.localhost}}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES-172.16.0.0/12}
       HTTP_PORT: ${HTTP_PORT:-8081}
       REDIS_URL: ${REDIS_URL-redis://redis:6379/0}
       METRICS_TOKEN: ${METRICS_TOKEN:-}
+      GEOAPIFY_GEOCODING_KEY: ${GEOAPIFY_GEOCODING_KEY:-}
     depends_on:
       goose:
         condition: service_completed_successfully

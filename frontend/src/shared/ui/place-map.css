@@ -1,0 +1,110 @@
+.place-map {
+  min-width: 0;
+}
+
+.place-map-frame {
+  position: relative;
+  height: clamp(320px, 55svh, 460px);
+  max-height: 68svh;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #f2f4f5;
+}
+
+.place-map-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.place-map-canvas[inert] {
+  visibility: hidden;
+}
+
+.place-map-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.place-map-status p,
+.place-map > p {
+  margin: 0;
+}
+
+.place-map > :not(:first-child) {
+  margin-top: 8px;
+}
+
+@media (max-width: 767px) {
+  .place-map-frame {
+    height: clamp(320px, 50svh, 380px);
+  }
+}
+
+.place-map-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  padding: 12px;
+  background: rgb(0 0 0 / 45%);
+}
+
+.place-map-overlay[data-entering] {
+  animation: place-map-shade 270ms var(--motion-ease);
+}
+
+.place-map-overlay[data-entering] .place-map-modal {
+  animation: ui-reveal 270ms var(--motion-ease);
+}
+
+@keyframes place-map-shade {
+  from {
+    background-color: transparent;
+  }
+}
+
+.place-map-modal {
+  width: min(100%, 1120px);
+  max-height: 100%;
+  overflow: auto;
+  padding: clamp(12px, 3vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: white;
+}
+
+.place-map-dialog-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.place-map-dialog-header h2 {
+  margin: 0;
+}
+
+.place-map-dialog .place-map-frame {
+  height: min(68dvh, 640px);
+  max-height: none;
+}
+.place-map-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #f4c4b9;
+  border-radius: 8px;
+  color: #8c2e23;
+  background: #fff2ee;
+  font-size: 13px;
+  font-weight: 600;
+}

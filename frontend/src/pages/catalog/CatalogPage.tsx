@@ -1,31 +1,75 @@
-import { Link, useSearchParams } from "react-router";
+import { Link, useSearchParams, useNavigate } from "react-router";
 import { useListGigs } from "@/shared/api/generated/api";
+import { useGigCategories } from "@/entities/gig/GigCategory";
+import { useSession } from "@/shared/model/session";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
 import { GigFacts } from "@/entities/gig/GigFacts";
+import { CatalogFilters } from "./CatalogFilters";
+import {
+  readFilters,
+  filterUrl,
+  catalogQuery,
+  catalogPage,
+  emptyFilters,
+  sortLabels,
+  durationLabels,
+  type Filters,
+} from "./filters";
 import "./catalog.css";
 
 export function CatalogPage() {
-  const [search, setSearch] = useSearchParams();
-  const q = (search.get("q") ?? "").trim();
-  const city = (search.get("city") ?? "").trim();
-  const requestedPage = Number(search.get("page") ?? 1);
-  const page =
-    Number.isInteger(requestedPage) &&
-    requestedPage > 0 &&
-    requestedPage <= 2147483647
-      ? requestedPage
-      : 1;
-  const query = useListGigs(
-    { q, city, page, pageSize: 20 },
-    { query: { retry: false } },
+  const { user } = useSession();
+  const [search] = useSearchParams();
+  const navigate = useNavigate();
+  const filters = readFilters(search);
+  const page = catalogPage(search);
+  const categoryQuery = useGigCategories();
+  const categories = Array.isArray(categoryQuery.data)
+    ? categoryQuery.data
+    : undefined;
+  const validation = catalogQuery(
+    filters,
+    page,
+    categories?.map((item) => item.code),
   );
-
-  function pageUrl(next: number) {
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (city) params.set("city", city);
-    if (next > 1) params.set("page", String(next));
-    return `/catalog${params.size ? `?${params}` : ""}`;
+  for (const key of Object.keys(emptyFilters) as (keyof Filters)[]) {
+    if (search.getAll(key).length > 1)
+      validation.errors[key] =
+        "Параметр повторяется в ссылке. Примените фильтры заново.";
+  }
+  const valid = Object.keys(validation.errors).length === 0;
+  const query = useListGigs(validation.params, {
+    query: {
+      retry: false,
+      enabled: valid && (!filters.category || !!categories),
+    },
+  });
+  const active = (Object.keys(emptyFilters) as (keyof Filters)[]).filter(
+    (key) => filters[key] && filters[key] !== emptyFilters[key],
+  );
+  function chipLabel(key: keyof Filters) {
+    switch (key) {
+      case "q":
+        return `Поиск: ${filters.q}`;
+      case "city":
+        return `Город: ${filters.city}`;
+      case "category":
+        return `Категория: ${categories?.find((item) => item.code === filters.category)?.name ?? filters.category}`;
+      case "minPay":
+        return `Оплата от: ${filters.minPay} ₽`;
+      case "maxPay":
+        return `Оплата до: ${filters.maxPay} ₽`;
+      case "dateFrom":
+        return `Начало от: ${filters.dateFrom}`;
+      case "dateTo":
+        return `Начало до: ${filters.dateTo}`;
+      case "duration":
+        return Object.hasOwn(durationLabels, filters.duration)
+          ? durationLabels[filters.duration as keyof typeof durationLabels]
+          : "Длительность";
+      case "sort":
+        return `Сортировка: ${Object.hasOwn(sortLabels, filters.sort) ? sortLabels[filters.sort as keyof typeof sortLabels] : filters.sort}`;
+    }
   }
 
   return (
@@ -35,50 +79,54 @@ export function CatalogPage() {
         <h1>Подработки</h1>
         <p className="muted">Открытые задания с оплатой за результат.</p>
       </header>
-      <form
-        key={JSON.stringify([q, city])}
-        className="catalog-filters"
-        aria-label="Поиск подработок"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const data = new FormData(event.currentTarget);
-          const params = new URLSearchParams();
-          for (const field of ["q", "city"]) {
-            const value = String(data.get(field) ?? "").trim();
-            if (value) params.set(field, value);
-          }
-          setSearch(params);
-        }}
-      >
-        <label>
-          Название задания
-          <input
-            name="q"
-            defaultValue={q}
-            maxLength={150}
-            placeholder="Например, помощь с переездом"
-          />
-        </label>
-        <label>
-          Город
-          <input
-            name="city"
-            defaultValue={city}
-            maxLength={100}
-            placeholder="Например, Москва"
-          />
-        </label>
-        <button className="button" type="submit">
-          Найти
-        </button>
-        {(q || city) && (
+      <CatalogFilters
+        key={search.toString()}
+        initial={filters}
+        categories={categories}
+        loading={categoryQuery.isPending}
+        retry={() => void categoryQuery.refetch()}
+        onApply={(next) => void navigate(filterUrl(next))}
+      />
+      {(active.length > 0 || page > 1) && (
+        <div className="catalog-active" aria-label="Применённые фильтры">
+          {active.map((key) => (
+            <Link
+              className="catalog-chip"
+              key={key}
+              aria-label={`Убрать фильтр «${chipLabel(key)}»`}
+              to={filterUrl({ ...filters, [key]: emptyFilters[key] })}
+            >
+              {chipLabel(key)} <span aria-hidden="true">×</span>
+            </Link>
+          ))}
           <Link className="text-link" to="/catalog">
-            Сбросить
+            Сбросить всё
           </Link>
-        )}
-      </form>
-      <p className="small muted">Даты и время указаны в вашем часовом поясе.</p>
-      {query.isPending ? (
+        </div>
+      )}
+      {!valid ? (
+        <section className="notice notice-error" role="alert">
+          <h2>Проверьте фильтры в ссылке</h2>
+          <p>
+            {Object.values(validation.errors).join(" ")} Исправьте значения и
+            нажмите «Найти» или сбросьте фильтры.
+          </p>
+        </section>
+      ) : filters.category && !categories ? (
+        <StatusPanel
+          title={
+            categoryQuery.isPending
+              ? "Загружаем категории"
+              : "Не удалось загрузить категории"
+          }
+          pending={categoryQuery.isPending}
+          retry={
+            categoryQuery.isPending
+              ? undefined
+              : () => void categoryQuery.refetch()
+          }
+        />
+      ) : query.isPending ? (
         <StatusPanel title="Загружаем подработки" pending />
       ) : query.isError ? (
         <StatusPanel
@@ -106,7 +154,7 @@ export function CatalogPage() {
                       {gig.title}
                     </Link>
                   </h2>
-                  <GigFacts gig={gig} />
+                  <GigFacts gig={gig} viewerId={user?.id} />
                 </article>
               ))}
             </div>
@@ -116,7 +164,7 @@ export function CatalogPage() {
               <p className="muted">
                 Попробуйте изменить поиск или загляните позже.
               </p>
-              {(q || city || page > 1) && (
+              {(active.length > 0 || page > 1) && (
                 <Link className="button button-secondary" to="/catalog">
                   Все подработки
                 </Link>
@@ -128,7 +176,7 @@ export function CatalogPage() {
               {page > 1 && (
                 <Link
                   className="button button-secondary"
-                  to={pageUrl(page - 1)}
+                  to={filterUrl(filters, page - 1)}
                 >
                   Назад
                 </Link>
@@ -137,7 +185,7 @@ export function CatalogPage() {
               {page * 20 < query.data.total && (
                 <Link
                   className="button button-secondary"
-                  to={pageUrl(page + 1)}
+                  to={filterUrl(filters, page + 1)}
                 >
                   Далее
                 </Link>

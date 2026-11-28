@@ -3,8 +3,8 @@ import { Link, useLocation } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createApplication,
+  confirmApplicationTerms,
   withdrawApplication,
-  submitGig,
   type CurrentUser,
   type Gig,
 } from "@/shared/api/generated/api";
@@ -29,7 +29,7 @@ export function ApplicationPanel({
   const [message, setMessage] = useState("");
   const application = gig.myApplication;
 
-  async function send(action: "apply" | "withdraw" | "submit") {
+  async function send(action: "apply" | "withdraw" | "confirm-terms") {
     if (busy.current) return;
     if (action === "apply" && Array.from(comment.trim()).length > 1000) {
       setMessage("Комментарий должен содержать не больше 1000 символов.");
@@ -41,8 +41,15 @@ export function ApplicationPanel({
     try {
       if (action === "withdraw")
         await withdrawApplication(gig.id, application!.id);
-      else if (action === "submit") await submitGig(gig.id);
-      else await createApplication(gig.id, { comment: comment.trim() });
+      else if (action === "confirm-terms")
+        await confirmApplicationTerms(gig.id, application!.id, {
+          termsVersion: gig.termsVersion ?? 1,
+        });
+      else
+        await createApplication(gig.id, {
+          comment: comment.trim(),
+          termsVersion: gig.termsVersion ?? 1,
+        });
       setComment("");
       await refresh();
       await client.invalidateQueries({
@@ -54,10 +61,7 @@ export function ApplicationPanel({
           ? (error.details?.fields?.comment?.[0] ?? error.message)
           : "Не удалось связаться с сервисом. Попробуйте ещё раз.",
       );
-      if (
-        error instanceof ApiError &&
-        (error.status === 409 || error.status === 404)
-      ) {
+      if (error instanceof ApiError && [403, 404, 409].includes(error.status)) {
         await refresh();
         await client.invalidateQueries({
           predicate: (query) => query.queryKey[0] !== `/api/v1/gigs/${gig.id}`,
@@ -99,6 +103,23 @@ export function ApplicationPanel({
           {application.comment && (
             <p className="gig-text">{application.comment}</p>
           )}
+          {application.status === "pending" &&
+            gig.status === "open" &&
+            (application.termsVersion ?? 1) !== (gig.termsVersion ?? 1) && (
+              <div className="notice">
+                <p>
+                  Условия изменились. Прочитайте актуальные условия задания
+                  перед подтверждением.
+                </p>
+                <button
+                  className="button"
+                  disabled={working}
+                  onClick={() => void send("confirm-terms")}
+                >
+                  Подтвердить новые условия
+                </button>
+              </div>
+            )}
           {application.status === "pending" && gig.status === "open" && (
             <button
               className="button button-secondary"
@@ -136,15 +157,6 @@ export function ApplicationPanel({
         </form>
       ) : (
         <p>Задание больше не принимает отклики.</p>
-      )}
-      {gig.status === "in_progress" && gig.selectedWorker?.id === user.id && (
-        <button
-          className="button"
-          disabled={working}
-          onClick={() => void send("submit")}
-        >
-          {working ? "Сдаём работу…" : "Работа выполнена"}
-        </button>
       )}
       {message && (
         <p className="notice notice-error" role="alert">

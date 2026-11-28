@@ -3,7 +3,9 @@ package gigs
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
@@ -20,7 +22,7 @@ type GigPage struct {
 }
 
 const profilesSQL = `WITH profiles AS NOT MATERIALIZED (
-    SELECT u.id, u.name, u.bio, u.role,
+    SELECT u.id, u.name, u.bio, u.role, u.specialties,
         (SELECT count(*) FROM gigs done WHERE done.status = 'completed'
          AND ((u.role = 'customer' AND done.customer_id = u.id)
            OR (u.role = 'worker' AND done.selected_worker_id = u.id))) AS "completedGigsCount",
@@ -30,7 +32,8 @@ const profilesSQL = `WITH profiles AS NOT MATERIALIZED (
 )`
 
 const summaryJSON = `jsonb_build_object(
-    'id', g.id, 'title', g.title, 'city', g.city, 'startsAt', g.starts_at, 'endsAt', g.ends_at,
+    'category', g.category, 'termsVersion', g.terms_version, 'hasPendingChange', EXISTS (SELECT 1 FROM gig_changes change WHERE change.gig_id = g.id AND change.status = 'pending'),
+ 'id', g.id, 'title', g.title, 'city', g.city, 'startsAt', g.starts_at, 'endsAt', g.ends_at,
     'amountKopecks', g.amount_kopecks, 'status', g.status, 'createdAt', g.created_at, 'updatedAt', g.updated_at,
     'customer', to_jsonb(customer),
     'selectedWorker', CASE WHEN worker.id IS NULL THEN NULL ELSE to_jsonb(worker) END,
@@ -40,8 +43,24 @@ const summaryJSON = `jsonb_build_object(
 const profileJoins = `JOIN profiles customer ON customer.id = g.customer_id
     LEFT JOIN profiles worker ON worker.id = g.selected_worker_id`
 
+const cancellationJSON = `jsonb_build_object('reason', g.cancellation_reason, 'comment', g.cancellation_comment)`
+
 const detailSQL = profilesSQL + ` SELECT ` + summaryJSON + ` || jsonb_build_object(
-    'description', g.description, 'requirements', g.requirements, 'address', g.address,
+    'workStage', CASE WHEN g.selected_worker_id IS NOT NULL
+        AND (g.customer_id = $2::uuid OR g.selected_worker_id = $2::uuid) THEN g.work_stage END,
+    'hiddenFromMyGigs', CASE WHEN g.customer_id = $2::uuid THEN g.hidden_from_customer ELSE false END,
+    'cancellation', CASE WHEN g.status = 'cancelled' AND (g.customer_id = $2::uuid OR EXISTS (
+        SELECT 1 FROM applications a WHERE a.gig_id = g.id AND a.worker_id = $2::uuid AND a.status = 'rejected'
+    )) THEN ` + cancellationJSON + ` END,
+    'pendingChange', CASE WHEN g.customer_id = $2::uuid OR g.selected_worker_id = $2::uuid THEN
+ (SELECT jsonb_build_object('id', change.id, 'termsVersion', change.base_version, 'terms', change.terms || jsonb_build_object('point',
+     CASE WHEN change.terms ? 'point' THEN change.terms->'point'
+          WHEN change.terms->>'city' = g.city AND change.terms->>'address' = g.address THEN g.point END))
+ FROM gig_changes change WHERE change.gig_id = g.id AND change.status = 'pending') END,
+ 'counterpartyContact', CASE WHEN g.status IN ('in_progress', 'awaiting_confirmation', 'completed') THEN
+ (SELECT contact FROM users WHERE id = CASE WHEN g.customer_id = $2::uuid THEN g.selected_worker_id
+ WHEN g.selected_worker_id = $2::uuid THEN g.customer_id END) END,
+ 'description', g.description, 'requirements', g.requirements, 'address', g.address, 'point', g.point,
     'submittedAt', g.submitted_at, 'completedAt', g.completed_at, 'cancelledAt', g.cancelled_at,
     'myApplication', (SELECT ` + applicationJSON + `
         FROM applications a JOIN profiles applicant ON applicant.id = a.worker_id
@@ -58,6 +77,62 @@ func (h *Handler) list(c *gin.Context) {
 	if utf8.RuneCountInString(city) > 100 {
 		fields["city"] = []string{"Город должен содержать не больше 100 символов."}
 	}
+	category := query.Get("category")
+	if category != "" {
+		var exists bool
+		if err := h.pool.QueryRow(c.Request.Context(), "SELECT EXISTS(SELECT 1 FROM gig_categories WHERE code=$1)", category).Scan(&exists); err != nil {
+			httpapi.InternalError(c)
+			return
+		}
+		if !exists {
+			fields["category"] = []string{"Выберите категорию из справочника."}
+		}
+	}
+	numbers := make(map[string]*int64)
+	for _, name := range []string{"minAmountKopecks", "maxAmountKopecks", "maxDurationMinutes"} {
+		if raw := query.Get(name); raw != "" {
+			minValue, maxValue := int64(0), int64(10000000000)
+			if name == "maxDurationMinutes" {
+				minValue, maxValue = 1, 2147483647
+			}
+			value, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil || value < minValue || value > maxValue {
+				fields[name] = []string{"Укажите целое число в допустимом диапазоне."}
+			} else {
+				numbers[name] = &value
+			}
+		}
+	}
+	if minAmount, maxAmount := numbers["minAmountKopecks"], numbers["maxAmountKopecks"]; minAmount != nil && maxAmount != nil && *minAmount > *maxAmount {
+		fields["maxAmountKopecks"] = []string{"Максимальная оплата должна быть не меньше минимальной."}
+	}
+	dates := make(map[string]*time.Time)
+	for _, name := range []string{"startsFrom", "startsBefore"} {
+		if raw := query.Get(name); raw != "" {
+			value, err := time.Parse(time.RFC3339Nano, raw)
+			if err != nil || !datePattern.MatchString(raw) || value.Year() < 1 {
+				fields[name] = []string{"Укажите дату и время с часовым поясом."}
+			} else {
+				dates[name] = &value
+			}
+		}
+	}
+	if from, before := dates["startsFrom"], dates["startsBefore"]; from != nil && before != nil && !from.Before(*before) {
+		fields["startsBefore"] = []string{"Конец периода должен быть позже начала."}
+	}
+	sort := query.Get("sort")
+	order := "created_at DESC, id DESC"
+	switch sort {
+	case "", "newest":
+	case "nearest":
+		order = "starts_at ASC, id ASC"
+	case "amount_asc":
+		order = "amount_kopecks ASC, id ASC"
+	case "amount_desc":
+		order = "amount_kopecks DESC, id DESC"
+	default:
+		fields["sort"] = []string{"Выберите доступный порядок сортировки."}
+	}
 	if httpapi.ValidationError(c, fields) {
 		return
 	}
@@ -66,12 +141,19 @@ func (h *Handler) list(c *gin.Context) {
         SELECT * FROM gigs WHERE status = 'open'
           AND ($1 = '' OR strpos(lower(title), lower($1)) > 0)
           AND ($2 = '' OR lower(city) = lower($2))
+          AND ($3 = '' OR category = $3)
+          AND ($4::bigint IS NULL OR amount_kopecks >= $4)
+          AND ($5::bigint IS NULL OR amount_kopecks <= $5)
+          AND ($6::timestamptz IS NULL OR starts_at >= $6)
+          AND ($7::timestamptz IS NULL OR starts_at < $7)
+          AND ($8::bigint IS NULL OR extract(epoch FROM (ends_at - starts_at)) <= $8::bigint * 60)
     )
-    SELECT COALESCE(jsonb_agg(page.item ORDER BY page.created_at DESC, page.id DESC), '[]'::jsonb),
+    SELECT COALESCE(jsonb_agg(page.item ORDER BY `+order+`), '[]'::jsonb),
            (SELECT count(*) FROM filtered)
-    FROM (SELECT `+summaryJSON+` AS item, g.created_at, g.id FROM filtered g `+profileJoins+`
-          ORDER BY g.created_at DESC, g.id DESC LIMIT $3 OFFSET $4) page`,
-		search, city, pageSize, (page-1)*pageSize).Scan(&result.Items, &result.Total)
+    FROM (SELECT `+summaryJSON+` AS item, g.created_at, g.starts_at, g.amount_kopecks, g.id FROM filtered g `+profileJoins+`
+          ORDER BY g.`+strings.ReplaceAll(order, ", ", ", g.")+` LIMIT $9 OFFSET $10) page`,
+		search, city, category, numbers["minAmountKopecks"], numbers["maxAmountKopecks"],
+		dates["startsFrom"], dates["startsBefore"], numbers["maxDurationMinutes"], pageSize, (page-1)*pageSize).Scan(&result.Items, &result.Total)
 	if err != nil {
 		httpapi.InternalError(c)
 		return

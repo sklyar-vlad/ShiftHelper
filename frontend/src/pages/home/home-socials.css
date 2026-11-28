@@ -1,0 +1,46 @@
+.home-socials {
+  padding-block: clamp(44px, 6vw, 84px);
+  background: #f2f4f5;
+  box-shadow: 0 0 0 100vmax #f2f4f5;
+  clip-path: inset(0 -100vmax);
+  text-align: center;
+}
+
+.home-socials h2 {
+  max-width: 1000px;
+  margin: 0 auto;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.2;
+}
+
+.home-socials h2 span {
+  display: block;
+}
+
+.home-socials-icons {
+  display: flex;
+  justify-content: center;
+  gap: clamp(22px, 3vw, 34px);
+  margin: clamp(44px, 8vw, 110px) 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.home-socials-icons img {
+  display: block;
+  width: clamp(36px, 4vw, 42px);
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.home-socials p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 767px) {
+  .home-socials h2 span {
+    display: inline;
+  }
+}

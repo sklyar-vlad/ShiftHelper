@@ -16,6 +16,7 @@ info:
     Суммы — целые копейки RUB. Текстовые поля обрезаются по краям до проверки длины, пароль не изменяется.
 
     Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100.
+    Для уведомлений используется курсор nextCursor.
 
     Пустая страница возвращает items: [] и total: 0 либо общее число записей при выходе за последнюю страницу. Между
     запросами страницы могут изменяться.
@@ -26,7 +27,8 @@ info:
     Для закрытых ресурсов доступ проверяется до состояния: отсутствие прав на скрытые данные даёт 404; неверная
     роль или действие над видимым чужим ресурсом — 403; конфликт состояния — 409.
 
-    Изменения статусов атомарны. Повторное действие даёт 409 и не меняет время переходов. Сервер определяет текущего
+    Изменения статусов заданий и откликов атомарны. Повторное действие над ними даёт 409 и не меняет время переходов.
+    Повторная отметка уведомления прочитанным допустима. Сервер определяет текущего
     пользователя по сессии.'
 servers:
 - url: /
@@ -111,6 +113,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
       requestBody:
@@ -147,6 +151,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
       requestBody:
@@ -203,7 +209,7 @@ paths:
       tags:
       - Users
       summary: Изменить свой профиль
-      description: Оба поля обязательны. Пустой bio очищает описание. Email и роль не редактируются.
+      description: Поля name и bio обязательны. Пустой bio очищает описание. Специализации может менять только исполнитель. Email и роль не редактируются.
       security:
       - sessionCookie: []
       responses:
@@ -255,6 +261,182 @@ paths:
         schema:
           type: string
           format: uuid
+  /api/v1/gig-place-suggestions:
+    post:
+      operationId: suggestGigPlaces
+      tags:
+      - Gigs
+      summary: Подсказать адрес задания по неполному вводу
+      description: Только для заказчика. Возвращает до семи вариантов в выбранном городе РФ с учётом явно указанного региона.
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [city, address]
+              properties:
+                city:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: Название города или город и регион через запятую.
+                address:
+                  type: string
+                  minLength: 3
+                  maxLength: 300
+                  description: Часть адреса. Длина проверяется после обрезки пробелов.
+      responses:
+        '200':
+          description: Подсказки адреса. Пустой список означает, что подходящих вариантов нет.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 7
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [label, address, city, kind, complete, attribution]
+                  properties:
+                    label:
+                      type: string
+                      description: Полный текст варианта для выпадающего списка.
+                    address:
+                      type: string
+                      description: Улица, номер дома или название места для поля адреса.
+                    city:
+                      type: string
+                    region:
+                      type: string
+                    kind:
+                      type: string
+                      enum: [street, building, amenity]
+                    complete:
+                      type: boolean
+                      description: Вариант с номером дома и точкой, которую можно показать для уточнения.
+                    attribution:
+                      type: string
+                      description: Атрибуция источника адреса Geoapify.
+                    point:
+                      allOf:
+                      - $ref: '#/components/schemas/GigPoint'
+                      description: Только для complete=true. Для улиц и неполных вариантов точка отсутствует.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          description: Превышен лимит подсказок или общий лимит геокодирования. Используйте Retry-After перед следующим запросом.
+          headers:
+            Retry-After:
+              description: Минимальное число секунд до следующей попытки.
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Адресный поиск не настроен или временно недоступен. Ручной ввод адреса доступен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/gig-place-search:
+    post:
+      operationId: searchGigPlace
+      tags:
+      - Gigs
+      summary: Найти адрес задания на карте
+      description: Только для заказчика. Не более трёх вариантов адреса в России. Выбор и сохранение выполняются отдельно.
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [city, address]
+              properties:
+                city:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                address:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+      responses:
+        '200':
+          description: Найденные адреса и координаты Geoapify. Пустой список означает, что подходящих вариантов нет.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 3
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [label, point]
+                  properties:
+                    label:
+                      type: string
+                    point:
+                      allOf:
+                      - $ref: '#/components/schemas/GigPoint'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          description: Превышен лимит запросов к поиску адресов.
+          headers:
+            Retry-After:
+              description: Минимальное число секунд до следующей попытки, если известно.
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Адресный поиск не настроен или временно недоступен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/gig-categories:
+    get:
+      operationId: listGigCategories
+      tags: [Gigs]
+      summary: Общий справочник категорий заданий
+      description: Публичный список кодов и русских названий в порядке отображения. Пользователь не создаёт категории.
+      security: []
+      responses:
+        '200':
+          description: Категории заданий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GigCategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/gigs:
     get:
       operationId: listGigs
@@ -263,7 +445,13 @@ paths:
       summary: Каталог открытых подработок
       description: Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города
         без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно.
-        total — число после фильтрации.
+        total — число после фильтрации до пагинации. Оплата — целые копейки RUB, границы включены.
+        Начало работы входит в интервал [startsFrom, startsBefore); длительность — endsAt минус startsAt.
+        Пустые значения новых фильтров и sort не ограничивают выдачу. minAmountKopecks не больше maxAmountKopecks;
+        startsFrom строго раньше startsBefore. Неизвестная категория, сортировка или неверные границы дают 400.
+        newest сортирует createdAt DESC, id DESC; nearest — startsAt ASC, id ASC;
+        amount_asc — amountKopecks ASC, id ASC; amount_desc — amountKopecks DESC, id DESC.
+        При неизменном каталоге порядок страниц стабилен; параллельные изменения могут сдвигать offset-пагинацию.
       security: []
       responses:
         '200':
@@ -291,6 +479,53 @@ paths:
           type: string
           minLength: 0
           maxLength: 100
+      - name: category
+        in: query
+        description: Код из GET /api/v1/gig-categories. Пустое значение не фильтрует.
+        schema:
+          type: string
+      - name: minAmountKopecks
+        in: query
+        description: Минимальная общая оплата в целых копейках RUB, включительно.
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000000000
+      - name: maxAmountKopecks
+        in: query
+        description: Максимальная общая оплата в целых копейках RUB, включительно.
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000000000
+      - name: startsFrom
+        in: query
+        description: Начало работы не раньше этой даты и времени с часовым поясом.
+        schema:
+          type: string
+          format: date-time
+      - name: startsBefore
+        in: query
+        description: Начало работы строго раньше этой даты и времени с часовым поясом.
+        schema:
+          type: string
+          format: date-time
+      - name: maxDurationMinutes
+        in: query
+        description: Максимальная длительность в целых минутах, включительно (например, 120, 240 или 480).
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+      - name: sort
+        in: query
+        schema:
+          type: string
+          enum: [newest, nearest, amount_asc, amount_desc]
+          default: newest
     post:
       operationId: createGig
       tags:
@@ -356,9 +591,14 @@ paths:
       - Gigs
       summary: Отменить задание
       description: 'Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected.
-        Конкурентный выбор и отмена: успешно только одно действие.'
+        Конкурентный выбор и отмена: успешно только одно действие. Запрос без тела или без reason сохраняется без указанной причины.'
       security:
       - sessionCookie: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelGigRequest'
       responses:
         '200':
           description: Успешный ответ
@@ -380,6 +620,44 @@ paths:
           $ref: '#/components/responses/InternalError'
       parameters:
       - $ref: '#/components/parameters/GigId'
+  /api/v1/gigs/{gigId}/progress:
+    post:
+      operationId: advanceGigProgress
+      tags:
+      - Gigs
+      summary: Отметить этап работы
+      description: Только выбранный исполнитель в in_progress. Сначала arrived, затем started. Повтор текущей отметки безопасен.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [stage]
+              properties:
+                stage:
+                  type: string
+                  enum: [arrived, started]
+      responses:
+        '204':
+          description: Этап сохранён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/gigs/{gigId}/submit:
     post:
       operationId: submitGig
@@ -521,7 +799,7 @@ paths:
       summary: Выбрать одного исполнителя
       description: 'Только customer-владелец и pending отклик этого задания. Атомарно: open → in_progress, отклик
         → selected, остальные pending → rejected, selectedWorker устанавливается. Несовпадение gigId/applicationId
-        — 404. Два выбора либо выбор и отмена: один успех, другой 409 STATE_CONFLICT.'
+        — 404. Редакция, подтверждённая в отклике, должна совпадать с текущей, иначе 409 STATE_CONFLICT. Два выбора либо выбор и отмена: один успех, другой 409 STATE_CONFLICT.'
       security:
       - sessionCookie: []
       responses:
@@ -641,6 +919,32 @@ paths:
           $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
+  /api/v1/me/gigs/{gigId}/hide:
+    post:
+      operationId: hideMyGig
+      tags:
+      - Gigs
+      summary: Убрать отменённое задание из личных списков заказчика
+      description: Доступно владельцу отменённого задания. Повторный вызов успешен. Доступ к деталям и история других участников сохраняются.
+      security:
+      - sessionCookie: []
+      responses:
+        '204':
+          description: Задание скрыто из личных списков
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      parameters:
+      - $ref: '#/components/parameters/GigId'
   /api/v1/me/gigs:
     get:
       operationId: listMyGigs
@@ -699,6 +1003,201 @@ paths:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
       - $ref: '#/components/parameters/Scope'
+  /api/v1/me/notifications:
+    get:
+      operationId: listMyNotifications
+      tags: [Personal]
+      summary: Мои уведомления и число непрочитанных
+      description: Новые первыми. Непрочитанные считаются по всей ленте в том же снимке данных, что и страница.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/PageSize'
+      - name: cursor
+        in: query
+        description: Передайте nextCursor предыдущей страницы без изменений. Первую страницу запрашивайте без курсора.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      responses:
+        '200':
+          description: Страница уведомлений текущего пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/me/notifications/{notificationId}/read:
+    post:
+      operationId: readMyNotification
+      tags: [Personal]
+      summary: Отметить уведомление прочитанным
+      description: При повторе время первого прочтения сохраняется. Чужое уведомление недоступно и возвращает 404.
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Уведомление прочитано
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/me/notifications/read-all:
+    post:
+      operationId: readAllMyNotifications
+      tags: [Personal]
+      summary: Отметить все текущие уведомления прочитанными
+      description: Повтор допустим. Операция затрагивает только собственные уведомления, видимые в начале обновления.
+      security:
+      - sessionCookie: []
+      responses:
+        '204':
+          description: Текущие уведомления прочитаны
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/gigs/{gigId}/terms:
+    put:
+      operationId: editGigTerms
+      tags:
+      - Gigs
+      summary: Изменить или предложить условия
+      description: 'Только владелец. open: применить новую редакцию, отклики сохраняются и требуют повторного согласия.
+        in_progress: создать единственное предложение без изменения текущих условий. termsVersion должна совпадать
+        с текущей, иначе 409. В остальных состояниях 409.'
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      responses: &id001
+        '200':
+          description: Актуальное задание после действия
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditGigTermsRequest'
+  /api/v1/gigs/{gigId}/applications/{applicationId}/confirm-terms:
+    post:
+      operationId: confirmApplicationTerms
+      tags:
+      - Gigs
+      summary: Подтвердить текущие условия отклика
+      description: Только автор pending-отклика на open. Передаётся прочитанная текущая termsVersion. Повтор, устаревшая
+        версия или закрытое задание — 409. Чужой отклик — 404.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - $ref: '#/components/parameters/ApplicationId'
+      responses: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TermsVersionRequest'
+  /api/v1/gigs/{gigId}/changes/{changeId}/accept:
+    post:
+      operationId: acceptGigChange
+      tags:
+      - Gigs
+      summary: Принять предложенные условия
+      description: 'Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится
+        к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает
+        активное предложение как expired; работа продолжается независимо от ответа на предложение.'
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - name: changeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses: *id001
+  /api/v1/gigs/{gigId}/changes/{changeId}/reject:
+    post:
+      operationId: rejectGigChange
+      tags:
+      - Gigs
+      summary: Отказаться от предложенных условий
+      description: 'Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится
+        к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает
+        активное предложение как expired; работа продолжается независимо от ответа на предложение.'
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - name: changeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses: *id001
+  /api/v1/gigs/{gigId}/changes/{changeId}/withdraw:
+    post:
+      operationId: withdrawGigChange
+      tags:
+      - Gigs
+      summary: Отозвать предложение условий
+      description: 'Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится
+        к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает
+        активное предложение как expired; работа продолжается независимо от ответа на предложение.'
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/GigId'
+      - name: changeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses: *id001
 components:
   schemas:
     ServiceStatus:
@@ -816,6 +1315,13 @@ components:
       - ratingAverage
       - reviewsCount
       properties:
+        specialties:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CategoryCode'
+          description: Коды направлений исполнителя в порядке выбора. У заказчика пустой список.
         id:
           type: string
           format: uuid
@@ -855,6 +1361,17 @@ components:
       - email
       - createdAt
       properties:
+        specialties:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CategoryCode'
+          description: Коды направлений исполнителя в порядке выбора. У заказчика пустой список.
+        contact:
+          type: string
+          maxLength: 200
+          description: Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
         id:
           type: string
           format: uuid
@@ -939,6 +1456,17 @@ components:
       - name
       - bio
       properties:
+        specialties:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CategoryCode'
+          description: Только для исполнителя. Отсутствие сохраняет список, пустой список очищает.
+        contact:
+          type: string
+          maxLength: 200
+          description: Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
         name:
           type: string
           minLength: 1
@@ -947,6 +1475,55 @@ components:
           type: string
           minLength: 0
           maxLength: 1000
+    CategoryCode:
+      type: string
+      enum: [repair, electrical, plumbing, cleaning, moving, delivery, retail, warehouse, events, other]
+      description: Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.
+    GigCategory:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          $ref: '#/components/schemas/CategoryCode'
+        name:
+          type: string
+    GigPoint:
+      type: object
+      nullable: true
+      additionalProperties: false
+      description: Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        source:
+          type: string
+          enum: [manual, geoapify]
+          default: manual
+        attribution:
+          type: string
+          maxLength: 300
+        addressReference:
+          type: object
+          additionalProperties: false
+          description: Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.
+          required: [latitude, longitude]
+          properties:
+            latitude:
+              type: number
+              minimum: -90
+              maximum: 90
+            longitude:
+              type: number
+              minimum: -180
+              maximum: 180
     CreateGigRequest:
       type: object
       additionalProperties: false
@@ -960,6 +1537,11 @@ components:
       - endsAt
       - amountKopecks
       properties:
+        point:
+          allOf:
+            - $ref: '#/components/schemas/GigPoint'
+        category:
+          $ref: '#/components/schemas/CategoryCode'
         title:
           type: string
           minLength: 1
@@ -996,6 +1578,28 @@ components:
           minimum: 1
           maximum: 10000000000
           description: Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).
+    CancellationReason:
+      type: string
+      enum: [no_longer_needed, schedule_changed, terms_changed, posted_by_mistake, other]
+    CancelGigRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          $ref: '#/components/schemas/CancellationReason'
+        comment:
+          type: string
+          maxLength: 500
+    GigCancellation:
+      type: object
+      additionalProperties: false
+      required: [comment]
+      properties:
+        reason:
+          $ref: '#/components/schemas/CancellationReason'
+        comment:
+          type: string
+          maxLength: 500
     GigSummary:
       type: object
       additionalProperties: false
@@ -1013,6 +1617,20 @@ components:
       - createdAt
       - updatedAt
       properties:
+        cancellation:
+          $ref: '#/components/schemas/GigCancellation'
+          description: Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.
+        category:
+          $ref: '#/components/schemas/CategoryCode'
+        termsVersion:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
+        hasPendingChange:
+          type: boolean
+          default: false
+          description: Ожидается решение по новым условиям начатой работы.
         id:
           type: string
           format: uuid
@@ -1101,6 +1719,11 @@ components:
       - createdAt
       - updatedAt
       properties:
+        termsVersion:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
         id:
           type: string
           format: uuid
@@ -1147,6 +1770,37 @@ components:
       - cancelledAt
       - myApplication
       properties:
+        workStage:
+          type: string
+          enum: [assigned, arrived, started]
+          description: Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.
+        hiddenFromMyGigs:
+          type: boolean
+          description: Присутствует со значением true только у владельца, скрывшего задание.
+        point:
+          allOf:
+            - $ref: '#/components/schemas/GigPoint'
+          description: Текущая точка, доступна в тех же ответах, что и адрес задания.
+        cancellation:
+          $ref: '#/components/schemas/GigCancellation'
+          description: Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.
+        category:
+          $ref: '#/components/schemas/CategoryCode'
+        termsVersion:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
+        hasPendingChange:
+          type: boolean
+          default: false
+          description: Ожидается решение по новым условиям начатой работы.
+        pendingChange:
+          $ref: '#/components/schemas/TermsChange'
+        counterpartyContact:
+          type: string
+          maxLength: 200
+          description: Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.
         id:
           type: string
           format: uuid
@@ -1251,45 +1905,100 @@ components:
           pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
           nullable: true
         myApplication:
-          type: object
-          additionalProperties: false
-          required:
-          - id
-          - gigId
-          - worker
-          - comment
-          - status
-          - createdAt
-          - updatedAt
-          properties:
-            id:
-              type: string
-              format: uuid
-            gigId:
-              type: string
-              format: uuid
-            worker:
-              $ref: '#/components/schemas/PublicUser'
-            comment:
-              type: string
-              minLength: 0
-              maxLength: 1000
-            status:
-              $ref: '#/components/schemas/ApplicationStatus'
-            createdAt:
-              type: string
-              format: date-time
-              pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
-            updatedAt:
-              type: string
-              format: date-time
-              pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
           nullable: true
-          description: Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.
+          allOf:
+          - $ref: '#/components/schemas/Application'
+    EditGigTermsRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - title
+      - description
+      - requirements
+      - city
+      - address
+      - startsAt
+      - endsAt
+      - amountKopecks
+      - termsVersion
+      properties:
+        point:
+          allOf:
+            - $ref: '#/components/schemas/GigPoint'
+          description: null очищает точку. Пропуск сохраняет её только при неизменных городе и адресе.
+        category:
+          $ref: '#/components/schemas/CategoryCode'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        requirements:
+          type: string
+          minLength: 0
+          maxLength: 2000
+          description: Обязательное поле; пустая строка означает отсутствие дополнительных требований.
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        address:
+          type: string
+          minLength: 1
+          maxLength: 300
+        startsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          description: Будущее начало либо неизменённое текущее начало, даже если оно в прошлом.
+        endsAt:
+          type: string
+          format: date-time
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+          description: Строго позже startsAt.
+        amountKopecks:
+          type: integer
+          minimum: 1
+          maximum: 10000000000
+          description: Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).
+        termsVersion: &id001
+          type: integer
+          minimum: 1
+    TermsVersionRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - termsVersion
+      properties:
+        termsVersion: *id001
+    TermsChange:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - termsVersion
+      - terms
+      description: Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая
+        базовая редакция. Условия предложения неизменяемы, решение относится к UUID.
+      properties:
+        id:
+          type: string
+          format: uuid
+        termsVersion: *id001
+        terms:
+          $ref: '#/components/schemas/CreateGigRequest'
     CreateApplicationRequest:
       type: object
       additionalProperties: false
       properties:
+        termsVersion:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
         comment:
           type: string
           minLength: 0
@@ -1305,6 +2014,8 @@ components:
       - NOT_FOUND
       - EMAIL_TAKEN
       - ALREADY_APPLIED
+      - ALREADY_REVIEWED
+      - RATE_LIMITED
       - STATE_CONFLICT
       - INTERNAL_ERROR
     ErrorResponse:
@@ -1335,6 +2046,58 @@ components:
                   minLength: 1
                   maxLength: 500
               description: Ошибки по именам полей запроса, например email или startsAt; только для VALIDATION_ERROR.
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, type, gigId, gigTitle, createdAt, readAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,63}$'
+          description: >-
+            Код события для выбора текста и действия. application_created, application_selected,
+            application_rejected, gig_cancelled, gig_terms_changed, gig_change_proposed,
+            gig_change_accepted, gig_change_rejected, gig_change_withdrawn, gig_submitted, gig_completed.
+            Для application_rejected и gig_cancelled целевой экран — /my-gigs?view=applications&scope=history.
+        gigId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Идентификатор задания. Доступ к странице проверяется отдельно.
+        gigTitle:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: Название задания на момент события, обычный текст.
+        cancellationReason:
+          $ref: '#/components/schemas/CancellationReason'
+          description: Код причины только у gig_cancelled, если причина была указана.
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+    NotificationPage:
+      type: object
+      additionalProperties: false
+      required: [items, unreadCount, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        unreadCount:
+          type: integer
+          minimum: 0
+        nextCursor:
+          type: string
+          nullable: true
+          maxLength: 128
     GigPage:
       type: object
       additionalProperties: false
@@ -1467,6 +2230,18 @@ components:
         - history
         default: all
   responses:
+    TooManyRequests:
+      description: Слишком много попыток входа или регистрации с одного IP. Счётчики раздельные, окно — одна минута (30 входов или 20 регистраций), сбрасываются при перезапуске API.
+      headers:
+        Retry-After:
+          description: Минимальное число секунд до следующей попытки.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     BadRequest:
       description: VALIDATION_ERROR — некорректный ввод.
       content:

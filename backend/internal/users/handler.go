@@ -1,6 +1,7 @@
 package users
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -14,6 +15,7 @@ import (
 )
 
 type PublicUser struct {
+	Specialties        []string `json:"specialties"`
 	ID                 string   `json:"id"`
 	Name               string   `json:"name"`
 	Bio                string   `json:"bio"`
@@ -35,8 +37,10 @@ func (h *Handler) Register(api *gin.RouterGroup, requireUser gin.HandlerFunc) {
 
 func (h *Handler) update(c *gin.Context) {
 	var input struct {
-		Name *string `json:"name"`
-		Bio  *string `json:"bio"`
+		Specialties json.RawMessage `json:"specialties"`
+		Contact     *string         `json:"contact"`
+		Name        *string         `json:"name"`
+		Bio         *string         `json:"bio"`
 	}
 	if !httpapi.DecodeJSON(c, &input, 16*1024) {
 		return
@@ -58,12 +62,38 @@ func (h *Handler) update(c *gin.Context) {
 			fields["bio"] = []string{"Описание должно содержать не больше 1000 символов."}
 		}
 	}
+	if input.Contact != nil {
+		*input.Contact = strings.TrimSpace(*input.Contact)
+		if utf8.RuneCountInString(*input.Contact) > 200 || strings.ContainsRune(*input.Contact, 0) {
+			fields["contact"] = []string{"Контакт должен содержать не больше 200 символов."}
+		}
+	}
+	user := auth.UserFromContext(c)
+	ctx := c.Request.Context()
+	var specialties []string
+	if input.Specialties != nil {
+		if user.Role != "worker" {
+			httpapi.Fail(c, http.StatusForbidden, "FORBIDDEN", "Специализации может менять только исполнитель.")
+			return
+		}
+		if json.Unmarshal(input.Specialties, &specialties) != nil || specialties == nil || len(specialties) > 5 {
+			fields["specialties"] = []string{"Выберите до пяти направлений работы."}
+		} else if len(specialties) > 0 {
+			var count int
+			if err := h.pool.QueryRow(ctx, "SELECT count(*) FROM gig_categories WHERE code = ANY($1)", specialties).Scan(&count); err != nil {
+				httpapi.InternalError(c)
+				return
+			}
+			if count != len(specialties) {
+				fields["specialties"] = []string{"Выберите направления из справочника без повторов."}
+			}
+		}
+	}
 	if httpapi.ValidationError(c, fields) {
 		return
 	}
-	user := auth.UserFromContext(c)
-	err := h.pool.QueryRow(c.Request.Context(), `UPDATE users SET name = $1, bio = $2, updated_at = now()
-        WHERE id = $3 RETURNING name, bio`, *input.Name, *input.Bio, user.ID).Scan(&user.Name, &user.Bio)
+	err := h.pool.QueryRow(ctx, `UPDATE users SET name = $1, bio = $2, contact = COALESCE($4, contact), specialties = COALESCE($5, specialties), updated_at = now()
+        WHERE id = $3 RETURNING name, bio, contact, specialties`, *input.Name, *input.Bio, user.ID, input.Contact, specialties).Scan(&user.Name, &user.Bio, &user.Contact, &user.Specialties)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "Войдите в аккаунт.")
 	} else if err != nil {
@@ -79,12 +109,12 @@ func (h *Handler) public(c *gin.Context) {
 		return
 	}
 	var user PublicUser
-	err := h.pool.QueryRow(c.Request.Context(), `SELECT u.id::text, u.name, u.bio, u.role,
+	err := h.pool.QueryRow(c.Request.Context(), `SELECT u.id::text, u.name, u.bio, u.role, u.specialties,
         (SELECT count(*) FROM gigs g WHERE g.status = 'completed'
          AND ((u.role = 'customer' AND g.customer_id = u.id) OR (u.role = 'worker' AND g.selected_worker_id = u.id))),
         (SELECT avg(score)::float8 FROM reviews WHERE recipient_id = u.id),
         (SELECT count(*) FROM reviews WHERE recipient_id = u.id)
-        FROM users u WHERE u.id = $1`, c.Param("userId")).Scan(&user.ID, &user.Name, &user.Bio, &user.Role, &user.CompletedGigsCount, &user.RatingAverage, &user.ReviewsCount)
+        FROM users u WHERE u.id = $1`, c.Param("userId")).Scan(&user.ID, &user.Name, &user.Bio, &user.Role, &user.Specialties, &user.CompletedGigsCount, &user.RatingAverage, &user.ReviewsCount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Пользователь не найден.")
 	} else if err != nil {

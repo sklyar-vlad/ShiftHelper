@@ -7,11 +7,11 @@
  * Нет черновиков, редактирования заданий, платежей, чата, споров, восстановления пароля или подтверждения email.
  * Все даты — RFC 3339 (ISO 8601 с обязательным Z или смещением часового пояса); ответы используют UTC.
  * Суммы — целые копейки RUB. Текстовые поля обрезаются по краям до проверки длины, пароль не изменяется.
- * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100.
+ * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100. Для уведомлений используется курсор nextCursor.
  * Пустая страница возвращает items: [] и total: 0 либо общее число записей при выходе за последнюю страницу. Между запросами страницы могут изменяться.
  * Ошибки имеют envelope error с code, message и необязательным fields. Неизвестные поля тела и параметры, неверные UUID, даты, JSON и фильтры дают 400.
  * Для закрытых ресурсов доступ проверяется до состояния: отсутствие прав на скрытые данные даёт 404; неверная роль или действие над видимым чужим ресурсом — 403; конфликт состояния — 409.
- * Изменения статусов атомарны. Повторное действие даёт 409 и не меняет время переходов. Сервер определяет текущего пользователя по сессии.
+ * Изменения статусов заданий и откликов атомарны. Повторное действие над ними даёт 409 и не меняет время переходов. Повторная отметка уведомления прочитанным допустима. Сервер определяет текущего пользователя по сессии.
  * OpenAPI spec version: 0.3.0
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -123,7 +123,30 @@ export interface GigReviews {
   items: Review[];
 }
 
+/**
+ * Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.
+ */
+export type CategoryCode = (typeof CategoryCode)[keyof typeof CategoryCode];
+
+export const CategoryCode = {
+  repair: "repair",
+  electrical: "electrical",
+  plumbing: "plumbing",
+  cleaning: "cleaning",
+  moving: "moving",
+  delivery: "delivery",
+  retail: "retail",
+  warehouse: "warehouse",
+  events: "events",
+  other: "other",
+} as const;
+
 export interface PublicUser {
+  /**
+   * Коды направлений исполнителя в порядке выбора. У заказчика пустой список.
+   * @maxItems 5
+   */
+  specialties?: CategoryCode[];
   id: string;
   /**
    * @minLength 1
@@ -150,6 +173,16 @@ export interface PublicUser {
 }
 
 export interface CurrentUser {
+  /**
+   * Коды направлений исполнителя в порядке выбора. У заказчика пустой список.
+   * @maxItems 5
+   */
+  specialties?: CategoryCode[];
+  /**
+   * Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
+   * @maxLength 200
+   */
+  contact?: string;
   id: string;
   /**
    * @minLength 1
@@ -215,6 +248,16 @@ export interface LoginRequest {
 
 export interface UpdateProfileRequest {
   /**
+   * Только для исполнителя. Отсутствие сохраняет список, пустой список очищает.
+   * @maxItems 5
+   */
+  specialties?: CategoryCode[];
+  /**
+   * Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.
+   * @maxLength 200
+   */
+  contact?: string;
+  /**
    * @minLength 1
    * @maxLength 100
    */
@@ -226,7 +269,60 @@ export interface UpdateProfileRequest {
   bio: string;
 }
 
+export interface GigCategory {
+  code: CategoryCode;
+  name: string;
+}
+
+export type GigPointSource =
+  (typeof GigPointSource)[keyof typeof GigPointSource];
+
+export const GigPointSource = {
+  manual: "manual",
+  geoapify: "geoapify",
+} as const;
+
+/**
+ * Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.
+ */
+export type GigPointAddressReference = {
+  /**
+   * @minimum -90
+   * @maximum 90
+   */
+  latitude: number;
+  /**
+   * @minimum -180
+   * @maximum 180
+   */
+  longitude: number;
+};
+
+/**
+ * Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.
+ * @nullable
+ */
+export type GigPoint = {
+  /**
+   * @minimum -90
+   * @maximum 90
+   */
+  latitude: number;
+  /**
+   * @minimum -180
+   * @maximum 180
+   */
+  longitude: number;
+  source?: GigPointSource;
+  /** @maxLength 300 */
+  attribution?: string;
+  /** Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса. */
+  addressReference?: GigPointAddressReference;
+} | null;
+
 export interface CreateGigRequest {
+  point?: GigPoint | null;
+  category?: CategoryCode;
   /**
    * @minLength 1
    * @maxLength 150
@@ -271,6 +367,29 @@ export interface CreateGigRequest {
   amountKopecks: number;
 }
 
+export type CancellationReason =
+  (typeof CancellationReason)[keyof typeof CancellationReason];
+
+export const CancellationReason = {
+  no_longer_needed: "no_longer_needed",
+  schedule_changed: "schedule_changed",
+  terms_changed: "terms_changed",
+  posted_by_mistake: "posted_by_mistake",
+  other: "other",
+} as const;
+
+export interface CancelGigRequest {
+  reason?: CancellationReason;
+  /** @maxLength 500 */
+  comment?: string;
+}
+
+export interface GigCancellation {
+  reason?: CancellationReason;
+  /** @maxLength 500 */
+  comment: string;
+}
+
 /**
  * null до выбора исполнителя.
  * @nullable
@@ -301,6 +420,16 @@ export type GigSummarySelectedWorker = {
 } | null;
 
 export interface GigSummary {
+  /** Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене. */
+  cancellation?: GigCancellation;
+  category?: CategoryCode;
+  /**
+   * Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
+   * @minimum 1
+   */
+  termsVersion?: number;
+  /** Ожидается решение по новым условиям начатой работы. */
+  hasPendingChange?: boolean;
   id: string;
   /**
    * @minLength 1
@@ -337,6 +466,11 @@ export interface GigSummary {
 }
 
 export interface Application {
+  /**
+   * Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
+   * @minimum 1
+   */
+  termsVersion?: number;
   id: string;
   gigId: string;
   worker: PublicUser;
@@ -351,6 +485,17 @@ export interface Application {
   /** @pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$ */
   updatedAt: string;
 }
+
+/**
+ * Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.
+ */
+export type GigWorkStage = (typeof GigWorkStage)[keyof typeof GigWorkStage];
+
+export const GigWorkStage = {
+  assigned: "assigned",
+  arrived: "arrived",
+  started: "started",
+} as const;
 
 /**
  * null до выбора исполнителя.
@@ -382,26 +527,38 @@ export type GigSelectedWorker = {
 } | null;
 
 /**
- * Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.
- * @nullable
+ * Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.
  */
-export type GigMyApplication = {
+export interface TermsChange {
   id: string;
-  gigId: string;
-  worker: PublicUser;
-  /**
-   * @minLength 0
-   * @maxLength 1000
-   */
-  comment: string;
-  status: ApplicationStatus;
-  /** @pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$ */
-  createdAt: string;
-  /** @pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$ */
-  updatedAt: string;
-} | null;
+  /** @minimum 1 */
+  termsVersion: number;
+  terms: CreateGigRequest;
+}
 
 export interface Gig {
+  /** Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания. */
+  workStage?: GigWorkStage;
+  /** Присутствует со значением true только у владельца, скрывшего задание. */
+  hiddenFromMyGigs?: boolean;
+  /** Текущая точка, доступна в тех же ответах, что и адрес задания. */
+  point?: GigPoint | null;
+  /** Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене. */
+  cancellation?: GigCancellation;
+  category?: CategoryCode;
+  /**
+   * Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
+   * @minimum 1
+   */
+  termsVersion?: number;
+  /** Ожидается решение по новым условиям начатой работы. */
+  hasPendingChange?: boolean;
+  pendingChange?: TermsChange;
+  /**
+   * Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.
+   * @maxLength 200
+   */
+  counterpartyContact?: string;
   id: string;
   /**
    * @minLength 1
@@ -465,14 +622,70 @@ export interface Gig {
    * @pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
    */
   cancelledAt: string | null;
+  myApplication: Application | null;
+}
+
+export interface EditGigTermsRequest {
+  /** null очищает точку. Пропуск сохраняет её только при неизменных городе и адресе. */
+  point?: GigPoint | null;
+  category?: CategoryCode;
   /**
-   * Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.
-   * @nullable
+   * @minLength 1
+   * @maxLength 150
    */
-  myApplication: GigMyApplication;
+  title: string;
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  description: string;
+  /**
+   * Обязательное поле; пустая строка означает отсутствие дополнительных требований.
+   * @minLength 0
+   * @maxLength 2000
+   */
+  requirements: string;
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  city: string;
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
+  address: string;
+  /**
+   * Будущее начало либо неизменённое текущее начало, даже если оно в прошлом.
+   * @pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+   */
+  startsAt: string;
+  /**
+   * Строго позже startsAt.
+   * @pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$
+   */
+  endsAt: string;
+  /**
+   * Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).
+   * @minimum 1
+   * @maximum 10000000000
+   */
+  amountKopecks: number;
+  /** @minimum 1 */
+  termsVersion: number;
+}
+
+export interface TermsVersionRequest {
+  /** @minimum 1 */
+  termsVersion: number;
 }
 
 export interface CreateApplicationRequest {
+  /**
+   * Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.
+   * @minimum 1
+   */
+  termsVersion?: number;
   /**
    * @minLength 0
    * @maxLength 1000
@@ -490,6 +703,8 @@ export const ErrorCode = {
   NOT_FOUND: "NOT_FOUND",
   EMAIL_TAKEN: "EMAIL_TAKEN",
   ALREADY_APPLIED: "ALREADY_APPLIED",
+  ALREADY_REVIEWED: "ALREADY_REVIEWED",
+  RATE_LIMITED: "RATE_LIMITED",
   STATE_CONFLICT: "STATE_CONFLICT",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 } as const;
@@ -512,6 +727,42 @@ export type ErrorResponseError = {
 
 export interface ErrorResponse {
   error: ErrorResponseError;
+}
+
+export interface Notification {
+  id: string;
+  /**
+   * Код события для выбора текста и действия. application_created, application_selected, application_rejected, gig_cancelled, gig_terms_changed, gig_change_proposed, gig_change_accepted, gig_change_rejected, gig_change_withdrawn, gig_submitted, gig_completed. Для application_rejected и gig_cancelled целевой экран — /my-gigs?view=applications&scope=history.
+   * @pattern ^[a-z][a-z0-9_]{0,63}$
+   */
+  type: string;
+  /**
+   * Идентификатор задания. Доступ к странице проверяется отдельно.
+   * @nullable
+   */
+  gigId: string | null;
+  /**
+   * Название задания на момент события, обычный текст.
+   * @minLength 1
+   * @maxLength 150
+   */
+  gigTitle: string;
+  /** Код причины только у gig_cancelled, если причина была указана. */
+  cancellationReason?: CancellationReason;
+  createdAt: string;
+  /** @nullable */
+  readAt: string | null;
+}
+
+export interface NotificationPage {
+  items: Notification[];
+  /** @minimum 0 */
+  unreadCount: number;
+  /**
+   * @maxLength 128
+   * @nullable
+   */
+  nextCursor: string | null;
 }
 
 export interface GigPage {
@@ -559,6 +810,11 @@ export interface MyApplicationPage {
 }
 
 /**
+ * Слишком много попыток входа или регистрации с одного IP. Счётчики раздельные, окно — одна минута (30 входов или 20 регистраций), сбрасываются при перезапуске API.
+ */
+export type TooManyRequestsResponse = ErrorResponse;
+
+/**
  * VALIDATION_ERROR — некорректный ввод.
  */
 export type BadRequestResponse = ErrorResponse;
@@ -601,6 +857,64 @@ export const ScopeParameter = {
   history: "history",
 } as const;
 
+export type SuggestGigPlacesBody = {
+  /**
+   * Название города или город и регион через запятую.
+   * @minLength 1
+   * @maxLength 100
+   */
+  city: string;
+  /**
+   * Часть адреса. Длина проверяется после обрезки пробелов.
+   * @minLength 3
+   * @maxLength 300
+   */
+  address: string;
+};
+
+export type SuggestGigPlaces200ItemKind =
+  (typeof SuggestGigPlaces200ItemKind)[keyof typeof SuggestGigPlaces200ItemKind];
+
+export const SuggestGigPlaces200ItemKind = {
+  street: "street",
+  building: "building",
+  amenity: "amenity",
+} as const;
+
+export type SuggestGigPlaces200Item = {
+  /** Полный текст варианта для выпадающего списка. */
+  label: string;
+  /** Улица, номер дома или название места для поля адреса. */
+  address: string;
+  city: string;
+  region?: string;
+  kind: SuggestGigPlaces200ItemKind;
+  /** Вариант с номером дома и точкой, которую можно показать для уточнения. */
+  complete: boolean;
+  /** Атрибуция источника адреса Geoapify. */
+  attribution: string;
+  /** Только для complete=true. Для улиц и неполных вариантов точка отсутствует. */
+  point?: GigPoint | null;
+};
+
+export type SearchGigPlaceBody = {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  city: string;
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
+  address: string;
+};
+
+export type SearchGigPlace200Item = {
+  label: string;
+  point: GigPoint | null;
+};
+
 export type ListGigsParams = {
   /**
    * @minimum 1
@@ -622,6 +936,58 @@ export type ListGigsParams = {
    * @maxLength 100
    */
   city?: string;
+  /**
+   * Код из GET /api/v1/gig-categories. Пустое значение не фильтрует.
+   */
+  category?: string;
+  /**
+   * Минимальная общая оплата в целых копейках RUB, включительно.
+   * @minimum 0
+   * @maximum 10000000000
+   */
+  minAmountKopecks?: number;
+  /**
+   * Максимальная общая оплата в целых копейках RUB, включительно.
+   * @minimum 0
+   * @maximum 10000000000
+   */
+  maxAmountKopecks?: number;
+  /**
+   * Начало работы не раньше этой даты и времени с часовым поясом.
+   */
+  startsFrom?: string;
+  /**
+   * Начало работы строго раньше этой даты и времени с часовым поясом.
+   */
+  startsBefore?: string;
+  /**
+   * Максимальная длительность в целых минутах, включительно (например, 120, 240 или 480).
+   * @minimum 1
+   * @maximum 2147483647
+   */
+  maxDurationMinutes?: number;
+  sort?: ListGigsSort;
+};
+
+export type ListGigsSort = (typeof ListGigsSort)[keyof typeof ListGigsSort];
+
+export const ListGigsSort = {
+  newest: "newest",
+  nearest: "nearest",
+  amount_asc: "amount_asc",
+  amount_desc: "amount_desc",
+} as const;
+
+export type AdvanceGigProgressBodyStage =
+  (typeof AdvanceGigProgressBodyStage)[keyof typeof AdvanceGigProgressBodyStage];
+
+export const AdvanceGigProgressBodyStage = {
+  arrived: "arrived",
+  started: "started",
+} as const;
+
+export type AdvanceGigProgressBody = {
+  stage: AdvanceGigProgressBodyStage;
 };
 
 export type ListGigApplicationsParams = {
@@ -664,6 +1030,20 @@ export type ListMyApplicationsParams = {
    */
   pageSize?: PageSizeParameter;
   scope?: ScopeParameter;
+};
+
+export type ListMyNotificationsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: PageSizeParameter;
+  /**
+   * Передайте nextCursor предыдущей страницы без изменений. Первую страницу запрашивайте без курсора.
+   * @minLength 1
+   * @maxLength 128
+   */
+  cursor?: string;
 };
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
@@ -1142,6 +1522,7 @@ export const getRegisterMutationOptions = <
     | BadRequestResponse
     | ForbiddenResponse
     | ConflictResponse
+    | TooManyRequestsResponse
     | InternalErrorResponse,
   TContext = unknown,
 >(options?: {
@@ -1187,6 +1568,7 @@ export type RegisterMutationError =
   | BadRequestResponse
   | ForbiddenResponse
   | ConflictResponse
+  | TooManyRequestsResponse
   | InternalErrorResponse;
 export type RegisterMutationVariables = { data: RegisterRequest };
 
@@ -1198,6 +1580,7 @@ export const useRegister = <
     | BadRequestResponse
     | ForbiddenResponse
     | ConflictResponse
+    | TooManyRequestsResponse
     | InternalErrorResponse,
   TContext = unknown,
 >(
@@ -1271,6 +1654,7 @@ export const getLoginMutationOptions = <
     | BadRequestResponse
     | UnauthorizedResponse
     | ForbiddenResponse
+    | TooManyRequestsResponse
     | InternalErrorResponse,
   TContext = unknown,
 >(options?: {
@@ -1316,6 +1700,7 @@ export type LoginMutationError =
   | BadRequestResponse
   | UnauthorizedResponse
   | ForbiddenResponse
+  | TooManyRequestsResponse
   | InternalErrorResponse;
 export type LoginMutationVariables = { data: LoginRequest };
 
@@ -1327,6 +1712,7 @@ export const useLogin = <
     | BadRequestResponse
     | UnauthorizedResponse
     | ForbiddenResponse
+    | TooManyRequestsResponse
     | InternalErrorResponse,
   TContext = unknown,
 >(
@@ -1578,7 +1964,7 @@ export const getUpdateProfileUrl = () => {
 };
 
 /**
- * Оба поля обязательны. Пустой bio очищает описание. Email и роль не редактируются.
+ * Поля name и bio обязательны. Пустой bio очищает описание. Специализации может менять только исполнитель. Email и роль не редактируются.
  * @summary Изменить свой профиль
  */
 export const updateProfile = async (
@@ -1852,6 +2238,416 @@ export function useGetPublicUser<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getSuggestGigPlacesUrl = () => {
+  return `/api/v1/gig-place-suggestions`;
+};
+
+/**
+ * Только для заказчика. Возвращает до семи вариантов в выбранном городе РФ с учётом явно указанного региона.
+ * @summary Подсказать адрес задания по неполному вводу
+ */
+export const suggestGigPlaces = async (
+  suggestGigPlacesBody: SuggestGigPlacesBody,
+  options?: Parameters<typeof http>[1],
+): Promise<SuggestGigPlaces200Item[]> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return http<SuggestGigPlaces200Item[]>(getSuggestGigPlacesUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(suggestGigPlacesBody),
+  });
+};
+
+export const getSuggestGigPlacesMutationKey = () =>
+  ["suggestGigPlaces"] as const;
+
+export const getSuggestGigPlacesMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | ErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestGigPlaces>>,
+    TError,
+    SuggestGigPlacesMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof suggestGigPlaces>>,
+  TError,
+  SuggestGigPlacesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSuggestGigPlacesMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof suggestGigPlaces>>,
+    SuggestGigPlacesMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return suggestGigPlaces(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SuggestGigPlacesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof suggestGigPlaces>>
+>;
+export type SuggestGigPlacesMutationBody = SuggestGigPlacesBody;
+export type SuggestGigPlacesMutationError =
+  BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | ErrorResponse;
+export type SuggestGigPlacesMutationVariables = { data: SuggestGigPlacesBody };
+
+/**
+ * @summary Подсказать адрес задания по неполному вводу
+ */
+export const useSuggestGigPlaces = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | ErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof suggestGigPlaces>>,
+      TError,
+      SuggestGigPlacesMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof suggestGigPlaces>>,
+  TError,
+  SuggestGigPlacesMutationVariables,
+  TContext
+> => {
+  return useMutation(getSuggestGigPlacesMutationOptions(options), queryClient);
+};
+
+export const getSearchGigPlaceUrl = () => {
+  return `/api/v1/gig-place-search`;
+};
+
+/**
+ * Только для заказчика. Не более трёх вариантов адреса в России. Выбор и сохранение выполняются отдельно.
+ * @summary Найти адрес задания на карте
+ */
+export const searchGigPlace = async (
+  searchGigPlaceBody: SearchGigPlaceBody,
+  options?: Parameters<typeof http>[1],
+): Promise<SearchGigPlace200Item[]> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return http<SearchGigPlace200Item[]>(getSearchGigPlaceUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(searchGigPlaceBody),
+  });
+};
+
+export const getSearchGigPlaceMutationKey = () => ["searchGigPlace"] as const;
+
+export const getSearchGigPlaceMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | ErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof searchGigPlace>>,
+    TError,
+    SearchGigPlaceMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof searchGigPlace>>,
+  TError,
+  SearchGigPlaceMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSearchGigPlaceMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof searchGigPlace>>,
+    SearchGigPlaceMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return searchGigPlace(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SearchGigPlaceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof searchGigPlace>>
+>;
+export type SearchGigPlaceMutationBody = SearchGigPlaceBody;
+export type SearchGigPlaceMutationError =
+  BadRequestResponse | UnauthorizedResponse | ForbiddenResponse | ErrorResponse;
+export type SearchGigPlaceMutationVariables = { data: SearchGigPlaceBody };
+
+/**
+ * @summary Найти адрес задания на карте
+ */
+export const useSearchGigPlace = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | ErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof searchGigPlace>>,
+      TError,
+      SearchGigPlaceMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof searchGigPlace>>,
+  TError,
+  SearchGigPlaceMutationVariables,
+  TContext
+> => {
+  return useMutation(getSearchGigPlaceMutationOptions(options), queryClient);
+};
+
+export const getListGigCategoriesUrl = () => {
+  return `/api/v1/gig-categories`;
+};
+
+/**
+ * Публичный список кодов и русских названий в порядке отображения. Пользователь не создаёт категории.
+ * @summary Общий справочник категорий заданий
+ */
+export const listGigCategories = async (
+  options?: Parameters<typeof http>[1],
+): Promise<GigCategory[]> => {
+  return http<GigCategory[]>(getListGigCategoriesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListGigCategoriesQueryKey = () => {
+  return [`/api/v1/gig-categories`] as const;
+};
+
+export const getListGigCategoriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof listGigCategories>>,
+      TError,
+      TData
+    >
+  >;
+  request?: SecondParameter<typeof http>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListGigCategoriesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listGigCategories>>
+  > = ({ signal }) => listGigCategories({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGigCategories>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListGigCategoriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGigCategories>>
+>;
+export type ListGigCategoriesQueryError =
+  BadRequestResponse | InternalErrorResponse;
+
+export function useListGigCategories<
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listGigCategories>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGigCategories>>,
+          TError,
+          Awaited<ReturnType<typeof listGigCategories>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListGigCategories<
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listGigCategories>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGigCategories>>,
+          TError,
+          Awaited<ReturnType<typeof listGigCategories>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListGigCategories<
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listGigCategories>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Общий справочник категорий заданий
+ */
+
+export function useListGigCategories<
+  TData = Awaited<ReturnType<typeof listGigCategories>>,
+  TError = BadRequestResponse | InternalErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listGigCategories>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListGigCategoriesQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export const getListGigsUrl = (params?: ListGigsParams) => {
   const normalizedParams = new URLSearchParams();
 
@@ -1869,7 +2665,7 @@ export const getListGigsUrl = (params?: ListGigsParams) => {
 };
 
 /**
- * Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно. total — число после фильтрации.
+ * Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно. total — число после фильтрации до пагинации. Оплата — целые копейки RUB, границы включены. Начало работы входит в интервал [startsFrom, startsBefore); длительность — endsAt минус startsAt. Пустые значения новых фильтров и sort не ограничивают выдачу. minAmountKopecks не больше maxAmountKopecks; startsFrom строго раньше startsBefore. Неизвестная категория, сортировка или неверные границы дают 400. newest сортирует createdAt DESC, id DESC; nearest — startsAt ASC, id ASC; amount_asc — amountKopecks ASC, id ASC; amount_desc — amountKopecks DESC, id DESC. При неизменном каталоге порядок страниц стабилен; параллельные изменения могут сдвигать offset-пагинацию.
  * @summary Каталог открытых подработок
  */
 export const listGigs = async (
@@ -2288,16 +3084,43 @@ export const getCancelGigUrl = (gigId: string) => {
 };
 
 /**
- * Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected. Конкурентный выбор и отмена: успешно только одно действие.
+ * Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected. Конкурентный выбор и отмена: успешно только одно действие. Запрос без тела или без reason сохраняется без указанной причины.
  * @summary Отменить задание
  */
 export const cancelGig = async (
   gigId: string,
+  cancelGigRequest?: CancelGigRequest,
   options?: Parameters<typeof http>[1],
 ): Promise<Gig> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return http<Gig>(getCancelGigUrl(gigId), {
     ...options,
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(cancelGigRequest),
   });
 };
 
@@ -2339,9 +3162,9 @@ export const getCancelGigMutationOptions = <
     Awaited<ReturnType<typeof cancelGig>>,
     CancelGigMutationVariables
   > = (props) => {
-    const { gigId } = props ?? {};
+    const { gigId, data } = props ?? {};
 
-    return cancelGig(gigId, requestOptions);
+    return cancelGig(gigId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2350,7 +3173,7 @@ export const getCancelGigMutationOptions = <
 export type CancelGigMutationResult = NonNullable<
   Awaited<ReturnType<typeof cancelGig>>
 >;
-
+export type CancelGigMutationBody = CancelGigRequest | undefined;
 export type CancelGigMutationError =
   | BadRequestResponse
   | UnauthorizedResponse
@@ -2358,7 +3181,10 @@ export type CancelGigMutationError =
   | NotFoundResponse
   | ConflictResponse
   | InternalErrorResponse;
-export type CancelGigMutationVariables = { gigId: string };
+export type CancelGigMutationVariables = {
+  gigId: string;
+  data?: CancelGigRequest;
+};
 
 /**
  * @summary Отменить задание
@@ -2390,6 +3216,149 @@ export const useCancelGig = <
   TContext
 > => {
   return useMutation(getCancelGigMutationOptions(options), queryClient);
+};
+
+export const getAdvanceGigProgressUrl = (gigId: string) => {
+  return `/api/v1/gigs/${gigId}/progress`;
+};
+
+/**
+ * Только выбранный исполнитель в in_progress. Сначала arrived, затем started. Повтор текущей отметки безопасен.
+ * @summary Отметить этап работы
+ */
+export const advanceGigProgress = async (
+  gigId: string,
+  advanceGigProgressBody: AdvanceGigProgressBody,
+  options?: Parameters<typeof http>[1],
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return http<void>(getAdvanceGigProgressUrl(gigId), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(advanceGigProgressBody),
+  });
+};
+
+export const getAdvanceGigProgressMutationKey = () =>
+  ["advanceGigProgress"] as const;
+
+export const getAdvanceGigProgressMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof advanceGigProgress>>,
+    TError,
+    AdvanceGigProgressMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof advanceGigProgress>>,
+  TError,
+  AdvanceGigProgressMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAdvanceGigProgressMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof advanceGigProgress>>,
+    AdvanceGigProgressMutationVariables
+  > = (props) => {
+    const { gigId, data } = props ?? {};
+
+    return advanceGigProgress(gigId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdvanceGigProgressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof advanceGigProgress>>
+>;
+export type AdvanceGigProgressMutationBody = AdvanceGigProgressBody;
+export type AdvanceGigProgressMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type AdvanceGigProgressMutationVariables = {
+  gigId: string;
+  data: AdvanceGigProgressBody;
+};
+
+/**
+ * @summary Отметить этап работы
+ */
+export const useAdvanceGigProgress = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof advanceGigProgress>>,
+      TError,
+      AdvanceGigProgressMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof advanceGigProgress>>,
+  TError,
+  AdvanceGigProgressMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAdvanceGigProgressMutationOptions(options),
+    queryClient,
+  );
 };
 
 export const getSubmitGigUrl = (gigId: string) => {
@@ -2990,7 +3959,7 @@ export const getSelectApplicationUrl = (
 };
 
 /**
- * Только customer-владелец и pending отклик этого задания. Атомарно: open → in_progress, отклик → selected, остальные pending → rejected, selectedWorker устанавливается. Несовпадение gigId/applicationId — 404. Два выбора либо выбор и отмена: один успех, другой 409 STATE_CONFLICT.
+ * Только customer-владелец и pending отклик этого задания. Атомарно: open → in_progress, отклик → selected, остальные pending → rejected, selectedWorker устанавливается. Несовпадение gigId/applicationId — 404. Редакция, подтверждённая в отклике, должна совпадать с текущей, иначе 409 STATE_CONFLICT. Два выбора либо выбор и отмена: один успех, другой 409 STATE_CONFLICT.
  * @summary Выбрать одного исполнителя
  */
 export const selectApplication = async (
@@ -3537,6 +4506,115 @@ export const useCreateGigReview = <
   return useMutation(getCreateGigReviewMutationOptions(options), queryClient);
 };
 
+export const getHideMyGigUrl = (gigId: string) => {
+  return `/api/v1/me/gigs/${gigId}/hide`;
+};
+
+/**
+ * Доступно владельцу отменённого задания. Повторный вызов успешен. Доступ к деталям и история других участников сохраняются.
+ * @summary Убрать отменённое задание из личных списков заказчика
+ */
+export const hideMyGig = async (
+  gigId: string,
+  options?: Parameters<typeof http>[1],
+): Promise<void> => {
+  return http<void>(getHideMyGigUrl(gigId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getHideMyGigMutationKey = () => ["hideMyGig"] as const;
+
+export const getHideMyGigMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof hideMyGig>>,
+    TError,
+    HideMyGigMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof hideMyGig>>,
+  TError,
+  HideMyGigMutationVariables,
+  TContext
+> => {
+  const mutationKey = getHideMyGigMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof hideMyGig>>,
+    HideMyGigMutationVariables
+  > = (props) => {
+    const { gigId } = props ?? {};
+
+    return hideMyGig(gigId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type HideMyGigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof hideMyGig>>
+>;
+
+export type HideMyGigMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type HideMyGigMutationVariables = { gigId: string };
+
+/**
+ * @summary Убрать отменённое задание из личных списков заказчика
+ */
+export const useHideMyGig = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof hideMyGig>>,
+      TError,
+      HideMyGigMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof hideMyGig>>,
+  TError,
+  HideMyGigMutationVariables,
+  TContext
+> => {
+  return useMutation(getHideMyGigMutationOptions(options), queryClient);
+};
+
 export const getListMyGigsUrl = (params?: ListMyGigsParams) => {
   const normalizedParams = new URLSearchParams();
 
@@ -3896,3 +4974,1026 @@ export function useListMyApplications<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getListMyNotificationsUrl = (
+  params?: ListMyNotificationsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/me/notifications?${stringifiedParams}`
+    : `/api/v1/me/notifications`;
+};
+
+/**
+ * Новые первыми. Непрочитанные считаются по всей ленте в том же снимке данных, что и страница.
+ * @summary Мои уведомления и число непрочитанных
+ */
+export const listMyNotifications = async (
+  params?: ListMyNotificationsParams,
+  options?: Parameters<typeof http>[1],
+): Promise<NotificationPage> => {
+  return http<NotificationPage>(getListMyNotificationsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyNotificationsQueryKey = (
+  params?: ListMyNotificationsParams,
+) => {
+  return [`/api/v1/me/notifications`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMyNotificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params?: ListMyNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMyNotificationsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyNotifications>>
+  > = ({ signal }) =>
+    listMyNotifications(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyNotifications>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListMyNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyNotifications>>
+>;
+export type ListMyNotificationsQueryError =
+  BadRequestResponse | UnauthorizedResponse | InternalErrorResponse;
+
+export function useListMyNotifications<
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params: undefined | ListMyNotificationsParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listMyNotifications>>,
+          TError,
+          Awaited<ReturnType<typeof listMyNotifications>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListMyNotifications<
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params?: ListMyNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listMyNotifications>>,
+          TError,
+          Awaited<ReturnType<typeof listMyNotifications>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListMyNotifications<
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params?: ListMyNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Мои уведомления и число непрочитанных
+ */
+
+export function useListMyNotifications<
+  TData = Awaited<ReturnType<typeof listMyNotifications>>,
+  TError = BadRequestResponse | UnauthorizedResponse | InternalErrorResponse,
+>(
+  params?: ListMyNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listMyNotifications>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListMyNotificationsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getReadMyNotificationUrl = (notificationId: string) => {
+  return `/api/v1/me/notifications/${notificationId}/read`;
+};
+
+/**
+ * При повторе время первого прочтения сохраняется. Чужое уведомление недоступно и возвращает 404.
+ * @summary Отметить уведомление прочитанным
+ */
+export const readMyNotification = async (
+  notificationId: string,
+  options?: Parameters<typeof http>[1],
+): Promise<void> => {
+  return http<void>(getReadMyNotificationUrl(notificationId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReadMyNotificationMutationKey = () =>
+  ["readMyNotification"] as const;
+
+export const getReadMyNotificationMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof readMyNotification>>,
+    TError,
+    ReadMyNotificationMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof readMyNotification>>,
+  TError,
+  ReadMyNotificationMutationVariables,
+  TContext
+> => {
+  const mutationKey = getReadMyNotificationMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof readMyNotification>>,
+    ReadMyNotificationMutationVariables
+  > = (props) => {
+    const { notificationId } = props ?? {};
+
+    return readMyNotification(notificationId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReadMyNotificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof readMyNotification>>
+>;
+
+export type ReadMyNotificationMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | InternalErrorResponse;
+export type ReadMyNotificationMutationVariables = { notificationId: string };
+
+/**
+ * @summary Отметить уведомление прочитанным
+ */
+export const useReadMyNotification = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof readMyNotification>>,
+      TError,
+      ReadMyNotificationMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof readMyNotification>>,
+  TError,
+  ReadMyNotificationMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getReadMyNotificationMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getReadAllMyNotificationsUrl = () => {
+  return `/api/v1/me/notifications/read-all`;
+};
+
+/**
+ * Повтор допустим. Операция затрагивает только собственные уведомления, видимые в начале обновления.
+ * @summary Отметить все текущие уведомления прочитанными
+ */
+export const readAllMyNotifications = async (
+  options?: Parameters<typeof http>[1],
+): Promise<void> => {
+  return http<void>(getReadAllMyNotificationsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReadAllMyNotificationsMutationKey = () =>
+  ["readAllMyNotifications"] as const;
+
+export const getReadAllMyNotificationsMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof readAllMyNotifications>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof readAllMyNotifications>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getReadAllMyNotificationsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof readAllMyNotifications>>,
+    void
+  > = () => {
+    return readAllMyNotifications(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReadAllMyNotificationsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof readAllMyNotifications>>
+>;
+
+export type ReadAllMyNotificationsMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | InternalErrorResponse;
+
+/**
+ * @summary Отметить все текущие уведомления прочитанными
+ */
+export const useReadAllMyNotifications = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof readAllMyNotifications>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof readAllMyNotifications>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getReadAllMyNotificationsMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getEditGigTermsUrl = (gigId: string) => {
+  return `/api/v1/gigs/${gigId}/terms`;
+};
+
+/**
+ * Только владелец. open: применить новую редакцию, отклики сохраняются и требуют повторного согласия. in_progress: создать единственное предложение без изменения текущих условий. termsVersion должна совпадать с текущей, иначе 409. В остальных состояниях 409.
+ * @summary Изменить или предложить условия
+ */
+export const editGigTerms = async (
+  gigId: string,
+  editGigTermsRequest: EditGigTermsRequest,
+  options?: Parameters<typeof http>[1],
+): Promise<Gig> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return http<Gig>(getEditGigTermsUrl(gigId), {
+    ...options,
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(editGigTermsRequest),
+  });
+};
+
+export const getEditGigTermsMutationKey = () => ["editGigTerms"] as const;
+
+export const getEditGigTermsMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof editGigTerms>>,
+    TError,
+    EditGigTermsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof editGigTerms>>,
+  TError,
+  EditGigTermsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getEditGigTermsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof editGigTerms>>,
+    EditGigTermsMutationVariables
+  > = (props) => {
+    const { gigId, data } = props ?? {};
+
+    return editGigTerms(gigId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EditGigTermsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof editGigTerms>>
+>;
+export type EditGigTermsMutationBody = EditGigTermsRequest;
+export type EditGigTermsMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type EditGigTermsMutationVariables = {
+  gigId: string;
+  data: EditGigTermsRequest;
+};
+
+/**
+ * @summary Изменить или предложить условия
+ */
+export const useEditGigTerms = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof editGigTerms>>,
+      TError,
+      EditGigTermsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof editGigTerms>>,
+  TError,
+  EditGigTermsMutationVariables,
+  TContext
+> => {
+  return useMutation(getEditGigTermsMutationOptions(options), queryClient);
+};
+
+export const getConfirmApplicationTermsUrl = (
+  gigId: string,
+  applicationId: string,
+) => {
+  return `/api/v1/gigs/${gigId}/applications/${applicationId}/confirm-terms`;
+};
+
+/**
+ * Только автор pending-отклика на open. Передаётся прочитанная текущая termsVersion. Повтор, устаревшая версия или закрытое задание — 409. Чужой отклик — 404.
+ * @summary Подтвердить текущие условия отклика
+ */
+export const confirmApplicationTerms = async (
+  gigId: string,
+  applicationId: string,
+  termsVersionRequest: TermsVersionRequest,
+  options?: Parameters<typeof http>[1],
+): Promise<Gig> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return http<Gig>(getConfirmApplicationTermsUrl(gigId, applicationId), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(termsVersionRequest),
+  });
+};
+
+export const getConfirmApplicationTermsMutationKey = () =>
+  ["confirmApplicationTerms"] as const;
+
+export const getConfirmApplicationTermsMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmApplicationTerms>>,
+    TError,
+    ConfirmApplicationTermsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmApplicationTerms>>,
+  TError,
+  ConfirmApplicationTermsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getConfirmApplicationTermsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmApplicationTerms>>,
+    ConfirmApplicationTermsMutationVariables
+  > = (props) => {
+    const { gigId, applicationId, data } = props ?? {};
+
+    return confirmApplicationTerms(gigId, applicationId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmApplicationTermsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmApplicationTerms>>
+>;
+export type ConfirmApplicationTermsMutationBody = TermsVersionRequest;
+export type ConfirmApplicationTermsMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type ConfirmApplicationTermsMutationVariables = {
+  gigId: string;
+  applicationId: string;
+  data: TermsVersionRequest;
+};
+
+/**
+ * @summary Подтвердить текущие условия отклика
+ */
+export const useConfirmApplicationTerms = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof confirmApplicationTerms>>,
+      TError,
+      ConfirmApplicationTermsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof confirmApplicationTerms>>,
+  TError,
+  ConfirmApplicationTermsMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getConfirmApplicationTermsMutationOptions(options),
+    queryClient,
+  );
+};
+
+export const getAcceptGigChangeUrl = (gigId: string, changeId: string) => {
+  return `/api/v1/gigs/${gigId}/changes/${changeId}/accept`;
+};
+
+/**
+ * Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает активное предложение как expired; работа продолжается независимо от ответа на предложение.
+ * @summary Принять предложенные условия
+ */
+export const acceptGigChange = async (
+  gigId: string,
+  changeId: string,
+  options?: Parameters<typeof http>[1],
+): Promise<Gig> => {
+  return http<Gig>(getAcceptGigChangeUrl(gigId, changeId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAcceptGigChangeMutationKey = () => ["acceptGigChange"] as const;
+
+export const getAcceptGigChangeMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptGigChange>>,
+    TError,
+    AcceptGigChangeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acceptGigChange>>,
+  TError,
+  AcceptGigChangeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAcceptGigChangeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acceptGigChange>>,
+    AcceptGigChangeMutationVariables
+  > = (props) => {
+    const { gigId, changeId } = props ?? {};
+
+    return acceptGigChange(gigId, changeId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcceptGigChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptGigChange>>
+>;
+
+export type AcceptGigChangeMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type AcceptGigChangeMutationVariables = {
+  gigId: string;
+  changeId: string;
+};
+
+/**
+ * @summary Принять предложенные условия
+ */
+export const useAcceptGigChange = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof acceptGigChange>>,
+      TError,
+      AcceptGigChangeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof acceptGigChange>>,
+  TError,
+  AcceptGigChangeMutationVariables,
+  TContext
+> => {
+  return useMutation(getAcceptGigChangeMutationOptions(options), queryClient);
+};
+
+export const getRejectGigChangeUrl = (gigId: string, changeId: string) => {
+  return `/api/v1/gigs/${gigId}/changes/${changeId}/reject`;
+};
+
+/**
+ * Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает активное предложение как expired; работа продолжается независимо от ответа на предложение.
+ * @summary Отказаться от предложенных условий
+ */
+export const rejectGigChange = async (
+  gigId: string,
+  changeId: string,
+  options?: Parameters<typeof http>[1],
+): Promise<Gig> => {
+  return http<Gig>(getRejectGigChangeUrl(gigId, changeId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRejectGigChangeMutationKey = () => ["rejectGigChange"] as const;
+
+export const getRejectGigChangeMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectGigChange>>,
+    TError,
+    RejectGigChangeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectGigChange>>,
+  TError,
+  RejectGigChangeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRejectGigChangeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectGigChange>>,
+    RejectGigChangeMutationVariables
+  > = (props) => {
+    const { gigId, changeId } = props ?? {};
+
+    return rejectGigChange(gigId, changeId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectGigChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectGigChange>>
+>;
+
+export type RejectGigChangeMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type RejectGigChangeMutationVariables = {
+  gigId: string;
+  changeId: string;
+};
+
+/**
+ * @summary Отказаться от предложенных условий
+ */
+export const useRejectGigChange = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof rejectGigChange>>,
+      TError,
+      RejectGigChangeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof rejectGigChange>>,
+  TError,
+  RejectGigChangeMutationVariables,
+  TContext
+> => {
+  return useMutation(getRejectGigChangeMutationOptions(options), queryClient);
+};
+
+export const getWithdrawGigChangeUrl = (gigId: string, changeId: string) => {
+  return `/api/v1/gigs/${gigId}/changes/${changeId}/withdraw`;
+};
+
+/**
+ * Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает активное предложение как expired; работа продолжается независимо от ответа на предложение.
+ * @summary Отозвать предложение условий
+ */
+export const withdrawGigChange = async (
+  gigId: string,
+  changeId: string,
+  options?: Parameters<typeof http>[1],
+): Promise<Gig> => {
+  return http<Gig>(getWithdrawGigChangeUrl(gigId, changeId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getWithdrawGigChangeMutationKey = () =>
+  ["withdrawGigChange"] as const;
+
+export const getWithdrawGigChangeMutationOptions = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof withdrawGigChange>>,
+    TError,
+    WithdrawGigChangeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof http>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof withdrawGigChange>>,
+  TError,
+  WithdrawGigChangeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getWithdrawGigChangeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof withdrawGigChange>>,
+    WithdrawGigChangeMutationVariables
+  > = (props) => {
+    const { gigId, changeId } = props ?? {};
+
+    return withdrawGigChange(gigId, changeId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type WithdrawGigChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof withdrawGigChange>>
+>;
+
+export type WithdrawGigChangeMutationError =
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | ConflictResponse
+  | InternalErrorResponse;
+export type WithdrawGigChangeMutationVariables = {
+  gigId: string;
+  changeId: string;
+};
+
+/**
+ * @summary Отозвать предложение условий
+ */
+export const useWithdrawGigChange = <
+  TError =
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof withdrawGigChange>>,
+      TError,
+      WithdrawGigChangeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof http>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof withdrawGigChange>>,
+  TError,
+  WithdrawGigChangeMutationVariables,
+  TContext
+> => {
+  return useMutation(getWithdrawGigChangeMutationOptions(options), queryClient);
+};

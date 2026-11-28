@@ -71,6 +71,9 @@ func run(logger *zap.Logger) error {
 	}
 	gin.SetMode(gin.ReleaseMode)
 	router := handler.NewRouter(logger, pool, os.Getenv("METRICS_TOKEN"), cfg.Server.AppOrigin)
+	if err := router.SetTrustedProxies(cfg.Server.TrustedProxies); err != nil {
+		return fmt.Errorf("configure trusted proxies: %w", err)
+	}
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Server.Port),
@@ -117,8 +120,11 @@ func serve(ctx context.Context, server *http.Server, logger *zap.Logger, shutdow
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("graceful shutdown failed", zap.Error(err))
 		closeErr := server.Close()
-		<-result
-		return errors.Join(fmt.Errorf("shutdown HTTP: %w", err), closeErr)
+		serveErr := <-result
+		if errors.Is(serveErr, http.ErrServerClosed) {
+			serveErr = nil
+		}
+		return errors.Join(fmt.Errorf("shutdown HTTP: %w", err), closeErr, serveErr)
 	}
 
 	if err := <-result; !errors.Is(err, http.ErrServerClosed) {

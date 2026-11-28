@@ -7,11 +7,11 @@
  * Нет черновиков, редактирования заданий, платежей, чата, споров, восстановления пароля или подтверждения email.
  * Все даты — RFC 3339 (ISO 8601 с обязательным Z или смещением часового пояса); ответы используют UTC.
  * Суммы — целые копейки RUB. Текстовые поля обрезаются по краям до проверки длины, пароль не изменяется.
- * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100.
+ * Списки сортируются по createdAt DESC, id DESC; page начинается с 1, pageSize по умолчанию 20, максимум 100. Для уведомлений используется курсор nextCursor.
  * Пустая страница возвращает items: [] и total: 0 либо общее число записей при выходе за последнюю страницу. Между запросами страницы могут изменяться.
  * Ошибки имеют envelope error с code, message и необязательным fields. Неизвестные поля тела и параметры, неверные UUID, даты, JSON и фильтры дают 400.
  * Для закрытых ресурсов доступ проверяется до состояния: отсутствие прав на скрытые данные даёт 404; неверная роль или действие над видимым чужим ресурсом — 403; конфликт состояния — 409.
- * Изменения статусов атомарны. Повторное действие даёт 409 и не меняет время переходов. Сервер определяет текущего пользователя по сессии.
+ * Изменения статусов заданий и откликов атомарны. Повторное действие над ними даёт 409 и не меняет время переходов. Повторная отметка уведомления прочитанным допустима. Сервер определяет текущего пользователя по сессии.
  * OpenAPI spec version: 0.3.0
  */
 import * as zod from "zod";
@@ -72,6 +72,10 @@ export const RegisterBody = zod.object({
     ),
 });
 
+export const registerResponseSpecialtiesMax = 5;
+
+export const registerResponseContactMax = 200;
+
 export const registerResponseNameMax = 100;
 
 export const registerResponseBioMin = 0;
@@ -90,6 +94,37 @@ export const registerResponseCreatedAtRegExp = new RegExp(
 );
 
 export const RegisterResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(registerResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
+  contact: zod
+    .string()
+    .max(registerResponseContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(registerResponseNameMax),
   bio: zod.string().min(registerResponseBioMin).max(registerResponseBioMax),
@@ -139,6 +174,10 @@ export const LoginBody = zod.object({
     ),
 });
 
+export const loginResponseSpecialtiesMax = 5;
+
+export const loginResponseContactMax = 200;
+
 export const loginResponseNameMax = 100;
 
 export const loginResponseBioMin = 0;
@@ -157,6 +196,37 @@ export const loginResponseCreatedAtRegExp = new RegExp(
 );
 
 export const LoginResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(loginResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
+  contact: zod
+    .string()
+    .max(loginResponseContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(loginResponseNameMax),
   bio: zod.string().min(loginResponseBioMin).max(loginResponseBioMax),
@@ -191,6 +261,10 @@ export const LogoutResponse = zod.void();
  * Email доступен только владельцу. completedGigsCount считается по completed: собственные публикации для customer, назначенные работы для worker.
  * @summary Текущий пользователь
  */
+export const getCurrentUserResponseSpecialtiesMax = 5;
+
+export const getCurrentUserResponseContactMax = 200;
+
 export const getCurrentUserResponseNameMax = 100;
 
 export const getCurrentUserResponseBioMin = 0;
@@ -209,6 +283,37 @@ export const getCurrentUserResponseCreatedAtRegExp = new RegExp(
 );
 
 export const GetCurrentUserResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(getCurrentUserResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
+  contact: zod
+    .string()
+    .max(getCurrentUserResponseContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(getCurrentUserResponseNameMax),
   bio: zod
@@ -239,18 +344,57 @@ export const GetCurrentUserResponse = zod.object({
 });
 
 /**
- * Оба поля обязательны. Пустой bio очищает описание. Email и роль не редактируются.
+ * Поля name и bio обязательны. Пустой bio очищает описание. Специализации может менять только исполнитель. Email и роль не редактируются.
  * @summary Изменить свой профиль
  */
+export const updateProfileBodySpecialtiesMax = 5;
+
+export const updateProfileBodyContactMax = 200;
+
 export const updateProfileBodyNameMax = 100;
 
 export const updateProfileBodyBioMin = 0;
 export const updateProfileBodyBioMax = 1000;
 
 export const UpdateProfileBody = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(updateProfileBodySpecialtiesMax)
+    .optional()
+    .describe(
+      "Только для исполнителя. Отсутствие сохраняет список, пустой список очищает.",
+    ),
+  contact: zod
+    .string()
+    .max(updateProfileBodyContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   name: zod.string().min(1).max(updateProfileBodyNameMax),
   bio: zod.string().min(updateProfileBodyBioMin).max(updateProfileBodyBioMax),
 });
+
+export const updateProfileResponseSpecialtiesMax = 5;
+
+export const updateProfileResponseContactMax = 200;
 
 export const updateProfileResponseNameMax = 100;
 
@@ -270,6 +414,37 @@ export const updateProfileResponseCreatedAtRegExp = new RegExp(
 );
 
 export const UpdateProfileResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(updateProfileResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
+  contact: zod
+    .string()
+    .max(updateProfileResponseContactMax)
+    .optional()
+    .describe(
+      "Контакт для связи, видимый только владельцу аккаунта и второй стороне назначенного задания. Пустая строка очищает контакт.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(updateProfileResponseNameMax),
   bio: zod
@@ -305,6 +480,8 @@ export const GetPublicUserParams = zod.object({
   userId: zod.uuid(),
 });
 
+export const getPublicUserResponseSpecialtiesMax = 5;
+
 export const getPublicUserResponseNameMax = 100;
 
 export const getPublicUserResponseBioMin = 0;
@@ -317,6 +494,30 @@ export const getPublicUserResponseRatingAverageMax = 5;
 export const getPublicUserResponseReviewsCountMin = 0;
 
 export const GetPublicUserResponse = zod.object({
+  specialties: zod
+    .array(
+      zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+    )
+    .max(getPublicUserResponseSpecialtiesMax)
+    .optional()
+    .describe(
+      "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+    ),
   id: zod.uuid(),
   name: zod.string().min(1).max(getPublicUserResponseNameMax),
   bio: zod
@@ -341,7 +542,204 @@ export const GetPublicUserResponse = zod.object({
 });
 
 /**
- * Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно. total — число после фильтрации.
+ * Только для заказчика. Возвращает до семи вариантов в выбранном городе РФ с учётом явно указанного региона.
+ * @summary Подсказать адрес задания по неполному вводу
+ */
+export const suggestGigPlacesBodyCityMax = 100;
+
+export const suggestGigPlacesBodyAddressMin = 3;
+export const suggestGigPlacesBodyAddressMax = 300;
+
+export const SuggestGigPlacesBody = zod.object({
+  city: zod
+    .string()
+    .min(1)
+    .max(suggestGigPlacesBodyCityMax)
+    .describe("Название города или город и регион через запятую."),
+  address: zod
+    .string()
+    .min(suggestGigPlacesBodyAddressMin)
+    .max(suggestGigPlacesBodyAddressMax)
+    .describe("Часть адреса. Длина проверяется после обрезки пробелов."),
+});
+
+export const suggestGigPlacesResponsePointOneLatitudeMin = -90;
+export const suggestGigPlacesResponsePointOneLatitudeMax = 90;
+
+export const suggestGigPlacesResponsePointOneLongitudeMin = -180;
+export const suggestGigPlacesResponsePointOneLongitudeMax = 180;
+
+export const suggestGigPlacesResponsePointOneSourceDefault = `manual`;
+export const suggestGigPlacesResponsePointOneAttributionMax = 300;
+
+export const suggestGigPlacesResponsePointOneAddressReferenceLatitudeMin = -90;
+export const suggestGigPlacesResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const suggestGigPlacesResponsePointOneAddressReferenceLongitudeMin =
+  -180;
+export const suggestGigPlacesResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const SuggestGigPlacesResponseItem = zod.object({
+  label: zod.string().describe("Полный текст варианта для выпадающего списка."),
+  address: zod
+    .string()
+    .describe("Улица, номер дома или название места для поля адреса."),
+  city: zod.string(),
+  region: zod.string().optional(),
+  kind: zod.enum(["street", "building", "amenity"]),
+  complete: zod
+    .boolean()
+    .describe(
+      "Вариант с номером дома и точкой, которую можно показать для уточнения.",
+    ),
+  attribution: zod.string().describe("Атрибуция источника адреса Geoapify."),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(suggestGigPlacesResponsePointOneLatitudeMin)
+        .max(suggestGigPlacesResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(suggestGigPlacesResponsePointOneLongitudeMin)
+        .max(suggestGigPlacesResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(suggestGigPlacesResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(suggestGigPlacesResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(suggestGigPlacesResponsePointOneAddressReferenceLatitudeMin)
+            .max(suggestGigPlacesResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(suggestGigPlacesResponsePointOneAddressReferenceLongitudeMin)
+            .max(suggestGigPlacesResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe(
+      "Только для complete=true. Для улиц и неполных вариантов точка отсутствует.",
+    ),
+});
+export const SuggestGigPlacesResponse = zod
+  .array(SuggestGigPlacesResponseItem)
+  .max(7);
+
+/**
+ * Только для заказчика. Не более трёх вариантов адреса в России. Выбор и сохранение выполняются отдельно.
+ * @summary Найти адрес задания на карте
+ */
+export const searchGigPlaceBodyCityMax = 100;
+
+export const searchGigPlaceBodyAddressMax = 300;
+
+export const SearchGigPlaceBody = zod.object({
+  city: zod.string().min(1).max(searchGigPlaceBodyCityMax),
+  address: zod.string().min(1).max(searchGigPlaceBodyAddressMax),
+});
+
+export const searchGigPlaceResponsePointOneLatitudeMin = -90;
+export const searchGigPlaceResponsePointOneLatitudeMax = 90;
+
+export const searchGigPlaceResponsePointOneLongitudeMin = -180;
+export const searchGigPlaceResponsePointOneLongitudeMax = 180;
+
+export const searchGigPlaceResponsePointOneSourceDefault = `manual`;
+export const searchGigPlaceResponsePointOneAttributionMax = 300;
+
+export const searchGigPlaceResponsePointOneAddressReferenceLatitudeMin = -90;
+export const searchGigPlaceResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const searchGigPlaceResponsePointOneAddressReferenceLongitudeMin = -180;
+export const searchGigPlaceResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const SearchGigPlaceResponseItem = zod.object({
+  label: zod.string(),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(searchGigPlaceResponsePointOneLatitudeMin)
+        .max(searchGigPlaceResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(searchGigPlaceResponsePointOneLongitudeMin)
+        .max(searchGigPlaceResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(searchGigPlaceResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(searchGigPlaceResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(searchGigPlaceResponsePointOneAddressReferenceLatitudeMin)
+            .max(searchGigPlaceResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(searchGigPlaceResponsePointOneAddressReferenceLongitudeMin)
+            .max(searchGigPlaceResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    ),
+});
+export const SearchGigPlaceResponse = zod
+  .array(SearchGigPlaceResponseItem)
+  .max(3);
+
+/**
+ * Публичный список кодов и русских названий в порядке отображения. Пользователь не создаёт категории.
+ * @summary Общий справочник категорий заданий
+ */
+export const ListGigCategoriesResponseItem = zod.object({
+  code: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  name: zod.string(),
+});
+export const ListGigCategoriesResponse = zod.array(
+  ListGigCategoriesResponseItem,
+);
+
+/**
+ * Только status=open. Поиск q — подстрока названия без учёта регистра; city — полное название города без учёта регистра. Пробелы по краям удаляются; пустое значение не фильтрует. Фильтры применяются совместно. total — число после фильтрации до пагинации. Оплата — целые копейки RUB, границы включены. Начало работы входит в интервал [startsFrom, startsBefore); длительность — endsAt минус startsAt. Пустые значения новых фильтров и sort не ограничивают выдачу. minAmountKopecks не больше maxAmountKopecks; startsFrom строго раньше startsBefore. Неизвестная категория, сортировка или неверные границы дают 400. newest сортирует createdAt DESC, id DESC; nearest — startsAt ASC, id ASC; amount_asc — amountKopecks ASC, id ASC; amount_desc — amountKopecks DESC, id DESC. При неизменном каталоге порядок страниц стабилен; параллельные изменения могут сдвигать offset-пагинацию.
  * @summary Каталог открытых подработок
  */
 export const listGigsQueryPageDefault = 1;
@@ -355,6 +753,16 @@ export const listGigsQueryQMax = 150;
 
 export const listGigsQueryCityMin = 0;
 export const listGigsQueryCityMax = 100;
+
+export const listGigsQueryMinAmountKopecksMin = 0;
+export const listGigsQueryMinAmountKopecksMax = 10000000000;
+
+export const listGigsQueryMaxAmountKopecksMin = 0;
+export const listGigsQueryMaxAmountKopecksMax = 10000000000;
+
+export const listGigsQueryMaxDurationMinutesMax = 2147483647;
+
+export const listGigsQuerySortDefault = `newest`;
 
 export const ListGigsQueryParams = zod.object({
   page: zod
@@ -373,8 +781,52 @@ export const ListGigsQueryParams = zod.object({
     .min(listGigsQueryCityMin)
     .max(listGigsQueryCityMax)
     .optional(),
+  category: zod
+    .string()
+    .optional()
+    .describe(
+      "Код из GET /api/v1/gig-categories. Пустое значение не фильтрует.",
+    ),
+  minAmountKopecks: zod
+    .int()
+    .min(listGigsQueryMinAmountKopecksMin)
+    .max(listGigsQueryMinAmountKopecksMax)
+    .optional()
+    .describe("Минимальная общая оплата в целых копейках RUB, включительно."),
+  maxAmountKopecks: zod
+    .int()
+    .min(listGigsQueryMaxAmountKopecksMin)
+    .max(listGigsQueryMaxAmountKopecksMax)
+    .optional()
+    .describe("Максимальная общая оплата в целых копейках RUB, включительно."),
+  startsFrom: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Начало работы не раньше этой даты и времени с часовым поясом."),
+  startsBefore: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe(
+      "Начало работы строго раньше этой даты и времени с часовым поясом.",
+    ),
+  maxDurationMinutes: zod
+    .int()
+    .min(1)
+    .max(listGigsQueryMaxDurationMinutesMax)
+    .optional()
+    .describe(
+      "Максимальная длительность в целых минутах, включительно (например, 120, 240 или 480).",
+    ),
+  sort: zod
+    .enum(["newest", "nearest", "amount_asc", "amount_desc"])
+    .default(listGigsQuerySortDefault),
 });
 
+export const listGigsResponseItemsItemCancellationCommentMax = 500;
+
+export const listGigsResponseItemsItemTermsVersionDefault = 1;
+
+export const listGigsResponseItemsItemHasPendingChangeDefault = false;
 export const listGigsResponseItemsItemTitleMax = 150;
 
 export const listGigsResponseItemsItemCityMax = 100;
@@ -386,6 +838,8 @@ export const listGigsResponseItemsItemEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const listGigsResponseItemsItemAmountKopecksMax = 10000000000;
+
+export const listGigsResponseItemsItemCustomerSpecialtiesMax = 5;
 
 export const listGigsResponseItemsItemCustomerNameMax = 100;
 
@@ -425,6 +879,53 @@ export const listGigsResponseTotalMin = 0;
 export const ListGigsResponse = zod.object({
   items: zod.array(
     zod.object({
+      cancellation: zod
+        .object({
+          reason: zod
+            .enum([
+              "no_longer_needed",
+              "schedule_changed",
+              "terms_changed",
+              "posted_by_mistake",
+              "other",
+            ])
+            .optional(),
+          comment: zod
+            .string()
+            .max(listGigsResponseItemsItemCancellationCommentMax),
+        })
+        .optional()
+        .describe(
+          "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+        ),
+      category: zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .optional()
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(listGigsResponseItemsItemTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
+      hasPendingChange: zod
+        .boolean()
+        .default(listGigsResponseItemsItemHasPendingChangeDefault)
+        .describe("Ожидается решение по новым условиям начатой работы."),
       id: zod.uuid(),
       title: zod.string().min(1).max(listGigsResponseItemsItemTitleMax),
       city: zod.string().min(1).max(listGigsResponseItemsItemCityMax),
@@ -450,6 +951,30 @@ export const ListGigsResponse = zod.object({
           "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
         ),
       customer: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(listGigsResponseItemsItemCustomerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod.string().min(1).max(listGigsResponseItemsItemCustomerNameMax),
         bio: zod
@@ -526,6 +1051,21 @@ export const ListGigsResponse = zod.object({
  * Только customer. Автор определяется из сессии; создаётся open. startsAt > время сервера, endsAt > startsAt.
  * @summary Опубликовать подработку
  */
+export const createGigBodyPointOneLatitudeMin = -90;
+export const createGigBodyPointOneLatitudeMax = 90;
+
+export const createGigBodyPointOneLongitudeMin = -180;
+export const createGigBodyPointOneLongitudeMax = 180;
+
+export const createGigBodyPointOneSourceDefault = `manual`;
+export const createGigBodyPointOneAttributionMax = 300;
+
+export const createGigBodyPointOneAddressReferenceLatitudeMin = -90;
+export const createGigBodyPointOneAddressReferenceLatitudeMax = 90;
+
+export const createGigBodyPointOneAddressReferenceLongitudeMin = -180;
+export const createGigBodyPointOneAddressReferenceLongitudeMax = 180;
+
 export const createGigBodyTitleMax = 150;
 
 export const createGigBodyDescriptionMax = 5000;
@@ -546,6 +1086,61 @@ export const createGigBodyEndsAtRegExp = new RegExp(
 export const createGigBodyAmountKopecksMax = 10000000000;
 
 export const CreateGigBody = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(createGigBodyPointOneLatitudeMin)
+        .max(createGigBodyPointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(createGigBodyPointOneLongitudeMin)
+        .max(createGigBodyPointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(createGigBodyPointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(createGigBodyPointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(createGigBodyPointOneAddressReferenceLatitudeMin)
+            .max(createGigBodyPointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(createGigBodyPointOneAddressReferenceLongitudeMin)
+            .max(createGigBodyPointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional(),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
   title: zod.string().min(1).max(createGigBodyTitleMax),
   description: zod.string().min(1).max(createGigBodyDescriptionMax),
   requirements: zod
@@ -574,6 +1169,64 @@ export const CreateGigBody = zod.object({
     ),
 });
 
+export const createGigResponsePointOneLatitudeMin = -90;
+export const createGigResponsePointOneLatitudeMax = 90;
+
+export const createGigResponsePointOneLongitudeMin = -180;
+export const createGigResponsePointOneLongitudeMax = 180;
+
+export const createGigResponsePointOneSourceDefault = `manual`;
+export const createGigResponsePointOneAttributionMax = 300;
+
+export const createGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const createGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const createGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const createGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const createGigResponseCancellationCommentMax = 500;
+
+export const createGigResponseTermsVersionDefault = 1;
+
+export const createGigResponseHasPendingChangeDefault = false;
+export const createGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const createGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const createGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const createGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const createGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const createGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const createGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const createGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const createGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const createGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const createGigResponsePendingChangeTermsTitleMax = 150;
+
+export const createGigResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const createGigResponsePendingChangeTermsRequirementsMin = 0;
+export const createGigResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const createGigResponsePendingChangeTermsCityMax = 100;
+
+export const createGigResponsePendingChangeTermsAddressMax = 300;
+
+export const createGigResponsePendingChangeTermsStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const createGigResponsePendingChangeTermsEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const createGigResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const createGigResponseCounterpartyContactMax = 200;
+
 export const createGigResponseTitleMax = 150;
 
 export const createGigResponseCityMax = 100;
@@ -585,6 +1238,8 @@ export const createGigResponseEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const createGigResponseAmountKopecksMax = 10000000000;
+
+export const createGigResponseCustomerSpecialtiesMax = 5;
 
 export const createGigResponseCustomerNameMax = 100;
 
@@ -632,28 +1287,249 @@ export const createGigResponseCompletedAtRegExp = new RegExp(
 export const createGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const createGigResponseMyApplicationWorkerNameMax = 100;
+export const createGigResponseMyApplicationOneTermsVersionDefault = 1;
 
-export const createGigResponseMyApplicationWorkerBioMin = 0;
-export const createGigResponseMyApplicationWorkerBioMax = 1000;
+export const createGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
-export const createGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+export const createGigResponseMyApplicationOneWorkerNameMax = 100;
 
-export const createGigResponseMyApplicationWorkerRatingAverageMax = 5;
+export const createGigResponseMyApplicationOneWorkerBioMin = 0;
+export const createGigResponseMyApplicationOneWorkerBioMax = 1000;
 
-export const createGigResponseMyApplicationWorkerReviewsCountMin = 0;
+export const createGigResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
 
-export const createGigResponseMyApplicationCommentMin = 0;
-export const createGigResponseMyApplicationCommentMax = 1000;
+export const createGigResponseMyApplicationOneWorkerRatingAverageMax = 5;
 
-export const createGigResponseMyApplicationCreatedAtRegExp = new RegExp(
+export const createGigResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const createGigResponseMyApplicationOneCommentMin = 0;
+export const createGigResponseMyApplicationOneCommentMax = 1000;
+
+export const createGigResponseMyApplicationOneCreatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const createGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
+export const createGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 
 export const CreateGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(createGigResponsePointOneLatitudeMin)
+        .max(createGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(createGigResponsePointOneLongitudeMin)
+        .max(createGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(createGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(createGigResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(createGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(createGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(createGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(createGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(createGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(createGigResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(createGigResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(createGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(createGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(createGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(createGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                createGigResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(createGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    createGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    createGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    createGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    createGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(createGigResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(createGigResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(createGigResponsePendingChangeTermsRequirementsMin)
+          .max(createGigResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(createGigResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(createGigResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(createGigResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(createGigResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(createGigResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(createGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(createGigResponseTitleMax),
   city: zod.string().min(1).max(createGigResponseCityMax),
@@ -676,6 +1552,30 @@ export const CreateGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(createGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(createGigResponseCustomerNameMax),
     bio: zod
@@ -754,20 +1654,51 @@ export const CreateGigResponse = zod.object({
     .datetime({ offset: true })
     .regex(createGigResponseCancelledAtRegExp)
     .nullable(),
-  myApplication: zod
-    .object({
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(createGigResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(createGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
           .min(1)
-          .max(createGigResponseMyApplicationWorkerNameMax),
+          .max(createGigResponseMyApplicationOneWorkerNameMax),
         bio: zod
           .string()
-          .min(createGigResponseMyApplicationWorkerBioMin)
-          .max(createGigResponseMyApplicationWorkerBioMax),
+          .min(createGigResponseMyApplicationOneWorkerBioMin)
+          .max(createGigResponseMyApplicationOneWorkerBioMax),
         role: zod
           .enum(["customer", "worker"])
           .describe(
@@ -775,23 +1706,23 @@ export const CreateGigResponse = zod.object({
           ),
         completedGigsCount: zod
           .int()
-          .min(createGigResponseMyApplicationWorkerCompletedGigsCountMin),
+          .min(createGigResponseMyApplicationOneWorkerCompletedGigsCountMin),
         ratingAverage: zod
           .number()
           .min(1)
-          .max(createGigResponseMyApplicationWorkerRatingAverageMax)
+          .max(createGigResponseMyApplicationOneWorkerRatingAverageMax)
           .nullable()
           .describe(
             "Среднее всех полученных оценок без округления; null, если оценок нет.",
           ),
         reviewsCount: zod
           .int()
-          .min(createGigResponseMyApplicationWorkerReviewsCountMin),
+          .min(createGigResponseMyApplicationOneWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
-        .min(createGigResponseMyApplicationCommentMin)
-        .max(createGigResponseMyApplicationCommentMax),
+        .min(createGigResponseMyApplicationOneCommentMin)
+        .max(createGigResponseMyApplicationOneCommentMax),
       status: zod
         .enum(["pending", "selected", "rejected", "withdrawn"])
         .describe(
@@ -799,15 +1730,13 @@ export const CreateGigResponse = zod.object({
         ),
       createdAt: zod.iso
         .datetime({ offset: true })
-        .regex(createGigResponseMyApplicationCreatedAtRegExp),
+        .regex(createGigResponseMyApplicationOneCreatedAtRegExp),
       updatedAt: zod.iso
         .datetime({ offset: true })
-        .regex(createGigResponseMyApplicationUpdatedAtRegExp),
-    })
-    .nullable()
-    .describe(
-      "Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.",
-    ),
+        .regex(createGigResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
 });
 
 /**
@@ -817,6 +1746,64 @@ export const CreateGigResponse = zod.object({
 export const GetGigParams = zod.object({
   gigId: zod.uuid(),
 });
+
+export const getGigResponsePointOneLatitudeMin = -90;
+export const getGigResponsePointOneLatitudeMax = 90;
+
+export const getGigResponsePointOneLongitudeMin = -180;
+export const getGigResponsePointOneLongitudeMax = 180;
+
+export const getGigResponsePointOneSourceDefault = `manual`;
+export const getGigResponsePointOneAttributionMax = 300;
+
+export const getGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const getGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const getGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const getGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const getGigResponseCancellationCommentMax = 500;
+
+export const getGigResponseTermsVersionDefault = 1;
+
+export const getGigResponseHasPendingChangeDefault = false;
+export const getGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const getGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const getGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const getGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const getGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const getGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const getGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const getGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const getGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const getGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const getGigResponsePendingChangeTermsTitleMax = 150;
+
+export const getGigResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const getGigResponsePendingChangeTermsRequirementsMin = 0;
+export const getGigResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const getGigResponsePendingChangeTermsCityMax = 100;
+
+export const getGigResponsePendingChangeTermsAddressMax = 300;
+
+export const getGigResponsePendingChangeTermsStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const getGigResponsePendingChangeTermsEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const getGigResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const getGigResponseCounterpartyContactMax = 200;
 
 export const getGigResponseTitleMax = 150;
 
@@ -829,6 +1816,8 @@ export const getGigResponseEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const getGigResponseAmountKopecksMax = 10000000000;
+
+export const getGigResponseCustomerSpecialtiesMax = 5;
 
 export const getGigResponseCustomerNameMax = 100;
 
@@ -876,28 +1865,244 @@ export const getGigResponseCompletedAtRegExp = new RegExp(
 export const getGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const getGigResponseMyApplicationWorkerNameMax = 100;
+export const getGigResponseMyApplicationOneTermsVersionDefault = 1;
 
-export const getGigResponseMyApplicationWorkerBioMin = 0;
-export const getGigResponseMyApplicationWorkerBioMax = 1000;
+export const getGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
-export const getGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+export const getGigResponseMyApplicationOneWorkerNameMax = 100;
 
-export const getGigResponseMyApplicationWorkerRatingAverageMax = 5;
+export const getGigResponseMyApplicationOneWorkerBioMin = 0;
+export const getGigResponseMyApplicationOneWorkerBioMax = 1000;
 
-export const getGigResponseMyApplicationWorkerReviewsCountMin = 0;
+export const getGigResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
 
-export const getGigResponseMyApplicationCommentMin = 0;
-export const getGigResponseMyApplicationCommentMax = 1000;
+export const getGigResponseMyApplicationOneWorkerRatingAverageMax = 5;
 
-export const getGigResponseMyApplicationCreatedAtRegExp = new RegExp(
+export const getGigResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const getGigResponseMyApplicationOneCommentMin = 0;
+export const getGigResponseMyApplicationOneCommentMax = 1000;
+
+export const getGigResponseMyApplicationOneCreatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const getGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
+export const getGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 
 export const GetGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(getGigResponsePointOneLatitudeMin)
+        .max(getGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(getGigResponsePointOneLongitudeMin)
+        .max(getGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(getGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(getGigResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(getGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(getGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(getGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(getGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(getGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(getGigResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(getGigResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(getGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(getGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(getGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(getGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(getGigResponsePendingChangeTermsPointOneSourceDefault),
+            attribution: zod
+              .string()
+              .max(getGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    getGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    getGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    getGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    getGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(getGigResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(getGigResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(getGigResponsePendingChangeTermsRequirementsMin)
+          .max(getGigResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod.string().min(1).max(getGigResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(getGigResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(getGigResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(getGigResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(getGigResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(getGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(getGigResponseTitleMax),
   city: zod.string().min(1).max(getGigResponseCityMax),
@@ -918,6 +2123,30 @@ export const GetGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(getGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(getGigResponseCustomerNameMax),
     bio: zod
@@ -994,17 +2223,51 @@ export const GetGigResponse = zod.object({
     .datetime({ offset: true })
     .regex(getGigResponseCancelledAtRegExp)
     .nullable(),
-  myApplication: zod
-    .object({
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(getGigResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(getGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
-        name: zod.string().min(1).max(getGigResponseMyApplicationWorkerNameMax),
+        name: zod
+          .string()
+          .min(1)
+          .max(getGigResponseMyApplicationOneWorkerNameMax),
         bio: zod
           .string()
-          .min(getGigResponseMyApplicationWorkerBioMin)
-          .max(getGigResponseMyApplicationWorkerBioMax),
+          .min(getGigResponseMyApplicationOneWorkerBioMin)
+          .max(getGigResponseMyApplicationOneWorkerBioMax),
         role: zod
           .enum(["customer", "worker"])
           .describe(
@@ -1012,23 +2275,23 @@ export const GetGigResponse = zod.object({
           ),
         completedGigsCount: zod
           .int()
-          .min(getGigResponseMyApplicationWorkerCompletedGigsCountMin),
+          .min(getGigResponseMyApplicationOneWorkerCompletedGigsCountMin),
         ratingAverage: zod
           .number()
           .min(1)
-          .max(getGigResponseMyApplicationWorkerRatingAverageMax)
+          .max(getGigResponseMyApplicationOneWorkerRatingAverageMax)
           .nullable()
           .describe(
             "Среднее всех полученных оценок без округления; null, если оценок нет.",
           ),
         reviewsCount: zod
           .int()
-          .min(getGigResponseMyApplicationWorkerReviewsCountMin),
+          .min(getGigResponseMyApplicationOneWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
-        .min(getGigResponseMyApplicationCommentMin)
-        .max(getGigResponseMyApplicationCommentMax),
+        .min(getGigResponseMyApplicationOneCommentMin)
+        .max(getGigResponseMyApplicationOneCommentMax),
       status: zod
         .enum(["pending", "selected", "rejected", "withdrawn"])
         .describe(
@@ -1036,24 +2299,95 @@ export const GetGigResponse = zod.object({
         ),
       createdAt: zod.iso
         .datetime({ offset: true })
-        .regex(getGigResponseMyApplicationCreatedAtRegExp),
+        .regex(getGigResponseMyApplicationOneCreatedAtRegExp),
       updatedAt: zod.iso
         .datetime({ offset: true })
-        .regex(getGigResponseMyApplicationUpdatedAtRegExp),
-    })
-    .nullable()
-    .describe(
-      "Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.",
-    ),
+        .regex(getGigResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
 });
 
 /**
- * Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected. Конкурентный выбор и отмена: успешно только одно действие.
+ * Только владелец-customer, только open → cancelled. Все pending отклики становятся rejected. Конкурентный выбор и отмена: успешно только одно действие. Запрос без тела или без reason сохраняется без указанной причины.
  * @summary Отменить задание
  */
 export const CancelGigParams = zod.object({
   gigId: zod.uuid(),
 });
+
+export const cancelGigBodyCommentMax = 500;
+
+export const CancelGigBody = zod.object({
+  reason: zod
+    .enum([
+      "no_longer_needed",
+      "schedule_changed",
+      "terms_changed",
+      "posted_by_mistake",
+      "other",
+    ])
+    .optional(),
+  comment: zod.string().max(cancelGigBodyCommentMax).optional(),
+});
+
+export const cancelGigResponsePointOneLatitudeMin = -90;
+export const cancelGigResponsePointOneLatitudeMax = 90;
+
+export const cancelGigResponsePointOneLongitudeMin = -180;
+export const cancelGigResponsePointOneLongitudeMax = 180;
+
+export const cancelGigResponsePointOneSourceDefault = `manual`;
+export const cancelGigResponsePointOneAttributionMax = 300;
+
+export const cancelGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const cancelGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const cancelGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const cancelGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const cancelGigResponseCancellationCommentMax = 500;
+
+export const cancelGigResponseTermsVersionDefault = 1;
+
+export const cancelGigResponseHasPendingChangeDefault = false;
+export const cancelGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const cancelGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const cancelGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const cancelGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const cancelGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const cancelGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const cancelGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const cancelGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const cancelGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const cancelGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const cancelGigResponsePendingChangeTermsTitleMax = 150;
+
+export const cancelGigResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const cancelGigResponsePendingChangeTermsRequirementsMin = 0;
+export const cancelGigResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const cancelGigResponsePendingChangeTermsCityMax = 100;
+
+export const cancelGigResponsePendingChangeTermsAddressMax = 300;
+
+export const cancelGigResponsePendingChangeTermsStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const cancelGigResponsePendingChangeTermsEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const cancelGigResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const cancelGigResponseCounterpartyContactMax = 200;
 
 export const cancelGigResponseTitleMax = 150;
 
@@ -1066,6 +2400,8 @@ export const cancelGigResponseEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const cancelGigResponseAmountKopecksMax = 10000000000;
+
+export const cancelGigResponseCustomerSpecialtiesMax = 5;
 
 export const cancelGigResponseCustomerNameMax = 100;
 
@@ -1113,28 +2449,249 @@ export const cancelGigResponseCompletedAtRegExp = new RegExp(
 export const cancelGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const cancelGigResponseMyApplicationWorkerNameMax = 100;
+export const cancelGigResponseMyApplicationOneTermsVersionDefault = 1;
 
-export const cancelGigResponseMyApplicationWorkerBioMin = 0;
-export const cancelGigResponseMyApplicationWorkerBioMax = 1000;
+export const cancelGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
-export const cancelGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+export const cancelGigResponseMyApplicationOneWorkerNameMax = 100;
 
-export const cancelGigResponseMyApplicationWorkerRatingAverageMax = 5;
+export const cancelGigResponseMyApplicationOneWorkerBioMin = 0;
+export const cancelGigResponseMyApplicationOneWorkerBioMax = 1000;
 
-export const cancelGigResponseMyApplicationWorkerReviewsCountMin = 0;
+export const cancelGigResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
 
-export const cancelGigResponseMyApplicationCommentMin = 0;
-export const cancelGigResponseMyApplicationCommentMax = 1000;
+export const cancelGigResponseMyApplicationOneWorkerRatingAverageMax = 5;
 
-export const cancelGigResponseMyApplicationCreatedAtRegExp = new RegExp(
+export const cancelGigResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const cancelGigResponseMyApplicationOneCommentMin = 0;
+export const cancelGigResponseMyApplicationOneCommentMax = 1000;
+
+export const cancelGigResponseMyApplicationOneCreatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const cancelGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
+export const cancelGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 
 export const CancelGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(cancelGigResponsePointOneLatitudeMin)
+        .max(cancelGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(cancelGigResponsePointOneLongitudeMin)
+        .max(cancelGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(cancelGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(cancelGigResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(cancelGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(cancelGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(cancelGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(cancelGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(cancelGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(cancelGigResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(cancelGigResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(cancelGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(cancelGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(cancelGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(cancelGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                cancelGigResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(cancelGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    cancelGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    cancelGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    cancelGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    cancelGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(cancelGigResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(cancelGigResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(cancelGigResponsePendingChangeTermsRequirementsMin)
+          .max(cancelGigResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(cancelGigResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(cancelGigResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(cancelGigResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(cancelGigResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(cancelGigResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(cancelGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(cancelGigResponseTitleMax),
   city: zod.string().min(1).max(cancelGigResponseCityMax),
@@ -1157,6 +2714,30 @@ export const CancelGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(cancelGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(cancelGigResponseCustomerNameMax),
     bio: zod
@@ -1235,20 +2816,51 @@ export const CancelGigResponse = zod.object({
     .datetime({ offset: true })
     .regex(cancelGigResponseCancelledAtRegExp)
     .nullable(),
-  myApplication: zod
-    .object({
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(cancelGigResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(cancelGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
           .min(1)
-          .max(cancelGigResponseMyApplicationWorkerNameMax),
+          .max(cancelGigResponseMyApplicationOneWorkerNameMax),
         bio: zod
           .string()
-          .min(cancelGigResponseMyApplicationWorkerBioMin)
-          .max(cancelGigResponseMyApplicationWorkerBioMax),
+          .min(cancelGigResponseMyApplicationOneWorkerBioMin)
+          .max(cancelGigResponseMyApplicationOneWorkerBioMax),
         role: zod
           .enum(["customer", "worker"])
           .describe(
@@ -1256,23 +2868,23 @@ export const CancelGigResponse = zod.object({
           ),
         completedGigsCount: zod
           .int()
-          .min(cancelGigResponseMyApplicationWorkerCompletedGigsCountMin),
+          .min(cancelGigResponseMyApplicationOneWorkerCompletedGigsCountMin),
         ratingAverage: zod
           .number()
           .min(1)
-          .max(cancelGigResponseMyApplicationWorkerRatingAverageMax)
+          .max(cancelGigResponseMyApplicationOneWorkerRatingAverageMax)
           .nullable()
           .describe(
             "Среднее всех полученных оценок без округления; null, если оценок нет.",
           ),
         reviewsCount: zod
           .int()
-          .min(cancelGigResponseMyApplicationWorkerReviewsCountMin),
+          .min(cancelGigResponseMyApplicationOneWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
-        .min(cancelGigResponseMyApplicationCommentMin)
-        .max(cancelGigResponseMyApplicationCommentMax),
+        .min(cancelGigResponseMyApplicationOneCommentMin)
+        .max(cancelGigResponseMyApplicationOneCommentMax),
       status: zod
         .enum(["pending", "selected", "rejected", "withdrawn"])
         .describe(
@@ -1280,16 +2892,28 @@ export const CancelGigResponse = zod.object({
         ),
       createdAt: zod.iso
         .datetime({ offset: true })
-        .regex(cancelGigResponseMyApplicationCreatedAtRegExp),
+        .regex(cancelGigResponseMyApplicationOneCreatedAtRegExp),
       updatedAt: zod.iso
         .datetime({ offset: true })
-        .regex(cancelGigResponseMyApplicationUpdatedAtRegExp),
-    })
-    .nullable()
-    .describe(
-      "Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.",
-    ),
+        .regex(cancelGigResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
 });
+
+/**
+ * Только выбранный исполнитель в in_progress. Сначала arrived, затем started. Повтор текущей отметки безопасен.
+ * @summary Отметить этап работы
+ */
+export const AdvanceGigProgressParams = zod.object({
+  gigId: zod.uuid(),
+});
+
+export const AdvanceGigProgressBody = zod.object({
+  stage: zod.enum(["arrived", "started"]),
+});
+
+export const AdvanceGigProgressResponse = zod.void();
 
 /**
  * Только выбранный worker, in_progress → awaiting_confirmation; submittedAt устанавливается сервером.
@@ -1298,6 +2922,64 @@ export const CancelGigResponse = zod.object({
 export const SubmitGigParams = zod.object({
   gigId: zod.uuid(),
 });
+
+export const submitGigResponsePointOneLatitudeMin = -90;
+export const submitGigResponsePointOneLatitudeMax = 90;
+
+export const submitGigResponsePointOneLongitudeMin = -180;
+export const submitGigResponsePointOneLongitudeMax = 180;
+
+export const submitGigResponsePointOneSourceDefault = `manual`;
+export const submitGigResponsePointOneAttributionMax = 300;
+
+export const submitGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const submitGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const submitGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const submitGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const submitGigResponseCancellationCommentMax = 500;
+
+export const submitGigResponseTermsVersionDefault = 1;
+
+export const submitGigResponseHasPendingChangeDefault = false;
+export const submitGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const submitGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const submitGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const submitGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const submitGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const submitGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const submitGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const submitGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const submitGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const submitGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const submitGigResponsePendingChangeTermsTitleMax = 150;
+
+export const submitGigResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const submitGigResponsePendingChangeTermsRequirementsMin = 0;
+export const submitGigResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const submitGigResponsePendingChangeTermsCityMax = 100;
+
+export const submitGigResponsePendingChangeTermsAddressMax = 300;
+
+export const submitGigResponsePendingChangeTermsStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const submitGigResponsePendingChangeTermsEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const submitGigResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const submitGigResponseCounterpartyContactMax = 200;
 
 export const submitGigResponseTitleMax = 150;
 
@@ -1310,6 +2992,8 @@ export const submitGigResponseEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const submitGigResponseAmountKopecksMax = 10000000000;
+
+export const submitGigResponseCustomerSpecialtiesMax = 5;
 
 export const submitGigResponseCustomerNameMax = 100;
 
@@ -1357,28 +3041,249 @@ export const submitGigResponseCompletedAtRegExp = new RegExp(
 export const submitGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const submitGigResponseMyApplicationWorkerNameMax = 100;
+export const submitGigResponseMyApplicationOneTermsVersionDefault = 1;
 
-export const submitGigResponseMyApplicationWorkerBioMin = 0;
-export const submitGigResponseMyApplicationWorkerBioMax = 1000;
+export const submitGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
-export const submitGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+export const submitGigResponseMyApplicationOneWorkerNameMax = 100;
 
-export const submitGigResponseMyApplicationWorkerRatingAverageMax = 5;
+export const submitGigResponseMyApplicationOneWorkerBioMin = 0;
+export const submitGigResponseMyApplicationOneWorkerBioMax = 1000;
 
-export const submitGigResponseMyApplicationWorkerReviewsCountMin = 0;
+export const submitGigResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
 
-export const submitGigResponseMyApplicationCommentMin = 0;
-export const submitGigResponseMyApplicationCommentMax = 1000;
+export const submitGigResponseMyApplicationOneWorkerRatingAverageMax = 5;
 
-export const submitGigResponseMyApplicationCreatedAtRegExp = new RegExp(
+export const submitGigResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const submitGigResponseMyApplicationOneCommentMin = 0;
+export const submitGigResponseMyApplicationOneCommentMax = 1000;
+
+export const submitGigResponseMyApplicationOneCreatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const submitGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
+export const submitGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 
 export const SubmitGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(submitGigResponsePointOneLatitudeMin)
+        .max(submitGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(submitGigResponsePointOneLongitudeMin)
+        .max(submitGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(submitGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(submitGigResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(submitGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(submitGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(submitGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(submitGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(submitGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(submitGigResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(submitGigResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(submitGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(submitGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(submitGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(submitGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                submitGigResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(submitGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    submitGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    submitGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    submitGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    submitGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(submitGigResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(submitGigResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(submitGigResponsePendingChangeTermsRequirementsMin)
+          .max(submitGigResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(submitGigResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(submitGigResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(submitGigResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(submitGigResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(submitGigResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(submitGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(submitGigResponseTitleMax),
   city: zod.string().min(1).max(submitGigResponseCityMax),
@@ -1401,6 +3306,30 @@ export const SubmitGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(submitGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(submitGigResponseCustomerNameMax),
     bio: zod
@@ -1479,20 +3408,51 @@ export const SubmitGigResponse = zod.object({
     .datetime({ offset: true })
     .regex(submitGigResponseCancelledAtRegExp)
     .nullable(),
-  myApplication: zod
-    .object({
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(submitGigResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(submitGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
           .min(1)
-          .max(submitGigResponseMyApplicationWorkerNameMax),
+          .max(submitGigResponseMyApplicationOneWorkerNameMax),
         bio: zod
           .string()
-          .min(submitGigResponseMyApplicationWorkerBioMin)
-          .max(submitGigResponseMyApplicationWorkerBioMax),
+          .min(submitGigResponseMyApplicationOneWorkerBioMin)
+          .max(submitGigResponseMyApplicationOneWorkerBioMax),
         role: zod
           .enum(["customer", "worker"])
           .describe(
@@ -1500,23 +3460,23 @@ export const SubmitGigResponse = zod.object({
           ),
         completedGigsCount: zod
           .int()
-          .min(submitGigResponseMyApplicationWorkerCompletedGigsCountMin),
+          .min(submitGigResponseMyApplicationOneWorkerCompletedGigsCountMin),
         ratingAverage: zod
           .number()
           .min(1)
-          .max(submitGigResponseMyApplicationWorkerRatingAverageMax)
+          .max(submitGigResponseMyApplicationOneWorkerRatingAverageMax)
           .nullable()
           .describe(
             "Среднее всех полученных оценок без округления; null, если оценок нет.",
           ),
         reviewsCount: zod
           .int()
-          .min(submitGigResponseMyApplicationWorkerReviewsCountMin),
+          .min(submitGigResponseMyApplicationOneWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
-        .min(submitGigResponseMyApplicationCommentMin)
-        .max(submitGigResponseMyApplicationCommentMax),
+        .min(submitGigResponseMyApplicationOneCommentMin)
+        .max(submitGigResponseMyApplicationOneCommentMax),
       status: zod
         .enum(["pending", "selected", "rejected", "withdrawn"])
         .describe(
@@ -1524,15 +3484,13 @@ export const SubmitGigResponse = zod.object({
         ),
       createdAt: zod.iso
         .datetime({ offset: true })
-        .regex(submitGigResponseMyApplicationCreatedAtRegExp),
+        .regex(submitGigResponseMyApplicationOneCreatedAtRegExp),
       updatedAt: zod.iso
         .datetime({ offset: true })
-        .regex(submitGigResponseMyApplicationUpdatedAtRegExp),
-    })
-    .nullable()
-    .describe(
-      "Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.",
-    ),
+        .regex(submitGigResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
 });
 
 /**
@@ -1542,6 +3500,64 @@ export const SubmitGigResponse = zod.object({
 export const ConfirmGigParams = zod.object({
   gigId: zod.uuid(),
 });
+
+export const confirmGigResponsePointOneLatitudeMin = -90;
+export const confirmGigResponsePointOneLatitudeMax = 90;
+
+export const confirmGigResponsePointOneLongitudeMin = -180;
+export const confirmGigResponsePointOneLongitudeMax = 180;
+
+export const confirmGigResponsePointOneSourceDefault = `manual`;
+export const confirmGigResponsePointOneAttributionMax = 300;
+
+export const confirmGigResponsePointOneAddressReferenceLatitudeMin = -90;
+export const confirmGigResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const confirmGigResponsePointOneAddressReferenceLongitudeMin = -180;
+export const confirmGigResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const confirmGigResponseCancellationCommentMax = 500;
+
+export const confirmGigResponseTermsVersionDefault = 1;
+
+export const confirmGigResponseHasPendingChangeDefault = false;
+export const confirmGigResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const confirmGigResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const confirmGigResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const confirmGigResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const confirmGigResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const confirmGigResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const confirmGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const confirmGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const confirmGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const confirmGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const confirmGigResponsePendingChangeTermsTitleMax = 150;
+
+export const confirmGigResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const confirmGigResponsePendingChangeTermsRequirementsMin = 0;
+export const confirmGigResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const confirmGigResponsePendingChangeTermsCityMax = 100;
+
+export const confirmGigResponsePendingChangeTermsAddressMax = 300;
+
+export const confirmGigResponsePendingChangeTermsStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const confirmGigResponsePendingChangeTermsEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const confirmGigResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const confirmGigResponseCounterpartyContactMax = 200;
 
 export const confirmGigResponseTitleMax = 150;
 
@@ -1554,6 +3570,8 @@ export const confirmGigResponseEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const confirmGigResponseAmountKopecksMax = 10000000000;
+
+export const confirmGigResponseCustomerSpecialtiesMax = 5;
 
 export const confirmGigResponseCustomerNameMax = 100;
 
@@ -1601,28 +3619,249 @@ export const confirmGigResponseCompletedAtRegExp = new RegExp(
 export const confirmGigResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const confirmGigResponseMyApplicationWorkerNameMax = 100;
+export const confirmGigResponseMyApplicationOneTermsVersionDefault = 1;
 
-export const confirmGigResponseMyApplicationWorkerBioMin = 0;
-export const confirmGigResponseMyApplicationWorkerBioMax = 1000;
+export const confirmGigResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
-export const confirmGigResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+export const confirmGigResponseMyApplicationOneWorkerNameMax = 100;
 
-export const confirmGigResponseMyApplicationWorkerRatingAverageMax = 5;
+export const confirmGigResponseMyApplicationOneWorkerBioMin = 0;
+export const confirmGigResponseMyApplicationOneWorkerBioMax = 1000;
 
-export const confirmGigResponseMyApplicationWorkerReviewsCountMin = 0;
+export const confirmGigResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
 
-export const confirmGigResponseMyApplicationCommentMin = 0;
-export const confirmGigResponseMyApplicationCommentMax = 1000;
+export const confirmGigResponseMyApplicationOneWorkerRatingAverageMax = 5;
 
-export const confirmGigResponseMyApplicationCreatedAtRegExp = new RegExp(
+export const confirmGigResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const confirmGigResponseMyApplicationOneCommentMin = 0;
+export const confirmGigResponseMyApplicationOneCommentMax = 1000;
+
+export const confirmGigResponseMyApplicationOneCreatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const confirmGigResponseMyApplicationUpdatedAtRegExp = new RegExp(
+export const confirmGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 
 export const ConfirmGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(confirmGigResponsePointOneLatitudeMin)
+        .max(confirmGigResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(confirmGigResponsePointOneLongitudeMin)
+        .max(confirmGigResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(confirmGigResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(confirmGigResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(confirmGigResponsePointOneAddressReferenceLatitudeMin)
+            .max(confirmGigResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(confirmGigResponsePointOneAddressReferenceLongitudeMin)
+            .max(confirmGigResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(confirmGigResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(confirmGigResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(confirmGigResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(confirmGigResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(confirmGigResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(confirmGigResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(confirmGigResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                confirmGigResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(confirmGigResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    confirmGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    confirmGigResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    confirmGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    confirmGigResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(confirmGigResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(confirmGigResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(confirmGigResponsePendingChangeTermsRequirementsMin)
+          .max(confirmGigResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(confirmGigResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(confirmGigResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(confirmGigResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(confirmGigResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(confirmGigResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(confirmGigResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(confirmGigResponseTitleMax),
   city: zod.string().min(1).max(confirmGigResponseCityMax),
@@ -1645,6 +3884,30 @@ export const ConfirmGigResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(confirmGigResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(confirmGigResponseCustomerNameMax),
     bio: zod
@@ -1723,20 +3986,51 @@ export const ConfirmGigResponse = zod.object({
     .datetime({ offset: true })
     .regex(confirmGigResponseCancelledAtRegExp)
     .nullable(),
-  myApplication: zod
-    .object({
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(confirmGigResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(confirmGigResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
           .min(1)
-          .max(confirmGigResponseMyApplicationWorkerNameMax),
+          .max(confirmGigResponseMyApplicationOneWorkerNameMax),
         bio: zod
           .string()
-          .min(confirmGigResponseMyApplicationWorkerBioMin)
-          .max(confirmGigResponseMyApplicationWorkerBioMax),
+          .min(confirmGigResponseMyApplicationOneWorkerBioMin)
+          .max(confirmGigResponseMyApplicationOneWorkerBioMax),
         role: zod
           .enum(["customer", "worker"])
           .describe(
@@ -1744,23 +4038,23 @@ export const ConfirmGigResponse = zod.object({
           ),
         completedGigsCount: zod
           .int()
-          .min(confirmGigResponseMyApplicationWorkerCompletedGigsCountMin),
+          .min(confirmGigResponseMyApplicationOneWorkerCompletedGigsCountMin),
         ratingAverage: zod
           .number()
           .min(1)
-          .max(confirmGigResponseMyApplicationWorkerRatingAverageMax)
+          .max(confirmGigResponseMyApplicationOneWorkerRatingAverageMax)
           .nullable()
           .describe(
             "Среднее всех полученных оценок без округления; null, если оценок нет.",
           ),
         reviewsCount: zod
           .int()
-          .min(confirmGigResponseMyApplicationWorkerReviewsCountMin),
+          .min(confirmGigResponseMyApplicationOneWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
-        .min(confirmGigResponseMyApplicationCommentMin)
-        .max(confirmGigResponseMyApplicationCommentMax),
+        .min(confirmGigResponseMyApplicationOneCommentMin)
+        .max(confirmGigResponseMyApplicationOneCommentMax),
       status: zod
         .enum(["pending", "selected", "rejected", "withdrawn"])
         .describe(
@@ -1768,15 +4062,13 @@ export const ConfirmGigResponse = zod.object({
         ),
       createdAt: zod.iso
         .datetime({ offset: true })
-        .regex(confirmGigResponseMyApplicationCreatedAtRegExp),
+        .regex(confirmGigResponseMyApplicationOneCreatedAtRegExp),
       updatedAt: zod.iso
         .datetime({ offset: true })
-        .regex(confirmGigResponseMyApplicationUpdatedAtRegExp),
-    })
-    .nullable()
-    .describe(
-      "Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.",
-    ),
+        .regex(confirmGigResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
 });
 
 /**
@@ -1787,17 +4079,30 @@ export const CreateApplicationParams = zod.object({
   gigId: zod.uuid(),
 });
 
+export const createApplicationBodyTermsVersionDefault = 1;
+
 export const createApplicationBodyCommentDefault = ``;
 export const createApplicationBodyCommentMin = 0;
 export const createApplicationBodyCommentMax = 1000;
 
 export const CreateApplicationBody = zod.object({
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(createApplicationBodyTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
   comment: zod
     .string()
     .min(createApplicationBodyCommentMin)
     .max(createApplicationBodyCommentMax)
     .default(createApplicationBodyCommentDefault),
 });
+
+export const createApplicationResponseTermsVersionDefault = 1;
+
+export const createApplicationResponseWorkerSpecialtiesMax = 5;
 
 export const createApplicationResponseWorkerNameMax = 100;
 
@@ -1821,9 +4126,40 @@ export const createApplicationResponseUpdatedAtRegExp = new RegExp(
 );
 
 export const CreateApplicationResponse = zod.object({
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(createApplicationResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
   id: zod.uuid(),
   gigId: zod.uuid(),
   worker: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(createApplicationResponseWorkerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(createApplicationResponseWorkerNameMax),
     bio: zod
@@ -1893,6 +4229,10 @@ export const ListGigApplicationsQueryParams = zod.object({
   status: zod.enum(["pending", "selected", "rejected", "withdrawn"]).optional(),
 });
 
+export const listGigApplicationsResponseItemsItemTermsVersionDefault = 1;
+
+export const listGigApplicationsResponseItemsItemWorkerSpecialtiesMax = 5;
+
 export const listGigApplicationsResponseItemsItemWorkerNameMax = 100;
 
 export const listGigApplicationsResponseItemsItemWorkerBioMin = 0;
@@ -1921,9 +4261,40 @@ export const listGigApplicationsResponseTotalMin = 0;
 export const ListGigApplicationsResponse = zod.object({
   items: zod.array(
     zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(listGigApplicationsResponseItemsItemTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(listGigApplicationsResponseItemsItemWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -1976,13 +4347,76 @@ export const ListGigApplicationsResponse = zod.object({
 });
 
 /**
- * Только customer-владелец и pending отклик этого задания. Атомарно: open → in_progress, отклик → selected, остальные pending → rejected, selectedWorker устанавливается. Несовпадение gigId/applicationId — 404. Два выбора либо выбор и отмена: один успех, другой 409 STATE_CONFLICT.
+ * Только customer-владелец и pending отклик этого задания. Атомарно: open → in_progress, отклик → selected, остальные pending → rejected, selectedWorker устанавливается. Несовпадение gigId/applicationId — 404. Редакция, подтверждённая в отклике, должна совпадать с текущей, иначе 409 STATE_CONFLICT. Два выбора либо выбор и отмена: один успех, другой 409 STATE_CONFLICT.
  * @summary Выбрать одного исполнителя
  */
 export const SelectApplicationParams = zod.object({
   gigId: zod.uuid(),
   applicationId: zod.uuid(),
 });
+
+export const selectApplicationResponsePointOneLatitudeMin = -90;
+export const selectApplicationResponsePointOneLatitudeMax = 90;
+
+export const selectApplicationResponsePointOneLongitudeMin = -180;
+export const selectApplicationResponsePointOneLongitudeMax = 180;
+
+export const selectApplicationResponsePointOneSourceDefault = `manual`;
+export const selectApplicationResponsePointOneAttributionMax = 300;
+
+export const selectApplicationResponsePointOneAddressReferenceLatitudeMin = -90;
+export const selectApplicationResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const selectApplicationResponsePointOneAddressReferenceLongitudeMin =
+  -180;
+export const selectApplicationResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const selectApplicationResponseCancellationCommentMax = 500;
+
+export const selectApplicationResponseTermsVersionDefault = 1;
+
+export const selectApplicationResponseHasPendingChangeDefault = false;
+export const selectApplicationResponsePendingChangeTermsPointOneLatitudeMin =
+  -90;
+export const selectApplicationResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const selectApplicationResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const selectApplicationResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const selectApplicationResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const selectApplicationResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const selectApplicationResponsePendingChangeTermsTitleMax = 150;
+
+export const selectApplicationResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const selectApplicationResponsePendingChangeTermsRequirementsMin = 0;
+export const selectApplicationResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const selectApplicationResponsePendingChangeTermsCityMax = 100;
+
+export const selectApplicationResponsePendingChangeTermsAddressMax = 300;
+
+export const selectApplicationResponsePendingChangeTermsStartsAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const selectApplicationResponsePendingChangeTermsEndsAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const selectApplicationResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const selectApplicationResponseCounterpartyContactMax = 200;
 
 export const selectApplicationResponseTitleMax = 150;
 
@@ -1995,6 +4429,8 @@ export const selectApplicationResponseEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const selectApplicationResponseAmountKopecksMax = 10000000000;
+
+export const selectApplicationResponseCustomerSpecialtiesMax = 5;
 
 export const selectApplicationResponseCustomerNameMax = 100;
 
@@ -2042,28 +4478,263 @@ export const selectApplicationResponseCompletedAtRegExp = new RegExp(
 export const selectApplicationResponseCancelledAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
-export const selectApplicationResponseMyApplicationWorkerNameMax = 100;
+export const selectApplicationResponseMyApplicationOneTermsVersionDefault = 1;
 
-export const selectApplicationResponseMyApplicationWorkerBioMin = 0;
-export const selectApplicationResponseMyApplicationWorkerBioMax = 1000;
+export const selectApplicationResponseMyApplicationOneWorkerSpecialtiesMax = 5;
 
-export const selectApplicationResponseMyApplicationWorkerCompletedGigsCountMin = 0;
+export const selectApplicationResponseMyApplicationOneWorkerNameMax = 100;
 
-export const selectApplicationResponseMyApplicationWorkerRatingAverageMax = 5;
+export const selectApplicationResponseMyApplicationOneWorkerBioMin = 0;
+export const selectApplicationResponseMyApplicationOneWorkerBioMax = 1000;
 
-export const selectApplicationResponseMyApplicationWorkerReviewsCountMin = 0;
+export const selectApplicationResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
 
-export const selectApplicationResponseMyApplicationCommentMin = 0;
-export const selectApplicationResponseMyApplicationCommentMax = 1000;
+export const selectApplicationResponseMyApplicationOneWorkerRatingAverageMax = 5;
 
-export const selectApplicationResponseMyApplicationCreatedAtRegExp = new RegExp(
-  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-);
-export const selectApplicationResponseMyApplicationUpdatedAtRegExp = new RegExp(
-  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-);
+export const selectApplicationResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const selectApplicationResponseMyApplicationOneCommentMin = 0;
+export const selectApplicationResponseMyApplicationOneCommentMax = 1000;
+
+export const selectApplicationResponseMyApplicationOneCreatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const selectApplicationResponseMyApplicationOneUpdatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
 
 export const SelectApplicationResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(selectApplicationResponsePointOneLatitudeMin)
+        .max(selectApplicationResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(selectApplicationResponsePointOneLongitudeMin)
+        .max(selectApplicationResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(selectApplicationResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(selectApplicationResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(selectApplicationResponsePointOneAddressReferenceLatitudeMin)
+            .max(selectApplicationResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(selectApplicationResponsePointOneAddressReferenceLongitudeMin)
+            .max(selectApplicationResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod
+        .string()
+        .max(selectApplicationResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(selectApplicationResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(selectApplicationResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(
+                selectApplicationResponsePendingChangeTermsPointOneLatitudeMin,
+              )
+              .max(
+                selectApplicationResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                selectApplicationResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                selectApplicationResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                selectApplicationResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                selectApplicationResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    selectApplicationResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(selectApplicationResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(selectApplicationResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(selectApplicationResponsePendingChangeTermsRequirementsMin)
+          .max(selectApplicationResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(selectApplicationResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(selectApplicationResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(selectApplicationResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(selectApplicationResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(selectApplicationResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(selectApplicationResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
   id: zod.uuid(),
   title: zod.string().min(1).max(selectApplicationResponseTitleMax),
   city: zod.string().min(1).max(selectApplicationResponseCityMax),
@@ -2089,6 +4760,30 @@ export const SelectApplicationResponse = zod.object({
       "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
     ),
   customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(selectApplicationResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(selectApplicationResponseCustomerNameMax),
     bio: zod
@@ -2172,20 +4867,51 @@ export const SelectApplicationResponse = zod.object({
     .datetime({ offset: true })
     .regex(selectApplicationResponseCancelledAtRegExp)
     .nullable(),
-  myApplication: zod
-    .object({
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(selectApplicationResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
       id: zod.uuid(),
       gigId: zod.uuid(),
       worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(selectApplicationResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
           .min(1)
-          .max(selectApplicationResponseMyApplicationWorkerNameMax),
+          .max(selectApplicationResponseMyApplicationOneWorkerNameMax),
         bio: zod
           .string()
-          .min(selectApplicationResponseMyApplicationWorkerBioMin)
-          .max(selectApplicationResponseMyApplicationWorkerBioMax),
+          .min(selectApplicationResponseMyApplicationOneWorkerBioMin)
+          .max(selectApplicationResponseMyApplicationOneWorkerBioMax),
         role: zod
           .enum(["customer", "worker"])
           .describe(
@@ -2194,24 +4920,24 @@ export const SelectApplicationResponse = zod.object({
         completedGigsCount: zod
           .int()
           .min(
-            selectApplicationResponseMyApplicationWorkerCompletedGigsCountMin,
+            selectApplicationResponseMyApplicationOneWorkerCompletedGigsCountMin,
           ),
         ratingAverage: zod
           .number()
           .min(1)
-          .max(selectApplicationResponseMyApplicationWorkerRatingAverageMax)
+          .max(selectApplicationResponseMyApplicationOneWorkerRatingAverageMax)
           .nullable()
           .describe(
             "Среднее всех полученных оценок без округления; null, если оценок нет.",
           ),
         reviewsCount: zod
           .int()
-          .min(selectApplicationResponseMyApplicationWorkerReviewsCountMin),
+          .min(selectApplicationResponseMyApplicationOneWorkerReviewsCountMin),
       }),
       comment: zod
         .string()
-        .min(selectApplicationResponseMyApplicationCommentMin)
-        .max(selectApplicationResponseMyApplicationCommentMax),
+        .min(selectApplicationResponseMyApplicationOneCommentMin)
+        .max(selectApplicationResponseMyApplicationOneCommentMax),
       status: zod
         .enum(["pending", "selected", "rejected", "withdrawn"])
         .describe(
@@ -2219,15 +4945,13 @@ export const SelectApplicationResponse = zod.object({
         ),
       createdAt: zod.iso
         .datetime({ offset: true })
-        .regex(selectApplicationResponseMyApplicationCreatedAtRegExp),
+        .regex(selectApplicationResponseMyApplicationOneCreatedAtRegExp),
       updatedAt: zod.iso
         .datetime({ offset: true })
-        .regex(selectApplicationResponseMyApplicationUpdatedAtRegExp),
-    })
-    .nullable()
-    .describe(
-      "Собственный отклик текущего исполнителя; null для гостя, заказчика или при отсутствии отклика.",
-    ),
+        .regex(selectApplicationResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
 });
 
 /**
@@ -2238,6 +4962,10 @@ export const WithdrawApplicationParams = zod.object({
   gigId: zod.uuid(),
   applicationId: zod.uuid(),
 });
+
+export const withdrawApplicationResponseTermsVersionDefault = 1;
+
+export const withdrawApplicationResponseWorkerSpecialtiesMax = 5;
 
 export const withdrawApplicationResponseWorkerNameMax = 100;
 
@@ -2261,9 +4989,40 @@ export const withdrawApplicationResponseUpdatedAtRegExp = new RegExp(
 );
 
 export const WithdrawApplicationResponse = zod.object({
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(withdrawApplicationResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
   id: zod.uuid(),
   gigId: zod.uuid(),
   worker: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(withdrawApplicationResponseWorkerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
     id: zod.uuid(),
     name: zod.string().min(1).max(withdrawApplicationResponseWorkerNameMax),
     bio: zod
@@ -2373,6 +5132,16 @@ export const CreateGigReviewResponse = zod.object({
 });
 
 /**
+ * Доступно владельцу отменённого задания. Повторный вызов успешен. Доступ к деталям и история других участников сохраняются.
+ * @summary Убрать отменённое задание из личных списков заказчика
+ */
+export const HideMyGigParams = zod.object({
+  gigId: zod.uuid(),
+});
+
+export const HideMyGigResponse = zod.void();
+
+/**
  * customer видит свои публикации; worker — задания, где он selectedWorker. active: open/in_progress/awaiting_confirmation; history: completed/cancelled; all: все. Включает выбранного исполнителя и число pending откликов. Пользователь определяется по сессии.
  * @summary Мои публикации или назначенные работы
  */
@@ -2400,6 +5169,11 @@ export const ListMyGigsQueryParams = zod.object({
     .default(listMyGigsQueryScopeDefault),
 });
 
+export const listMyGigsResponseItemsItemCancellationCommentMax = 500;
+
+export const listMyGigsResponseItemsItemTermsVersionDefault = 1;
+
+export const listMyGigsResponseItemsItemHasPendingChangeDefault = false;
 export const listMyGigsResponseItemsItemTitleMax = 150;
 
 export const listMyGigsResponseItemsItemCityMax = 100;
@@ -2411,6 +5185,8 @@ export const listMyGigsResponseItemsItemEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const listMyGigsResponseItemsItemAmountKopecksMax = 10000000000;
+
+export const listMyGigsResponseItemsItemCustomerSpecialtiesMax = 5;
 
 export const listMyGigsResponseItemsItemCustomerNameMax = 100;
 
@@ -2450,6 +5226,53 @@ export const listMyGigsResponseTotalMin = 0;
 export const ListMyGigsResponse = zod.object({
   items: zod.array(
     zod.object({
+      cancellation: zod
+        .object({
+          reason: zod
+            .enum([
+              "no_longer_needed",
+              "schedule_changed",
+              "terms_changed",
+              "posted_by_mistake",
+              "other",
+            ])
+            .optional(),
+          comment: zod
+            .string()
+            .max(listMyGigsResponseItemsItemCancellationCommentMax),
+        })
+        .optional()
+        .describe(
+          "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+        ),
+      category: zod
+        .enum([
+          "repair",
+          "electrical",
+          "plumbing",
+          "cleaning",
+          "moving",
+          "delivery",
+          "retail",
+          "warehouse",
+          "events",
+          "other",
+        ])
+        .optional()
+        .describe(
+          "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+        ),
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(listMyGigsResponseItemsItemTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
+      hasPendingChange: zod
+        .boolean()
+        .default(listMyGigsResponseItemsItemHasPendingChangeDefault)
+        .describe("Ожидается решение по новым условиям начатой работы."),
       id: zod.uuid(),
       title: zod.string().min(1).max(listMyGigsResponseItemsItemTitleMax),
       city: zod.string().min(1).max(listMyGigsResponseItemsItemCityMax),
@@ -2475,6 +5298,30 @@ export const ListMyGigsResponse = zod.object({
           "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
         ),
       customer: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(listMyGigsResponseItemsItemCustomerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
         id: zod.uuid(),
         name: zod
           .string()
@@ -2580,6 +5427,10 @@ export const ListMyApplicationsQueryParams = zod.object({
     .default(listMyApplicationsQueryScopeDefault),
 });
 
+export const listMyApplicationsResponseItemsItemApplicationTermsVersionDefault = 1;
+
+export const listMyApplicationsResponseItemsItemApplicationWorkerSpecialtiesMax = 5;
+
 export const listMyApplicationsResponseItemsItemApplicationWorkerNameMax = 100;
 
 export const listMyApplicationsResponseItemsItemApplicationWorkerBioMin = 0;
@@ -2602,6 +5453,11 @@ export const listMyApplicationsResponseItemsItemApplicationUpdatedAtRegExp =
   new RegExp(
     "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
   );
+export const listMyApplicationsResponseItemsItemGigCancellationCommentMax = 500;
+
+export const listMyApplicationsResponseItemsItemGigTermsVersionDefault = 1;
+
+export const listMyApplicationsResponseItemsItemGigHasPendingChangeDefault = false;
 export const listMyApplicationsResponseItemsItemGigTitleMax = 150;
 
 export const listMyApplicationsResponseItemsItemGigCityMax = 100;
@@ -2613,6 +5469,8 @@ export const listMyApplicationsResponseItemsItemGigEndsAtRegExp = new RegExp(
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
 );
 export const listMyApplicationsResponseItemsItemGigAmountKopecksMax = 10000000000;
+
+export const listMyApplicationsResponseItemsItemGigCustomerSpecialtiesMax = 5;
 
 export const listMyApplicationsResponseItemsItemGigCustomerNameMax = 100;
 
@@ -2653,9 +5511,44 @@ export const ListMyApplicationsResponse = zod.object({
   items: zod.array(
     zod.object({
       application: zod.object({
+        termsVersion: zod
+          .int()
+          .min(1)
+          .default(
+            listMyApplicationsResponseItemsItemApplicationTermsVersionDefault,
+          )
+          .describe(
+            "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+          ),
         id: zod.uuid(),
         gigId: zod.uuid(),
         worker: zod.object({
+          specialties: zod
+            .array(
+              zod
+                .enum([
+                  "repair",
+                  "electrical",
+                  "plumbing",
+                  "cleaning",
+                  "moving",
+                  "delivery",
+                  "retail",
+                  "warehouse",
+                  "events",
+                  "other",
+                ])
+                .describe(
+                  "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+                ),
+            )
+            .max(
+              listMyApplicationsResponseItemsItemApplicationWorkerSpecialtiesMax,
+            )
+            .optional()
+            .describe(
+              "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+            ),
           id: zod.uuid(),
           name: zod
             .string()
@@ -2708,6 +5601,57 @@ export const ListMyApplicationsResponse = zod.object({
           .regex(listMyApplicationsResponseItemsItemApplicationUpdatedAtRegExp),
       }),
       gig: zod.object({
+        cancellation: zod
+          .object({
+            reason: zod
+              .enum([
+                "no_longer_needed",
+                "schedule_changed",
+                "terms_changed",
+                "posted_by_mistake",
+                "other",
+              ])
+              .optional(),
+            comment: zod
+              .string()
+              .max(
+                listMyApplicationsResponseItemsItemGigCancellationCommentMax,
+              ),
+          })
+          .optional()
+          .describe(
+            "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+          ),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        termsVersion: zod
+          .int()
+          .min(1)
+          .default(listMyApplicationsResponseItemsItemGigTermsVersionDefault)
+          .describe(
+            "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+          ),
+        hasPendingChange: zod
+          .boolean()
+          .default(
+            listMyApplicationsResponseItemsItemGigHasPendingChangeDefault,
+          )
+          .describe("Ожидается решение по новым условиям начатой работы."),
         id: zod.uuid(),
         title: zod
           .string()
@@ -2739,6 +5683,30 @@ export const ListMyApplicationsResponse = zod.object({
             "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
           ),
         customer: zod.object({
+          specialties: zod
+            .array(
+              zod
+                .enum([
+                  "repair",
+                  "electrical",
+                  "plumbing",
+                  "cleaning",
+                  "moving",
+                  "delivery",
+                  "retail",
+                  "warehouse",
+                  "events",
+                  "other",
+                ])
+                .describe(
+                  "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+                ),
+            )
+            .max(listMyApplicationsResponseItemsItemGigCustomerSpecialtiesMax)
+            .optional()
+            .describe(
+              "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+            ),
           id: zod.uuid(),
           name: zod
             .string()
@@ -2823,4 +5791,3241 @@ export const ListMyApplicationsResponse = zod.object({
   page: zod.int().min(1),
   pageSize: zod.int().min(1).max(listMyApplicationsResponsePageSizeMax),
   total: zod.int().min(listMyApplicationsResponseTotalMin),
+});
+
+/**
+ * Новые первыми. Непрочитанные считаются по всей ленте в том же снимке данных, что и страница.
+ * @summary Мои уведомления и число непрочитанных
+ */
+export const listMyNotificationsQueryPageSizeDefault = 20;
+export const listMyNotificationsQueryPageSizeMax = 100;
+
+export const listMyNotificationsQueryCursorMax = 128;
+
+export const ListMyNotificationsQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listMyNotificationsQueryPageSizeMax)
+    .default(listMyNotificationsQueryPageSizeDefault),
+  cursor: zod
+    .string()
+    .min(1)
+    .max(listMyNotificationsQueryCursorMax)
+    .optional()
+    .describe(
+      "Передайте nextCursor предыдущей страницы без изменений. Первую страницу запрашивайте без курсора.",
+    ),
+});
+
+export const listMyNotificationsResponseItemsItemTypeRegExp = new RegExp(
+  "^[a-z][a-z0-9_]{0,63}$",
+);
+export const listMyNotificationsResponseItemsItemGigTitleMax = 150;
+
+export const listMyNotificationsResponseUnreadCountMin = 0;
+
+export const listMyNotificationsResponseNextCursorMax = 128;
+
+export const ListMyNotificationsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      type: zod
+        .string()
+        .regex(listMyNotificationsResponseItemsItemTypeRegExp)
+        .describe(
+          "Код события для выбора текста и действия. application_created, application_selected, application_rejected, gig_cancelled, gig_terms_changed, gig_change_proposed, gig_change_accepted, gig_change_rejected, gig_change_withdrawn, gig_submitted, gig_completed. Для application_rejected и gig_cancelled целевой экран — /my-gigs?view=applications&scope=history.",
+        ),
+      gigId: zod
+        .uuid()
+        .nullable()
+        .describe(
+          "Идентификатор задания. Доступ к странице проверяется отдельно.",
+        ),
+      gigTitle: zod
+        .string()
+        .min(1)
+        .max(listMyNotificationsResponseItemsItemGigTitleMax)
+        .describe("Название задания на момент события, обычный текст."),
+      cancellationReason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional()
+        .describe(
+          "Код причины только у gig_cancelled, если причина была указана.",
+        ),
+      createdAt: zod.iso.datetime({ offset: true }),
+      readAt: zod.iso.datetime({ offset: true }).nullable(),
+    }),
+  ),
+  unreadCount: zod.int().min(listMyNotificationsResponseUnreadCountMin),
+  nextCursor: zod
+    .string()
+    .max(listMyNotificationsResponseNextCursorMax)
+    .nullable(),
+});
+
+/**
+ * При повторе время первого прочтения сохраняется. Чужое уведомление недоступно и возвращает 404.
+ * @summary Отметить уведомление прочитанным
+ */
+export const ReadMyNotificationParams = zod.object({
+  notificationId: zod.uuid(),
+});
+
+export const ReadMyNotificationResponse = zod.void();
+
+/**
+ * Повтор допустим. Операция затрагивает только собственные уведомления, видимые в начале обновления.
+ * @summary Отметить все текущие уведомления прочитанными
+ */
+export const ReadAllMyNotificationsResponse = zod.void();
+
+/**
+ * Только владелец. open: применить новую редакцию, отклики сохраняются и требуют повторного согласия. in_progress: создать единственное предложение без изменения текущих условий. termsVersion должна совпадать с текущей, иначе 409. В остальных состояниях 409.
+ * @summary Изменить или предложить условия
+ */
+export const EditGigTermsParams = zod.object({
+  gigId: zod.uuid(),
+});
+
+export const editGigTermsBodyPointOneLatitudeMin = -90;
+export const editGigTermsBodyPointOneLatitudeMax = 90;
+
+export const editGigTermsBodyPointOneLongitudeMin = -180;
+export const editGigTermsBodyPointOneLongitudeMax = 180;
+
+export const editGigTermsBodyPointOneSourceDefault = `manual`;
+export const editGigTermsBodyPointOneAttributionMax = 300;
+
+export const editGigTermsBodyPointOneAddressReferenceLatitudeMin = -90;
+export const editGigTermsBodyPointOneAddressReferenceLatitudeMax = 90;
+
+export const editGigTermsBodyPointOneAddressReferenceLongitudeMin = -180;
+export const editGigTermsBodyPointOneAddressReferenceLongitudeMax = 180;
+
+export const editGigTermsBodyTitleMax = 150;
+
+export const editGigTermsBodyDescriptionMax = 5000;
+
+export const editGigTermsBodyRequirementsMin = 0;
+export const editGigTermsBodyRequirementsMax = 2000;
+
+export const editGigTermsBodyCityMax = 100;
+
+export const editGigTermsBodyAddressMax = 300;
+
+export const editGigTermsBodyStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsBodyEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsBodyAmountKopecksMax = 10000000000;
+
+export const EditGigTermsBody = zod.object({
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(editGigTermsBodyPointOneLatitudeMin)
+        .max(editGigTermsBodyPointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(editGigTermsBodyPointOneLongitudeMin)
+        .max(editGigTermsBodyPointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(editGigTermsBodyPointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(editGigTermsBodyPointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(editGigTermsBodyPointOneAddressReferenceLatitudeMin)
+            .max(editGigTermsBodyPointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(editGigTermsBodyPointOneAddressReferenceLongitudeMin)
+            .max(editGigTermsBodyPointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe(
+      "null очищает точку. Пропуск сохраняет её только при неизменных городе и адресе.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  title: zod.string().min(1).max(editGigTermsBodyTitleMax),
+  description: zod.string().min(1).max(editGigTermsBodyDescriptionMax),
+  requirements: zod
+    .string()
+    .min(editGigTermsBodyRequirementsMin)
+    .max(editGigTermsBodyRequirementsMax)
+    .describe(
+      "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+    ),
+  city: zod.string().min(1).max(editGigTermsBodyCityMax),
+  address: zod.string().min(1).max(editGigTermsBodyAddressMax),
+  startsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(editGigTermsBodyStartsAtRegExp)
+    .describe(
+      "Будущее начало либо неизменённое текущее начало, даже если оно в прошлом.",
+    ),
+  endsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(editGigTermsBodyEndsAtRegExp)
+    .describe("Строго позже startsAt."),
+  amountKopecks: zod
+    .int()
+    .min(1)
+    .max(editGigTermsBodyAmountKopecksMax)
+    .describe(
+      "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+    ),
+  termsVersion: zod.int().min(1),
+});
+
+export const editGigTermsResponsePointOneLatitudeMin = -90;
+export const editGigTermsResponsePointOneLatitudeMax = 90;
+
+export const editGigTermsResponsePointOneLongitudeMin = -180;
+export const editGigTermsResponsePointOneLongitudeMax = 180;
+
+export const editGigTermsResponsePointOneSourceDefault = `manual`;
+export const editGigTermsResponsePointOneAttributionMax = 300;
+
+export const editGigTermsResponsePointOneAddressReferenceLatitudeMin = -90;
+export const editGigTermsResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const editGigTermsResponsePointOneAddressReferenceLongitudeMin = -180;
+export const editGigTermsResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const editGigTermsResponseCancellationCommentMax = 500;
+
+export const editGigTermsResponseTermsVersionDefault = 1;
+
+export const editGigTermsResponseHasPendingChangeDefault = false;
+export const editGigTermsResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const editGigTermsResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const editGigTermsResponsePendingChangeTermsPointOneLongitudeMin = -180;
+export const editGigTermsResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const editGigTermsResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const editGigTermsResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const editGigTermsResponsePendingChangeTermsTitleMax = 150;
+
+export const editGigTermsResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const editGigTermsResponsePendingChangeTermsRequirementsMin = 0;
+export const editGigTermsResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const editGigTermsResponsePendingChangeTermsCityMax = 100;
+
+export const editGigTermsResponsePendingChangeTermsAddressMax = 300;
+
+export const editGigTermsResponsePendingChangeTermsStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponsePendingChangeTermsEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const editGigTermsResponseCounterpartyContactMax = 200;
+
+export const editGigTermsResponseTitleMax = 150;
+
+export const editGigTermsResponseCityMax = 100;
+
+export const editGigTermsResponseStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponseEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponseAmountKopecksMax = 10000000000;
+
+export const editGigTermsResponseCustomerSpecialtiesMax = 5;
+
+export const editGigTermsResponseCustomerNameMax = 100;
+
+export const editGigTermsResponseCustomerBioMin = 0;
+export const editGigTermsResponseCustomerBioMax = 1000;
+
+export const editGigTermsResponseCustomerCompletedGigsCountMin = 0;
+
+export const editGigTermsResponseCustomerRatingAverageMax = 5;
+
+export const editGigTermsResponseCustomerReviewsCountMin = 0;
+
+export const editGigTermsResponseSelectedWorkerNameMax = 100;
+
+export const editGigTermsResponseSelectedWorkerBioMin = 0;
+export const editGigTermsResponseSelectedWorkerBioMax = 1000;
+
+export const editGigTermsResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const editGigTermsResponseSelectedWorkerRatingAverageMax = 5;
+
+export const editGigTermsResponseSelectedWorkerReviewsCountMin = 0;
+
+export const editGigTermsResponsePendingApplicationsCountMin = 0;
+
+export const editGigTermsResponseCreatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponseUpdatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponseDescriptionMax = 5000;
+
+export const editGigTermsResponseRequirementsMin = 0;
+export const editGigTermsResponseRequirementsMax = 2000;
+
+export const editGigTermsResponseAddressMax = 300;
+
+export const editGigTermsResponseSubmittedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponseCompletedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponseCancelledAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const editGigTermsResponseMyApplicationOneWorkerSpecialtiesMax = 5;
+
+export const editGigTermsResponseMyApplicationOneWorkerNameMax = 100;
+
+export const editGigTermsResponseMyApplicationOneWorkerBioMin = 0;
+export const editGigTermsResponseMyApplicationOneWorkerBioMax = 1000;
+
+export const editGigTermsResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
+
+export const editGigTermsResponseMyApplicationOneWorkerRatingAverageMax = 5;
+
+export const editGigTermsResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const editGigTermsResponseMyApplicationOneCommentMin = 0;
+export const editGigTermsResponseMyApplicationOneCommentMax = 1000;
+
+export const editGigTermsResponseMyApplicationOneCreatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const editGigTermsResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+
+export const EditGigTermsResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(editGigTermsResponsePointOneLatitudeMin)
+        .max(editGigTermsResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(editGigTermsResponsePointOneLongitudeMin)
+        .max(editGigTermsResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(editGigTermsResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(editGigTermsResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(editGigTermsResponsePointOneAddressReferenceLatitudeMin)
+            .max(editGigTermsResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(editGigTermsResponsePointOneAddressReferenceLongitudeMin)
+            .max(editGigTermsResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(editGigTermsResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(editGigTermsResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(editGigTermsResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(editGigTermsResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(editGigTermsResponsePendingChangeTermsPointOneLatitudeMax),
+            longitude: zod
+              .number()
+              .min(editGigTermsResponsePendingChangeTermsPointOneLongitudeMin)
+              .max(editGigTermsResponsePendingChangeTermsPointOneLongitudeMax),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                editGigTermsResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(editGigTermsResponsePendingChangeTermsPointOneAttributionMax)
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    editGigTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(editGigTermsResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(editGigTermsResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(editGigTermsResponsePendingChangeTermsRequirementsMin)
+          .max(editGigTermsResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(editGigTermsResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(editGigTermsResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(editGigTermsResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(editGigTermsResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(editGigTermsResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(editGigTermsResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
+  id: zod.uuid(),
+  title: zod.string().min(1).max(editGigTermsResponseTitleMax),
+  city: zod.string().min(1).max(editGigTermsResponseCityMax),
+  startsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(editGigTermsResponseStartsAtRegExp),
+  endsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(editGigTermsResponseEndsAtRegExp),
+  amountKopecks: zod.int().min(1).max(editGigTermsResponseAmountKopecksMax),
+  status: zod
+    .enum([
+      "open",
+      "in_progress",
+      "awaiting_confirmation",
+      "completed",
+      "cancelled",
+    ])
+    .describe(
+      "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
+    ),
+  customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(editGigTermsResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
+    id: zod.uuid(),
+    name: zod.string().min(1).max(editGigTermsResponseCustomerNameMax),
+    bio: zod
+      .string()
+      .min(editGigTermsResponseCustomerBioMin)
+      .max(editGigTermsResponseCustomerBioMax),
+    role: zod
+      .enum(["customer", "worker"])
+      .describe(
+        "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+      ),
+    completedGigsCount: zod
+      .int()
+      .min(editGigTermsResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(editGigTermsResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod.int().min(editGigTermsResponseCustomerReviewsCountMin),
+  }),
+  selectedWorker: zod
+    .object({
+      id: zod.uuid(),
+      name: zod.string().min(1).max(editGigTermsResponseSelectedWorkerNameMax),
+      bio: zod
+        .string()
+        .min(editGigTermsResponseSelectedWorkerBioMin)
+        .max(editGigTermsResponseSelectedWorkerBioMax),
+      role: zod
+        .enum(["customer", "worker"])
+        .describe(
+          "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+        ),
+      completedGigsCount: zod
+        .int()
+        .min(editGigTermsResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(editGigTermsResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(editGigTermsResponseSelectedWorkerReviewsCountMin),
+    })
+    .nullable()
+    .describe("null до выбора исполнителя."),
+  pendingApplicationsCount: zod
+    .int()
+    .min(editGigTermsResponsePendingApplicationsCountMin),
+  createdAt: zod.iso
+    .datetime({ offset: true })
+    .regex(editGigTermsResponseCreatedAtRegExp),
+  updatedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(editGigTermsResponseUpdatedAtRegExp),
+  description: zod.string().min(1).max(editGigTermsResponseDescriptionMax),
+  requirements: zod
+    .string()
+    .min(editGigTermsResponseRequirementsMin)
+    .max(editGigTermsResponseRequirementsMax),
+  address: zod.string().min(1).max(editGigTermsResponseAddressMax),
+  submittedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(editGigTermsResponseSubmittedAtRegExp)
+    .nullable(),
+  completedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(editGigTermsResponseCompletedAtRegExp)
+    .nullable(),
+  cancelledAt: zod.iso
+    .datetime({ offset: true })
+    .regex(editGigTermsResponseCancelledAtRegExp)
+    .nullable(),
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(editGigTermsResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
+      id: zod.uuid(),
+      gigId: zod.uuid(),
+      worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(editGigTermsResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
+        id: zod.uuid(),
+        name: zod
+          .string()
+          .min(1)
+          .max(editGigTermsResponseMyApplicationOneWorkerNameMax),
+        bio: zod
+          .string()
+          .min(editGigTermsResponseMyApplicationOneWorkerBioMin)
+          .max(editGigTermsResponseMyApplicationOneWorkerBioMax),
+        role: zod
+          .enum(["customer", "worker"])
+          .describe(
+            "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+          ),
+        completedGigsCount: zod
+          .int()
+          .min(editGigTermsResponseMyApplicationOneWorkerCompletedGigsCountMin),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(editGigTermsResponseMyApplicationOneWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(editGigTermsResponseMyApplicationOneWorkerReviewsCountMin),
+      }),
+      comment: zod
+        .string()
+        .min(editGigTermsResponseMyApplicationOneCommentMin)
+        .max(editGigTermsResponseMyApplicationOneCommentMax),
+      status: zod
+        .enum(["pending", "selected", "rejected", "withdrawn"])
+        .describe(
+          "Создание → pending; отзыв автором → withdrawn; выбор владельцем → selected, остальные pending → rejected. Отмена задания также переводит pending в rejected. Терминальные состояния не меняются.",
+        ),
+      createdAt: zod.iso
+        .datetime({ offset: true })
+        .regex(editGigTermsResponseMyApplicationOneCreatedAtRegExp),
+      updatedAt: zod.iso
+        .datetime({ offset: true })
+        .regex(editGigTermsResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * Только автор pending-отклика на open. Передаётся прочитанная текущая termsVersion. Повтор, устаревшая версия или закрытое задание — 409. Чужой отклик — 404.
+ * @summary Подтвердить текущие условия отклика
+ */
+export const ConfirmApplicationTermsParams = zod.object({
+  gigId: zod.uuid(),
+  applicationId: zod.uuid(),
+});
+
+export const ConfirmApplicationTermsBody = zod.object({
+  termsVersion: zod.int().min(1),
+});
+
+export const confirmApplicationTermsResponsePointOneLatitudeMin = -90;
+export const confirmApplicationTermsResponsePointOneLatitudeMax = 90;
+
+export const confirmApplicationTermsResponsePointOneLongitudeMin = -180;
+export const confirmApplicationTermsResponsePointOneLongitudeMax = 180;
+
+export const confirmApplicationTermsResponsePointOneSourceDefault = `manual`;
+export const confirmApplicationTermsResponsePointOneAttributionMax = 300;
+
+export const confirmApplicationTermsResponsePointOneAddressReferenceLatitudeMin =
+  -90;
+export const confirmApplicationTermsResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const confirmApplicationTermsResponsePointOneAddressReferenceLongitudeMin =
+  -180;
+export const confirmApplicationTermsResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const confirmApplicationTermsResponseCancellationCommentMax = 500;
+
+export const confirmApplicationTermsResponseTermsVersionDefault = 1;
+
+export const confirmApplicationTermsResponseHasPendingChangeDefault = false;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneLatitudeMin =
+  -90;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const confirmApplicationTermsResponsePendingChangeTermsTitleMax = 150;
+
+export const confirmApplicationTermsResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const confirmApplicationTermsResponsePendingChangeTermsRequirementsMin = 0;
+export const confirmApplicationTermsResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const confirmApplicationTermsResponsePendingChangeTermsCityMax = 100;
+
+export const confirmApplicationTermsResponsePendingChangeTermsAddressMax = 300;
+
+export const confirmApplicationTermsResponsePendingChangeTermsStartsAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const confirmApplicationTermsResponsePendingChangeTermsEndsAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const confirmApplicationTermsResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const confirmApplicationTermsResponseCounterpartyContactMax = 200;
+
+export const confirmApplicationTermsResponseTitleMax = 150;
+
+export const confirmApplicationTermsResponseCityMax = 100;
+
+export const confirmApplicationTermsResponseStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const confirmApplicationTermsResponseEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const confirmApplicationTermsResponseAmountKopecksMax = 10000000000;
+
+export const confirmApplicationTermsResponseCustomerSpecialtiesMax = 5;
+
+export const confirmApplicationTermsResponseCustomerNameMax = 100;
+
+export const confirmApplicationTermsResponseCustomerBioMin = 0;
+export const confirmApplicationTermsResponseCustomerBioMax = 1000;
+
+export const confirmApplicationTermsResponseCustomerCompletedGigsCountMin = 0;
+
+export const confirmApplicationTermsResponseCustomerRatingAverageMax = 5;
+
+export const confirmApplicationTermsResponseCustomerReviewsCountMin = 0;
+
+export const confirmApplicationTermsResponseSelectedWorkerNameMax = 100;
+
+export const confirmApplicationTermsResponseSelectedWorkerBioMin = 0;
+export const confirmApplicationTermsResponseSelectedWorkerBioMax = 1000;
+
+export const confirmApplicationTermsResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const confirmApplicationTermsResponseSelectedWorkerRatingAverageMax = 5;
+
+export const confirmApplicationTermsResponseSelectedWorkerReviewsCountMin = 0;
+
+export const confirmApplicationTermsResponsePendingApplicationsCountMin = 0;
+
+export const confirmApplicationTermsResponseCreatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const confirmApplicationTermsResponseUpdatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const confirmApplicationTermsResponseDescriptionMax = 5000;
+
+export const confirmApplicationTermsResponseRequirementsMin = 0;
+export const confirmApplicationTermsResponseRequirementsMax = 2000;
+
+export const confirmApplicationTermsResponseAddressMax = 300;
+
+export const confirmApplicationTermsResponseSubmittedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const confirmApplicationTermsResponseCompletedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const confirmApplicationTermsResponseCancelledAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const confirmApplicationTermsResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const confirmApplicationTermsResponseMyApplicationOneWorkerSpecialtiesMax = 5;
+
+export const confirmApplicationTermsResponseMyApplicationOneWorkerNameMax = 100;
+
+export const confirmApplicationTermsResponseMyApplicationOneWorkerBioMin = 0;
+export const confirmApplicationTermsResponseMyApplicationOneWorkerBioMax = 1000;
+
+export const confirmApplicationTermsResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
+
+export const confirmApplicationTermsResponseMyApplicationOneWorkerRatingAverageMax = 5;
+
+export const confirmApplicationTermsResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const confirmApplicationTermsResponseMyApplicationOneCommentMin = 0;
+export const confirmApplicationTermsResponseMyApplicationOneCommentMax = 1000;
+
+export const confirmApplicationTermsResponseMyApplicationOneCreatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const confirmApplicationTermsResponseMyApplicationOneUpdatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+
+export const ConfirmApplicationTermsResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(confirmApplicationTermsResponsePointOneLatitudeMin)
+        .max(confirmApplicationTermsResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(confirmApplicationTermsResponsePointOneLongitudeMin)
+        .max(confirmApplicationTermsResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(confirmApplicationTermsResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(confirmApplicationTermsResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(
+              confirmApplicationTermsResponsePointOneAddressReferenceLatitudeMin,
+            )
+            .max(
+              confirmApplicationTermsResponsePointOneAddressReferenceLatitudeMax,
+            ),
+          longitude: zod
+            .number()
+            .min(
+              confirmApplicationTermsResponsePointOneAddressReferenceLongitudeMin,
+            )
+            .max(
+              confirmApplicationTermsResponsePointOneAddressReferenceLongitudeMax,
+            ),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod
+        .string()
+        .max(confirmApplicationTermsResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(confirmApplicationTermsResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(confirmApplicationTermsResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneLatitudeMin,
+              )
+              .max(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                confirmApplicationTermsResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    confirmApplicationTermsResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(confirmApplicationTermsResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(confirmApplicationTermsResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(confirmApplicationTermsResponsePendingChangeTermsRequirementsMin)
+          .max(confirmApplicationTermsResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(confirmApplicationTermsResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(confirmApplicationTermsResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(
+            confirmApplicationTermsResponsePendingChangeTermsStartsAtRegExp,
+          )
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(confirmApplicationTermsResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(
+            confirmApplicationTermsResponsePendingChangeTermsAmountKopecksMax,
+          )
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(confirmApplicationTermsResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
+  id: zod.uuid(),
+  title: zod.string().min(1).max(confirmApplicationTermsResponseTitleMax),
+  city: zod.string().min(1).max(confirmApplicationTermsResponseCityMax),
+  startsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(confirmApplicationTermsResponseStartsAtRegExp),
+  endsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(confirmApplicationTermsResponseEndsAtRegExp),
+  amountKopecks: zod
+    .int()
+    .min(1)
+    .max(confirmApplicationTermsResponseAmountKopecksMax),
+  status: zod
+    .enum([
+      "open",
+      "in_progress",
+      "awaiting_confirmation",
+      "completed",
+      "cancelled",
+    ])
+    .describe(
+      "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
+    ),
+  customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(confirmApplicationTermsResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
+    id: zod.uuid(),
+    name: zod
+      .string()
+      .min(1)
+      .max(confirmApplicationTermsResponseCustomerNameMax),
+    bio: zod
+      .string()
+      .min(confirmApplicationTermsResponseCustomerBioMin)
+      .max(confirmApplicationTermsResponseCustomerBioMax),
+    role: zod
+      .enum(["customer", "worker"])
+      .describe(
+        "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+      ),
+    completedGigsCount: zod
+      .int()
+      .min(confirmApplicationTermsResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(confirmApplicationTermsResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod
+      .int()
+      .min(confirmApplicationTermsResponseCustomerReviewsCountMin),
+  }),
+  selectedWorker: zod
+    .object({
+      id: zod.uuid(),
+      name: zod
+        .string()
+        .min(1)
+        .max(confirmApplicationTermsResponseSelectedWorkerNameMax),
+      bio: zod
+        .string()
+        .min(confirmApplicationTermsResponseSelectedWorkerBioMin)
+        .max(confirmApplicationTermsResponseSelectedWorkerBioMax),
+      role: zod
+        .enum(["customer", "worker"])
+        .describe(
+          "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+        ),
+      completedGigsCount: zod
+        .int()
+        .min(
+          confirmApplicationTermsResponseSelectedWorkerCompletedGigsCountMin,
+        ),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(confirmApplicationTermsResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(confirmApplicationTermsResponseSelectedWorkerReviewsCountMin),
+    })
+    .nullable()
+    .describe("null до выбора исполнителя."),
+  pendingApplicationsCount: zod
+    .int()
+    .min(confirmApplicationTermsResponsePendingApplicationsCountMin),
+  createdAt: zod.iso
+    .datetime({ offset: true })
+    .regex(confirmApplicationTermsResponseCreatedAtRegExp),
+  updatedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(confirmApplicationTermsResponseUpdatedAtRegExp),
+  description: zod
+    .string()
+    .min(1)
+    .max(confirmApplicationTermsResponseDescriptionMax),
+  requirements: zod
+    .string()
+    .min(confirmApplicationTermsResponseRequirementsMin)
+    .max(confirmApplicationTermsResponseRequirementsMax),
+  address: zod.string().min(1).max(confirmApplicationTermsResponseAddressMax),
+  submittedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(confirmApplicationTermsResponseSubmittedAtRegExp)
+    .nullable(),
+  completedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(confirmApplicationTermsResponseCompletedAtRegExp)
+    .nullable(),
+  cancelledAt: zod.iso
+    .datetime({ offset: true })
+    .regex(confirmApplicationTermsResponseCancelledAtRegExp)
+    .nullable(),
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(
+          confirmApplicationTermsResponseMyApplicationOneTermsVersionDefault,
+        )
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
+      id: zod.uuid(),
+      gigId: zod.uuid(),
+      worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(
+            confirmApplicationTermsResponseMyApplicationOneWorkerSpecialtiesMax,
+          )
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
+        id: zod.uuid(),
+        name: zod
+          .string()
+          .min(1)
+          .max(confirmApplicationTermsResponseMyApplicationOneWorkerNameMax),
+        bio: zod
+          .string()
+          .min(confirmApplicationTermsResponseMyApplicationOneWorkerBioMin)
+          .max(confirmApplicationTermsResponseMyApplicationOneWorkerBioMax),
+        role: zod
+          .enum(["customer", "worker"])
+          .describe(
+            "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+          ),
+        completedGigsCount: zod
+          .int()
+          .min(
+            confirmApplicationTermsResponseMyApplicationOneWorkerCompletedGigsCountMin,
+          ),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(
+            confirmApplicationTermsResponseMyApplicationOneWorkerRatingAverageMax,
+          )
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(
+            confirmApplicationTermsResponseMyApplicationOneWorkerReviewsCountMin,
+          ),
+      }),
+      comment: zod
+        .string()
+        .min(confirmApplicationTermsResponseMyApplicationOneCommentMin)
+        .max(confirmApplicationTermsResponseMyApplicationOneCommentMax),
+      status: zod
+        .enum(["pending", "selected", "rejected", "withdrawn"])
+        .describe(
+          "Создание → pending; отзыв автором → withdrawn; выбор владельцем → selected, остальные pending → rejected. Отмена задания также переводит pending в rejected. Терминальные состояния не меняются.",
+        ),
+      createdAt: zod.iso
+        .datetime({ offset: true })
+        .regex(confirmApplicationTermsResponseMyApplicationOneCreatedAtRegExp),
+      updatedAt: zod.iso
+        .datetime({ offset: true })
+        .regex(confirmApplicationTermsResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает активное предложение как expired; работа продолжается независимо от ответа на предложение.
+ * @summary Принять предложенные условия
+ */
+export const AcceptGigChangeParams = zod.object({
+  gigId: zod.uuid(),
+  changeId: zod.uuid(),
+});
+
+export const acceptGigChangeResponsePointOneLatitudeMin = -90;
+export const acceptGigChangeResponsePointOneLatitudeMax = 90;
+
+export const acceptGigChangeResponsePointOneLongitudeMin = -180;
+export const acceptGigChangeResponsePointOneLongitudeMax = 180;
+
+export const acceptGigChangeResponsePointOneSourceDefault = `manual`;
+export const acceptGigChangeResponsePointOneAttributionMax = 300;
+
+export const acceptGigChangeResponsePointOneAddressReferenceLatitudeMin = -90;
+export const acceptGigChangeResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const acceptGigChangeResponsePointOneAddressReferenceLongitudeMin = -180;
+export const acceptGigChangeResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const acceptGigChangeResponseCancellationCommentMax = 500;
+
+export const acceptGigChangeResponseTermsVersionDefault = 1;
+
+export const acceptGigChangeResponseHasPendingChangeDefault = false;
+export const acceptGigChangeResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const acceptGigChangeResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const acceptGigChangeResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const acceptGigChangeResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const acceptGigChangeResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const acceptGigChangeResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const acceptGigChangeResponsePendingChangeTermsTitleMax = 150;
+
+export const acceptGigChangeResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const acceptGigChangeResponsePendingChangeTermsRequirementsMin = 0;
+export const acceptGigChangeResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const acceptGigChangeResponsePendingChangeTermsCityMax = 100;
+
+export const acceptGigChangeResponsePendingChangeTermsAddressMax = 300;
+
+export const acceptGigChangeResponsePendingChangeTermsStartsAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const acceptGigChangeResponsePendingChangeTermsEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const acceptGigChangeResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const acceptGigChangeResponseCounterpartyContactMax = 200;
+
+export const acceptGigChangeResponseTitleMax = 150;
+
+export const acceptGigChangeResponseCityMax = 100;
+
+export const acceptGigChangeResponseStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const acceptGigChangeResponseEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const acceptGigChangeResponseAmountKopecksMax = 10000000000;
+
+export const acceptGigChangeResponseCustomerSpecialtiesMax = 5;
+
+export const acceptGigChangeResponseCustomerNameMax = 100;
+
+export const acceptGigChangeResponseCustomerBioMin = 0;
+export const acceptGigChangeResponseCustomerBioMax = 1000;
+
+export const acceptGigChangeResponseCustomerCompletedGigsCountMin = 0;
+
+export const acceptGigChangeResponseCustomerRatingAverageMax = 5;
+
+export const acceptGigChangeResponseCustomerReviewsCountMin = 0;
+
+export const acceptGigChangeResponseSelectedWorkerNameMax = 100;
+
+export const acceptGigChangeResponseSelectedWorkerBioMin = 0;
+export const acceptGigChangeResponseSelectedWorkerBioMax = 1000;
+
+export const acceptGigChangeResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const acceptGigChangeResponseSelectedWorkerRatingAverageMax = 5;
+
+export const acceptGigChangeResponseSelectedWorkerReviewsCountMin = 0;
+
+export const acceptGigChangeResponsePendingApplicationsCountMin = 0;
+
+export const acceptGigChangeResponseCreatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const acceptGigChangeResponseUpdatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const acceptGigChangeResponseDescriptionMax = 5000;
+
+export const acceptGigChangeResponseRequirementsMin = 0;
+export const acceptGigChangeResponseRequirementsMax = 2000;
+
+export const acceptGigChangeResponseAddressMax = 300;
+
+export const acceptGigChangeResponseSubmittedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const acceptGigChangeResponseCompletedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const acceptGigChangeResponseCancelledAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const acceptGigChangeResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const acceptGigChangeResponseMyApplicationOneWorkerSpecialtiesMax = 5;
+
+export const acceptGigChangeResponseMyApplicationOneWorkerNameMax = 100;
+
+export const acceptGigChangeResponseMyApplicationOneWorkerBioMin = 0;
+export const acceptGigChangeResponseMyApplicationOneWorkerBioMax = 1000;
+
+export const acceptGigChangeResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
+
+export const acceptGigChangeResponseMyApplicationOneWorkerRatingAverageMax = 5;
+
+export const acceptGigChangeResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const acceptGigChangeResponseMyApplicationOneCommentMin = 0;
+export const acceptGigChangeResponseMyApplicationOneCommentMax = 1000;
+
+export const acceptGigChangeResponseMyApplicationOneCreatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const acceptGigChangeResponseMyApplicationOneUpdatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+
+export const AcceptGigChangeResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(acceptGigChangeResponsePointOneLatitudeMin)
+        .max(acceptGigChangeResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(acceptGigChangeResponsePointOneLongitudeMin)
+        .max(acceptGigChangeResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(acceptGigChangeResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(acceptGigChangeResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(acceptGigChangeResponsePointOneAddressReferenceLatitudeMin)
+            .max(acceptGigChangeResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(acceptGigChangeResponsePointOneAddressReferenceLongitudeMin)
+            .max(acceptGigChangeResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(acceptGigChangeResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(acceptGigChangeResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(acceptGigChangeResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(acceptGigChangeResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(
+                acceptGigChangeResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                acceptGigChangeResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                acceptGigChangeResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                acceptGigChangeResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                acceptGigChangeResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    acceptGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(acceptGigChangeResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(acceptGigChangeResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(acceptGigChangeResponsePendingChangeTermsRequirementsMin)
+          .max(acceptGigChangeResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(acceptGigChangeResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(acceptGigChangeResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(acceptGigChangeResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(acceptGigChangeResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(acceptGigChangeResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(acceptGigChangeResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
+  id: zod.uuid(),
+  title: zod.string().min(1).max(acceptGigChangeResponseTitleMax),
+  city: zod.string().min(1).max(acceptGigChangeResponseCityMax),
+  startsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(acceptGigChangeResponseStartsAtRegExp),
+  endsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(acceptGigChangeResponseEndsAtRegExp),
+  amountKopecks: zod.int().min(1).max(acceptGigChangeResponseAmountKopecksMax),
+  status: zod
+    .enum([
+      "open",
+      "in_progress",
+      "awaiting_confirmation",
+      "completed",
+      "cancelled",
+    ])
+    .describe(
+      "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
+    ),
+  customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(acceptGigChangeResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
+    id: zod.uuid(),
+    name: zod.string().min(1).max(acceptGigChangeResponseCustomerNameMax),
+    bio: zod
+      .string()
+      .min(acceptGigChangeResponseCustomerBioMin)
+      .max(acceptGigChangeResponseCustomerBioMax),
+    role: zod
+      .enum(["customer", "worker"])
+      .describe(
+        "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+      ),
+    completedGigsCount: zod
+      .int()
+      .min(acceptGigChangeResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(acceptGigChangeResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod.int().min(acceptGigChangeResponseCustomerReviewsCountMin),
+  }),
+  selectedWorker: zod
+    .object({
+      id: zod.uuid(),
+      name: zod
+        .string()
+        .min(1)
+        .max(acceptGigChangeResponseSelectedWorkerNameMax),
+      bio: zod
+        .string()
+        .min(acceptGigChangeResponseSelectedWorkerBioMin)
+        .max(acceptGigChangeResponseSelectedWorkerBioMax),
+      role: zod
+        .enum(["customer", "worker"])
+        .describe(
+          "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+        ),
+      completedGigsCount: zod
+        .int()
+        .min(acceptGigChangeResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(acceptGigChangeResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(acceptGigChangeResponseSelectedWorkerReviewsCountMin),
+    })
+    .nullable()
+    .describe("null до выбора исполнителя."),
+  pendingApplicationsCount: zod
+    .int()
+    .min(acceptGigChangeResponsePendingApplicationsCountMin),
+  createdAt: zod.iso
+    .datetime({ offset: true })
+    .regex(acceptGigChangeResponseCreatedAtRegExp),
+  updatedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(acceptGigChangeResponseUpdatedAtRegExp),
+  description: zod.string().min(1).max(acceptGigChangeResponseDescriptionMax),
+  requirements: zod
+    .string()
+    .min(acceptGigChangeResponseRequirementsMin)
+    .max(acceptGigChangeResponseRequirementsMax),
+  address: zod.string().min(1).max(acceptGigChangeResponseAddressMax),
+  submittedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(acceptGigChangeResponseSubmittedAtRegExp)
+    .nullable(),
+  completedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(acceptGigChangeResponseCompletedAtRegExp)
+    .nullable(),
+  cancelledAt: zod.iso
+    .datetime({ offset: true })
+    .regex(acceptGigChangeResponseCancelledAtRegExp)
+    .nullable(),
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(acceptGigChangeResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
+      id: zod.uuid(),
+      gigId: zod.uuid(),
+      worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(acceptGigChangeResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
+        id: zod.uuid(),
+        name: zod
+          .string()
+          .min(1)
+          .max(acceptGigChangeResponseMyApplicationOneWorkerNameMax),
+        bio: zod
+          .string()
+          .min(acceptGigChangeResponseMyApplicationOneWorkerBioMin)
+          .max(acceptGigChangeResponseMyApplicationOneWorkerBioMax),
+        role: zod
+          .enum(["customer", "worker"])
+          .describe(
+            "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+          ),
+        completedGigsCount: zod
+          .int()
+          .min(
+            acceptGigChangeResponseMyApplicationOneWorkerCompletedGigsCountMin,
+          ),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(acceptGigChangeResponseMyApplicationOneWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(acceptGigChangeResponseMyApplicationOneWorkerReviewsCountMin),
+      }),
+      comment: zod
+        .string()
+        .min(acceptGigChangeResponseMyApplicationOneCommentMin)
+        .max(acceptGigChangeResponseMyApplicationOneCommentMax),
+      status: zod
+        .enum(["pending", "selected", "rejected", "withdrawn"])
+        .describe(
+          "Создание → pending; отзыв автором → withdrawn; выбор владельцем → selected, остальные pending → rejected. Отмена задания также переводит pending в rejected. Терминальные состояния не меняются.",
+        ),
+      createdAt: zod.iso
+        .datetime({ offset: true })
+        .regex(acceptGigChangeResponseMyApplicationOneCreatedAtRegExp),
+      updatedAt: zod.iso
+        .datetime({ offset: true })
+        .regex(acceptGigChangeResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает активное предложение как expired; работа продолжается независимо от ответа на предложение.
+ * @summary Отказаться от предложенных условий
+ */
+export const RejectGigChangeParams = zod.object({
+  gigId: zod.uuid(),
+  changeId: zod.uuid(),
+});
+
+export const rejectGigChangeResponsePointOneLatitudeMin = -90;
+export const rejectGigChangeResponsePointOneLatitudeMax = 90;
+
+export const rejectGigChangeResponsePointOneLongitudeMin = -180;
+export const rejectGigChangeResponsePointOneLongitudeMax = 180;
+
+export const rejectGigChangeResponsePointOneSourceDefault = `manual`;
+export const rejectGigChangeResponsePointOneAttributionMax = 300;
+
+export const rejectGigChangeResponsePointOneAddressReferenceLatitudeMin = -90;
+export const rejectGigChangeResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const rejectGigChangeResponsePointOneAddressReferenceLongitudeMin = -180;
+export const rejectGigChangeResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const rejectGigChangeResponseCancellationCommentMax = 500;
+
+export const rejectGigChangeResponseTermsVersionDefault = 1;
+
+export const rejectGigChangeResponseHasPendingChangeDefault = false;
+export const rejectGigChangeResponsePendingChangeTermsPointOneLatitudeMin = -90;
+export const rejectGigChangeResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const rejectGigChangeResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const rejectGigChangeResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const rejectGigChangeResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const rejectGigChangeResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const rejectGigChangeResponsePendingChangeTermsTitleMax = 150;
+
+export const rejectGigChangeResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const rejectGigChangeResponsePendingChangeTermsRequirementsMin = 0;
+export const rejectGigChangeResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const rejectGigChangeResponsePendingChangeTermsCityMax = 100;
+
+export const rejectGigChangeResponsePendingChangeTermsAddressMax = 300;
+
+export const rejectGigChangeResponsePendingChangeTermsStartsAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const rejectGigChangeResponsePendingChangeTermsEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const rejectGigChangeResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const rejectGigChangeResponseCounterpartyContactMax = 200;
+
+export const rejectGigChangeResponseTitleMax = 150;
+
+export const rejectGigChangeResponseCityMax = 100;
+
+export const rejectGigChangeResponseStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const rejectGigChangeResponseEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const rejectGigChangeResponseAmountKopecksMax = 10000000000;
+
+export const rejectGigChangeResponseCustomerSpecialtiesMax = 5;
+
+export const rejectGigChangeResponseCustomerNameMax = 100;
+
+export const rejectGigChangeResponseCustomerBioMin = 0;
+export const rejectGigChangeResponseCustomerBioMax = 1000;
+
+export const rejectGigChangeResponseCustomerCompletedGigsCountMin = 0;
+
+export const rejectGigChangeResponseCustomerRatingAverageMax = 5;
+
+export const rejectGigChangeResponseCustomerReviewsCountMin = 0;
+
+export const rejectGigChangeResponseSelectedWorkerNameMax = 100;
+
+export const rejectGigChangeResponseSelectedWorkerBioMin = 0;
+export const rejectGigChangeResponseSelectedWorkerBioMax = 1000;
+
+export const rejectGigChangeResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const rejectGigChangeResponseSelectedWorkerRatingAverageMax = 5;
+
+export const rejectGigChangeResponseSelectedWorkerReviewsCountMin = 0;
+
+export const rejectGigChangeResponsePendingApplicationsCountMin = 0;
+
+export const rejectGigChangeResponseCreatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const rejectGigChangeResponseUpdatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const rejectGigChangeResponseDescriptionMax = 5000;
+
+export const rejectGigChangeResponseRequirementsMin = 0;
+export const rejectGigChangeResponseRequirementsMax = 2000;
+
+export const rejectGigChangeResponseAddressMax = 300;
+
+export const rejectGigChangeResponseSubmittedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const rejectGigChangeResponseCompletedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const rejectGigChangeResponseCancelledAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const rejectGigChangeResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const rejectGigChangeResponseMyApplicationOneWorkerSpecialtiesMax = 5;
+
+export const rejectGigChangeResponseMyApplicationOneWorkerNameMax = 100;
+
+export const rejectGigChangeResponseMyApplicationOneWorkerBioMin = 0;
+export const rejectGigChangeResponseMyApplicationOneWorkerBioMax = 1000;
+
+export const rejectGigChangeResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
+
+export const rejectGigChangeResponseMyApplicationOneWorkerRatingAverageMax = 5;
+
+export const rejectGigChangeResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const rejectGigChangeResponseMyApplicationOneCommentMin = 0;
+export const rejectGigChangeResponseMyApplicationOneCommentMax = 1000;
+
+export const rejectGigChangeResponseMyApplicationOneCreatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const rejectGigChangeResponseMyApplicationOneUpdatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+
+export const RejectGigChangeResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(rejectGigChangeResponsePointOneLatitudeMin)
+        .max(rejectGigChangeResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(rejectGigChangeResponsePointOneLongitudeMin)
+        .max(rejectGigChangeResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(rejectGigChangeResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(rejectGigChangeResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(rejectGigChangeResponsePointOneAddressReferenceLatitudeMin)
+            .max(rejectGigChangeResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(rejectGigChangeResponsePointOneAddressReferenceLongitudeMin)
+            .max(rejectGigChangeResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod.string().max(rejectGigChangeResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(rejectGigChangeResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(rejectGigChangeResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(rejectGigChangeResponsePendingChangeTermsPointOneLatitudeMin)
+              .max(
+                rejectGigChangeResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                rejectGigChangeResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                rejectGigChangeResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                rejectGigChangeResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                rejectGigChangeResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    rejectGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(rejectGigChangeResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(rejectGigChangeResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(rejectGigChangeResponsePendingChangeTermsRequirementsMin)
+          .max(rejectGigChangeResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(rejectGigChangeResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(rejectGigChangeResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(rejectGigChangeResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(rejectGigChangeResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(rejectGigChangeResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(rejectGigChangeResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
+  id: zod.uuid(),
+  title: zod.string().min(1).max(rejectGigChangeResponseTitleMax),
+  city: zod.string().min(1).max(rejectGigChangeResponseCityMax),
+  startsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(rejectGigChangeResponseStartsAtRegExp),
+  endsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(rejectGigChangeResponseEndsAtRegExp),
+  amountKopecks: zod.int().min(1).max(rejectGigChangeResponseAmountKopecksMax),
+  status: zod
+    .enum([
+      "open",
+      "in_progress",
+      "awaiting_confirmation",
+      "completed",
+      "cancelled",
+    ])
+    .describe(
+      "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
+    ),
+  customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(rejectGigChangeResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
+    id: zod.uuid(),
+    name: zod.string().min(1).max(rejectGigChangeResponseCustomerNameMax),
+    bio: zod
+      .string()
+      .min(rejectGigChangeResponseCustomerBioMin)
+      .max(rejectGigChangeResponseCustomerBioMax),
+    role: zod
+      .enum(["customer", "worker"])
+      .describe(
+        "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+      ),
+    completedGigsCount: zod
+      .int()
+      .min(rejectGigChangeResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(rejectGigChangeResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod.int().min(rejectGigChangeResponseCustomerReviewsCountMin),
+  }),
+  selectedWorker: zod
+    .object({
+      id: zod.uuid(),
+      name: zod
+        .string()
+        .min(1)
+        .max(rejectGigChangeResponseSelectedWorkerNameMax),
+      bio: zod
+        .string()
+        .min(rejectGigChangeResponseSelectedWorkerBioMin)
+        .max(rejectGigChangeResponseSelectedWorkerBioMax),
+      role: zod
+        .enum(["customer", "worker"])
+        .describe(
+          "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+        ),
+      completedGigsCount: zod
+        .int()
+        .min(rejectGigChangeResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(rejectGigChangeResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(rejectGigChangeResponseSelectedWorkerReviewsCountMin),
+    })
+    .nullable()
+    .describe("null до выбора исполнителя."),
+  pendingApplicationsCount: zod
+    .int()
+    .min(rejectGigChangeResponsePendingApplicationsCountMin),
+  createdAt: zod.iso
+    .datetime({ offset: true })
+    .regex(rejectGigChangeResponseCreatedAtRegExp),
+  updatedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(rejectGigChangeResponseUpdatedAtRegExp),
+  description: zod.string().min(1).max(rejectGigChangeResponseDescriptionMax),
+  requirements: zod
+    .string()
+    .min(rejectGigChangeResponseRequirementsMin)
+    .max(rejectGigChangeResponseRequirementsMax),
+  address: zod.string().min(1).max(rejectGigChangeResponseAddressMax),
+  submittedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(rejectGigChangeResponseSubmittedAtRegExp)
+    .nullable(),
+  completedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(rejectGigChangeResponseCompletedAtRegExp)
+    .nullable(),
+  cancelledAt: zod.iso
+    .datetime({ offset: true })
+    .regex(rejectGigChangeResponseCancelledAtRegExp)
+    .nullable(),
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(rejectGigChangeResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
+      id: zod.uuid(),
+      gigId: zod.uuid(),
+      worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(rejectGigChangeResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
+        id: zod.uuid(),
+        name: zod
+          .string()
+          .min(1)
+          .max(rejectGigChangeResponseMyApplicationOneWorkerNameMax),
+        bio: zod
+          .string()
+          .min(rejectGigChangeResponseMyApplicationOneWorkerBioMin)
+          .max(rejectGigChangeResponseMyApplicationOneWorkerBioMax),
+        role: zod
+          .enum(["customer", "worker"])
+          .describe(
+            "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+          ),
+        completedGigsCount: zod
+          .int()
+          .min(
+            rejectGigChangeResponseMyApplicationOneWorkerCompletedGigsCountMin,
+          ),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(rejectGigChangeResponseMyApplicationOneWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(rejectGigChangeResponseMyApplicationOneWorkerReviewsCountMin),
+      }),
+      comment: zod
+        .string()
+        .min(rejectGigChangeResponseMyApplicationOneCommentMin)
+        .max(rejectGigChangeResponseMyApplicationOneCommentMax),
+      status: zod
+        .enum(["pending", "selected", "rejected", "withdrawn"])
+        .describe(
+          "Создание → pending; отзыв автором → withdrawn; выбор владельцем → selected, остальные pending → rejected. Отмена задания также переводит pending в rejected. Терминальные состояния не меняются.",
+        ),
+      createdAt: zod.iso
+        .datetime({ offset: true })
+        .regex(rejectGigChangeResponseMyApplicationOneCreatedAtRegExp),
+      updatedAt: zod.iso
+        .datetime({ offset: true })
+        .regex(rejectGigChangeResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * Только in_progress: accept/reject — выбранный worker, withdraw — customer-владелец. UUID относится к неизменяемым условиям предложения. Решённое, истёкшее или устаревшее предложение — 409. Сдача работы завершает активное предложение как expired; работа продолжается независимо от ответа на предложение.
+ * @summary Отозвать предложение условий
+ */
+export const WithdrawGigChangeParams = zod.object({
+  gigId: zod.uuid(),
+  changeId: zod.uuid(),
+});
+
+export const withdrawGigChangeResponsePointOneLatitudeMin = -90;
+export const withdrawGigChangeResponsePointOneLatitudeMax = 90;
+
+export const withdrawGigChangeResponsePointOneLongitudeMin = -180;
+export const withdrawGigChangeResponsePointOneLongitudeMax = 180;
+
+export const withdrawGigChangeResponsePointOneSourceDefault = `manual`;
+export const withdrawGigChangeResponsePointOneAttributionMax = 300;
+
+export const withdrawGigChangeResponsePointOneAddressReferenceLatitudeMin = -90;
+export const withdrawGigChangeResponsePointOneAddressReferenceLatitudeMax = 90;
+
+export const withdrawGigChangeResponsePointOneAddressReferenceLongitudeMin =
+  -180;
+export const withdrawGigChangeResponsePointOneAddressReferenceLongitudeMax = 180;
+
+export const withdrawGigChangeResponseCancellationCommentMax = 500;
+
+export const withdrawGigChangeResponseTermsVersionDefault = 1;
+
+export const withdrawGigChangeResponseHasPendingChangeDefault = false;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneLatitudeMin =
+  -90;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneLatitudeMax = 90;
+
+export const withdrawGigChangeResponsePendingChangeTermsPointOneLongitudeMin =
+  -180;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneLongitudeMax = 180;
+
+export const withdrawGigChangeResponsePendingChangeTermsPointOneSourceDefault = `manual`;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAttributionMax = 300;
+
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin =
+  -90;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax = 90;
+
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin =
+  -180;
+export const withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax = 180;
+
+export const withdrawGigChangeResponsePendingChangeTermsTitleMax = 150;
+
+export const withdrawGigChangeResponsePendingChangeTermsDescriptionMax = 5000;
+
+export const withdrawGigChangeResponsePendingChangeTermsRequirementsMin = 0;
+export const withdrawGigChangeResponsePendingChangeTermsRequirementsMax = 2000;
+
+export const withdrawGigChangeResponsePendingChangeTermsCityMax = 100;
+
+export const withdrawGigChangeResponsePendingChangeTermsAddressMax = 300;
+
+export const withdrawGigChangeResponsePendingChangeTermsStartsAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const withdrawGigChangeResponsePendingChangeTermsEndsAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const withdrawGigChangeResponsePendingChangeTermsAmountKopecksMax = 10000000000;
+
+export const withdrawGigChangeResponseCounterpartyContactMax = 200;
+
+export const withdrawGigChangeResponseTitleMax = 150;
+
+export const withdrawGigChangeResponseCityMax = 100;
+
+export const withdrawGigChangeResponseStartsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const withdrawGigChangeResponseEndsAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const withdrawGigChangeResponseAmountKopecksMax = 10000000000;
+
+export const withdrawGigChangeResponseCustomerSpecialtiesMax = 5;
+
+export const withdrawGigChangeResponseCustomerNameMax = 100;
+
+export const withdrawGigChangeResponseCustomerBioMin = 0;
+export const withdrawGigChangeResponseCustomerBioMax = 1000;
+
+export const withdrawGigChangeResponseCustomerCompletedGigsCountMin = 0;
+
+export const withdrawGigChangeResponseCustomerRatingAverageMax = 5;
+
+export const withdrawGigChangeResponseCustomerReviewsCountMin = 0;
+
+export const withdrawGigChangeResponseSelectedWorkerNameMax = 100;
+
+export const withdrawGigChangeResponseSelectedWorkerBioMin = 0;
+export const withdrawGigChangeResponseSelectedWorkerBioMax = 1000;
+
+export const withdrawGigChangeResponseSelectedWorkerCompletedGigsCountMin = 0;
+
+export const withdrawGigChangeResponseSelectedWorkerRatingAverageMax = 5;
+
+export const withdrawGigChangeResponseSelectedWorkerReviewsCountMin = 0;
+
+export const withdrawGigChangeResponsePendingApplicationsCountMin = 0;
+
+export const withdrawGigChangeResponseCreatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const withdrawGigChangeResponseUpdatedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const withdrawGigChangeResponseDescriptionMax = 5000;
+
+export const withdrawGigChangeResponseRequirementsMin = 0;
+export const withdrawGigChangeResponseRequirementsMax = 2000;
+
+export const withdrawGigChangeResponseAddressMax = 300;
+
+export const withdrawGigChangeResponseSubmittedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const withdrawGigChangeResponseCompletedAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const withdrawGigChangeResponseCancelledAtRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+);
+export const withdrawGigChangeResponseMyApplicationOneTermsVersionDefault = 1;
+
+export const withdrawGigChangeResponseMyApplicationOneWorkerSpecialtiesMax = 5;
+
+export const withdrawGigChangeResponseMyApplicationOneWorkerNameMax = 100;
+
+export const withdrawGigChangeResponseMyApplicationOneWorkerBioMin = 0;
+export const withdrawGigChangeResponseMyApplicationOneWorkerBioMax = 1000;
+
+export const withdrawGigChangeResponseMyApplicationOneWorkerCompletedGigsCountMin = 0;
+
+export const withdrawGigChangeResponseMyApplicationOneWorkerRatingAverageMax = 5;
+
+export const withdrawGigChangeResponseMyApplicationOneWorkerReviewsCountMin = 0;
+
+export const withdrawGigChangeResponseMyApplicationOneCommentMin = 0;
+export const withdrawGigChangeResponseMyApplicationOneCommentMax = 1000;
+
+export const withdrawGigChangeResponseMyApplicationOneCreatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+export const withdrawGigChangeResponseMyApplicationOneUpdatedAtRegExp =
+  new RegExp(
+    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+  );
+
+export const WithdrawGigChangeResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
+  hiddenFromMyGigs: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Присутствует со значением true только у владельца, скрывшего задание.",
+    ),
+  point: zod
+    .object({
+      latitude: zod
+        .number()
+        .min(withdrawGigChangeResponsePointOneLatitudeMin)
+        .max(withdrawGigChangeResponsePointOneLatitudeMax),
+      longitude: zod
+        .number()
+        .min(withdrawGigChangeResponsePointOneLongitudeMin)
+        .max(withdrawGigChangeResponsePointOneLongitudeMax),
+      source: zod
+        .enum(["manual", "geoapify"])
+        .default(withdrawGigChangeResponsePointOneSourceDefault),
+      attribution: zod
+        .string()
+        .max(withdrawGigChangeResponsePointOneAttributionMax)
+        .optional(),
+      addressReference: zod
+        .object({
+          latitude: zod
+            .number()
+            .min(withdrawGigChangeResponsePointOneAddressReferenceLatitudeMin)
+            .max(withdrawGigChangeResponsePointOneAddressReferenceLatitudeMax),
+          longitude: zod
+            .number()
+            .min(withdrawGigChangeResponsePointOneAddressReferenceLongitudeMin)
+            .max(withdrawGigChangeResponsePointOneAddressReferenceLongitudeMax),
+        })
+        .optional()
+        .describe(
+          "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+    )
+    .optional()
+    .describe("Текущая точка, доступна в тех же ответах, что и адрес задания."),
+  cancellation: zod
+    .object({
+      reason: zod
+        .enum([
+          "no_longer_needed",
+          "schedule_changed",
+          "terms_changed",
+          "posted_by_mistake",
+          "other",
+        ])
+        .optional(),
+      comment: zod
+        .string()
+        .max(withdrawGigChangeResponseCancellationCommentMax),
+    })
+    .optional()
+    .describe(
+      "Только для владельца отменённого задания и кандидатов, отклики которых отклонены при отмене.",
+    ),
+  category: zod
+    .enum([
+      "repair",
+      "electrical",
+      "plumbing",
+      "cleaning",
+      "moving",
+      "delivery",
+      "retail",
+      "warehouse",
+      "events",
+      "other",
+    ])
+    .optional()
+    .describe(
+      "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+    ),
+  termsVersion: zod
+    .int()
+    .min(1)
+    .default(withdrawGigChangeResponseTermsVersionDefault)
+    .describe(
+      "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+    ),
+  hasPendingChange: zod
+    .boolean()
+    .default(withdrawGigChangeResponseHasPendingChangeDefault)
+    .describe("Ожидается решение по новым условиям начатой работы."),
+  pendingChange: zod
+    .object({
+      id: zod.uuid(),
+      termsVersion: zod.int().min(1),
+      terms: zod.object({
+        point: zod
+          .object({
+            latitude: zod
+              .number()
+              .min(
+                withdrawGigChangeResponsePendingChangeTermsPointOneLatitudeMin,
+              )
+              .max(
+                withdrawGigChangeResponsePendingChangeTermsPointOneLatitudeMax,
+              ),
+            longitude: zod
+              .number()
+              .min(
+                withdrawGigChangeResponsePendingChangeTermsPointOneLongitudeMin,
+              )
+              .max(
+                withdrawGigChangeResponsePendingChangeTermsPointOneLongitudeMax,
+              ),
+            source: zod
+              .enum(["manual", "geoapify"])
+              .default(
+                withdrawGigChangeResponsePendingChangeTermsPointOneSourceDefault,
+              ),
+            attribution: zod
+              .string()
+              .max(
+                withdrawGigChangeResponsePendingChangeTermsPointOneAttributionMax,
+              )
+              .optional(),
+            addressReference: zod
+              .object({
+                latitude: zod
+                  .number()
+                  .min(
+                    withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMin,
+                  )
+                  .max(
+                    withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLatitudeMax,
+                  ),
+                longitude: zod
+                  .number()
+                  .min(
+                    withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMin,
+                  )
+                  .max(
+                    withdrawGigChangeResponsePendingChangeTermsPointOneAddressReferenceLongitudeMax,
+                  ),
+              })
+              .optional()
+              .describe(
+                "Координаты исходного адреса из Geoapify до перемещения метки. Отсутствуют у точек без известного исходного адреса.",
+              ),
+          })
+          .nullable()
+          .describe(
+            "Подтверждённая точка WGS84. Для Geoapify обязательна атрибуция источника.",
+          )
+          .optional(),
+        category: zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .optional()
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+        title: zod
+          .string()
+          .min(1)
+          .max(withdrawGigChangeResponsePendingChangeTermsTitleMax),
+        description: zod
+          .string()
+          .min(1)
+          .max(withdrawGigChangeResponsePendingChangeTermsDescriptionMax),
+        requirements: zod
+          .string()
+          .min(withdrawGigChangeResponsePendingChangeTermsRequirementsMin)
+          .max(withdrawGigChangeResponsePendingChangeTermsRequirementsMax)
+          .describe(
+            "Обязательное поле; пустая строка означает отсутствие дополнительных требований.",
+          ),
+        city: zod
+          .string()
+          .min(1)
+          .max(withdrawGigChangeResponsePendingChangeTermsCityMax),
+        address: zod
+          .string()
+          .min(1)
+          .max(withdrawGigChangeResponsePendingChangeTermsAddressMax),
+        startsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(withdrawGigChangeResponsePendingChangeTermsStartsAtRegExp)
+          .describe("Строго позже текущего времени сервера при публикации."),
+        endsAt: zod.iso
+          .datetime({ offset: true })
+          .regex(withdrawGigChangeResponsePendingChangeTermsEndsAtRegExp)
+          .describe("Строго позже startsAt."),
+        amountKopecks: zod
+          .int()
+          .min(1)
+          .max(withdrawGigChangeResponsePendingChangeTermsAmountKopecksMax)
+          .describe(
+            "Фиксированная сумма за всё задание, RUB в копейках (не ставка за час).",
+          ),
+      }),
+    })
+    .optional()
+    .describe(
+      "Активное предложение доступно только владельцу и выбранному исполнителю. termsVersion — действующая базовая редакция. Условия предложения неизменяемы, решение относится к UUID.",
+    ),
+  counterpartyContact: zod
+    .string()
+    .max(withdrawGigChangeResponseCounterpartyContactMax)
+    .optional()
+    .describe(
+      "Актуальный контакт второй стороны, только участнику назначенного задания в in_progress, awaiting_confirmation или completed. Пустая строка — контакт не заполнен; для остальных поле отсутствует.",
+    ),
+  id: zod.uuid(),
+  title: zod.string().min(1).max(withdrawGigChangeResponseTitleMax),
+  city: zod.string().min(1).max(withdrawGigChangeResponseCityMax),
+  startsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(withdrawGigChangeResponseStartsAtRegExp),
+  endsAt: zod.iso
+    .datetime({ offset: true })
+    .regex(withdrawGigChangeResponseEndsAtRegExp),
+  amountKopecks: zod
+    .int()
+    .min(1)
+    .max(withdrawGigChangeResponseAmountKopecksMax),
+  status: zod
+    .enum([
+      "open",
+      "in_progress",
+      "awaiting_confirmation",
+      "completed",
+      "cancelled",
+    ])
+    .describe(
+      "Создание → open; выбор одного исполнителя → in_progress; сдача выбранным исполнителем → awaiting_confirmation; подтверждение владельцем → completed. Только open можно отменить → cancelled. Обратных переходов нет.",
+    ),
+  customer: zod.object({
+    specialties: zod
+      .array(
+        zod
+          .enum([
+            "repair",
+            "electrical",
+            "plumbing",
+            "cleaning",
+            "moving",
+            "delivery",
+            "retail",
+            "warehouse",
+            "events",
+            "other",
+          ])
+          .describe(
+            "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+          ),
+      )
+      .max(withdrawGigChangeResponseCustomerSpecialtiesMax)
+      .optional()
+      .describe(
+        "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+      ),
+    id: zod.uuid(),
+    name: zod.string().min(1).max(withdrawGigChangeResponseCustomerNameMax),
+    bio: zod
+      .string()
+      .min(withdrawGigChangeResponseCustomerBioMin)
+      .max(withdrawGigChangeResponseCustomerBioMax),
+    role: zod
+      .enum(["customer", "worker"])
+      .describe(
+        "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+      ),
+    completedGigsCount: zod
+      .int()
+      .min(withdrawGigChangeResponseCustomerCompletedGigsCountMin),
+    ratingAverage: zod
+      .number()
+      .min(1)
+      .max(withdrawGigChangeResponseCustomerRatingAverageMax)
+      .nullable()
+      .describe(
+        "Среднее всех полученных оценок без округления; null, если оценок нет.",
+      ),
+    reviewsCount: zod
+      .int()
+      .min(withdrawGigChangeResponseCustomerReviewsCountMin),
+  }),
+  selectedWorker: zod
+    .object({
+      id: zod.uuid(),
+      name: zod
+        .string()
+        .min(1)
+        .max(withdrawGigChangeResponseSelectedWorkerNameMax),
+      bio: zod
+        .string()
+        .min(withdrawGigChangeResponseSelectedWorkerBioMin)
+        .max(withdrawGigChangeResponseSelectedWorkerBioMax),
+      role: zod
+        .enum(["customer", "worker"])
+        .describe(
+          "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+        ),
+      completedGigsCount: zod
+        .int()
+        .min(withdrawGigChangeResponseSelectedWorkerCompletedGigsCountMin),
+      ratingAverage: zod
+        .number()
+        .min(1)
+        .max(withdrawGigChangeResponseSelectedWorkerRatingAverageMax)
+        .nullable(),
+      reviewsCount: zod
+        .int()
+        .min(withdrawGigChangeResponseSelectedWorkerReviewsCountMin),
+    })
+    .nullable()
+    .describe("null до выбора исполнителя."),
+  pendingApplicationsCount: zod
+    .int()
+    .min(withdrawGigChangeResponsePendingApplicationsCountMin),
+  createdAt: zod.iso
+    .datetime({ offset: true })
+    .regex(withdrawGigChangeResponseCreatedAtRegExp),
+  updatedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(withdrawGigChangeResponseUpdatedAtRegExp),
+  description: zod.string().min(1).max(withdrawGigChangeResponseDescriptionMax),
+  requirements: zod
+    .string()
+    .min(withdrawGigChangeResponseRequirementsMin)
+    .max(withdrawGigChangeResponseRequirementsMax),
+  address: zod.string().min(1).max(withdrawGigChangeResponseAddressMax),
+  submittedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(withdrawGigChangeResponseSubmittedAtRegExp)
+    .nullable(),
+  completedAt: zod.iso
+    .datetime({ offset: true })
+    .regex(withdrawGigChangeResponseCompletedAtRegExp)
+    .nullable(),
+  cancelledAt: zod.iso
+    .datetime({ offset: true })
+    .regex(withdrawGigChangeResponseCancelledAtRegExp)
+    .nullable(),
+  myApplication: zod.union([
+    zod.object({
+      termsVersion: zod
+        .int()
+        .min(1)
+        .default(withdrawGigChangeResponseMyApplicationOneTermsVersionDefault)
+        .describe(
+          "Редакция условий задания; в отклике — редакция, с которой согласился кандидат. Отсутствующее поле нового отклика относится только к исходной редакции 1.",
+        ),
+      id: zod.uuid(),
+      gigId: zod.uuid(),
+      worker: zod.object({
+        specialties: zod
+          .array(
+            zod
+              .enum([
+                "repair",
+                "electrical",
+                "plumbing",
+                "cleaning",
+                "moving",
+                "delivery",
+                "retail",
+                "warehouse",
+                "events",
+                "other",
+              ])
+              .describe(
+                "Код из GET /gig-categories. При создании отсутствие означает other; при правке или принятии старого предложения отсутствие сохраняет текущую категорию. Явный null, пустой или неизвестный код недопустим.",
+              ),
+          )
+          .max(withdrawGigChangeResponseMyApplicationOneWorkerSpecialtiesMax)
+          .optional()
+          .describe(
+            "Коды направлений исполнителя в порядке выбора. У заказчика пустой список.",
+          ),
+        id: zod.uuid(),
+        name: zod
+          .string()
+          .min(1)
+          .max(withdrawGigChangeResponseMyApplicationOneWorkerNameMax),
+        bio: zod
+          .string()
+          .min(withdrawGigChangeResponseMyApplicationOneWorkerBioMin)
+          .max(withdrawGigChangeResponseMyApplicationOneWorkerBioMax),
+        role: zod
+          .enum(["customer", "worker"])
+          .describe(
+            "customer — заказчик; worker — исполнитель. Роль выбирается при регистрации и не меняется.",
+          ),
+        completedGigsCount: zod
+          .int()
+          .min(
+            withdrawGigChangeResponseMyApplicationOneWorkerCompletedGigsCountMin,
+          ),
+        ratingAverage: zod
+          .number()
+          .min(1)
+          .max(withdrawGigChangeResponseMyApplicationOneWorkerRatingAverageMax)
+          .nullable()
+          .describe(
+            "Среднее всех полученных оценок без округления; null, если оценок нет.",
+          ),
+        reviewsCount: zod
+          .int()
+          .min(withdrawGigChangeResponseMyApplicationOneWorkerReviewsCountMin),
+      }),
+      comment: zod
+        .string()
+        .min(withdrawGigChangeResponseMyApplicationOneCommentMin)
+        .max(withdrawGigChangeResponseMyApplicationOneCommentMax),
+      status: zod
+        .enum(["pending", "selected", "rejected", "withdrawn"])
+        .describe(
+          "Создание → pending; отзыв автором → withdrawn; выбор владельцем → selected, остальные pending → rejected. Отмена задания также переводит pending в rejected. Терминальные состояния не меняются.",
+        ),
+      createdAt: zod.iso
+        .datetime({ offset: true })
+        .regex(withdrawGigChangeResponseMyApplicationOneCreatedAtRegExp),
+      updatedAt: zod.iso
+        .datetime({ offset: true })
+        .regex(withdrawGigChangeResponseMyApplicationOneUpdatedAtRegExp),
+    }),
+    zod.null(),
+  ]),
 });

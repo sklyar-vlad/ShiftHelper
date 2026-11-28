@@ -24,6 +24,65 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it.each(["login", "register"] as const)(
+  "shows a rate limit in %s without losing ordinary input or retrying automatically",
+  async (mode) => {
+    const send = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: { code: "RATE_LIMITED", message: "Слишком много попыток" },
+          }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": "12",
+            },
+          },
+        ),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url === "/api/v1/me" ? Promise.resolve(guest()) : send(),
+      ),
+    );
+    mount(mode);
+    await screen.findByLabelText("Email");
+    if (mode === "register")
+      fireEvent.change(screen.getByLabelText("Ваше имя"), {
+        target: { value: "Алексей" },
+      });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "alex@example.test" },
+    });
+    fireEvent.change(screen.getByLabelText("Пароль"), {
+      target: { value: "password123" },
+    });
+    fireEvent.submit(
+      screen.getByRole("form", {
+        name: mode === "login" ? "Войти в аккаунт" : "Создать аккаунт",
+      }),
+    );
+    await screen.findByText("Слишком много попыток. Попробуйте через 12 сек.");
+    expect(send).toHaveBeenCalledTimes(1);
+    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe(
+      "alex@example.test",
+    );
+    expect((screen.getByLabelText("Пароль") as HTMLInputElement).value).toBe(
+      "",
+    );
+    expect(
+      (
+        screen.getByRole("button", {
+          name: mode === "login" ? "Войти" : "Создать аккаунт",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  },
+);
+
 function mount(mode: "login" | "register") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },

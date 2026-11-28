@@ -1,0 +1,94 @@
+.notification-trigger {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: inherit;
+}
+
+.notification-trigger svg {
+  width: 22px;
+}
+
+.notification-badge {
+  position: absolute;
+  inset: -4px -6px auto auto;
+  min-width: 19px;
+  padding: 2px 4px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.notification-count-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.notification-popover {
+  z-index: 100;
+  width: min(380px, calc(100vw - 24px));
+  max-height: var(--available-height);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 12px 36px #00000014;
+}
+
+.notification-popover[data-entering] {
+  animation: ui-reveal 220ms var(--motion-ease);
+}
+
+.notification-dialog {
+  padding: 16px;
+  outline: none;
+}
+
+.notification-dialog h2 {
+  margin-bottom: 8px;
+  font-size: 26px;
+}
+
+.notification-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notification-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: inherit;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.notification-item[data-unread="true"] {
+  background: var(--mint);
+}
+
+.notification-item:hover strong {
+  text-decoration: underline;
+}
+
+.notification-unread {
+  color: var(--green);
+  font-weight: 600;
+}

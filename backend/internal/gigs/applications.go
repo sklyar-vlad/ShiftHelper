@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/auth"
+	"github.com/sklyar-vlad/ShiftHelper/backend/internal/notifications"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/platform/httpapi"
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/users"
 )
@@ -23,15 +24,15 @@ type ApplicationPage struct {
 	Total    int64         `json:"total"`
 }
 
-const applicationColumns = `id::text, gig_id::text, comment, status, created_at, updated_at`
+const applicationColumns = `id::text, gig_id::text, comment, status, created_at, updated_at, terms_version`
 const applicationJSON = `jsonb_build_object('id', a.id, 'gigId', a.gig_id, 'worker', to_jsonb(applicant),
-    'comment', a.comment, 'status', a.status, 'createdAt', a.created_at, 'updatedAt', a.updated_at)`
+    'termsVersion', a.terms_version, 'comment', a.comment, 'status', a.status, 'createdAt', a.created_at, 'updatedAt', a.updated_at)`
 
 func scanApplication(row pgx.Row, worker *auth.User) (Application, error) {
 	var application Application
-	err := row.Scan(&application.ID, &application.GigID, &application.Comment, &application.Status, &application.CreatedAt, &application.UpdatedAt)
+	err := row.Scan(&application.ID, &application.GigID, &application.Comment, &application.Status, &application.CreatedAt, &application.UpdatedAt, &application.TermsVersion)
 	application.Worker = users.PublicUser{ID: worker.ID, Name: worker.Name, Bio: worker.Bio,
-		Role: worker.Role, CompletedGigsCount: worker.CompletedGigsCount,
+		Role: worker.Role, Specialties: worker.Specialties, CompletedGigsCount: worker.CompletedGigsCount,
 		RatingAverage: worker.RatingAverage, ReviewsCount: worker.ReviewsCount}
 	application.CreatedAt = application.CreatedAt.UTC()
 	application.UpdatedAt = application.UpdatedAt.UTC()
@@ -44,14 +45,20 @@ func (h *Handler) apply(c *gin.Context) {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Некорректный идентификатор задания.")
 		return
 	}
-	var input *struct {
-		Comment json.RawMessage `json:"comment"`
-	}
+	initialVersion := 1
+	input := &struct {
+		Comment      json.RawMessage `json:"comment"`
+		TermsVersion *int            `json:"termsVersion"`
+	}{TermsVersion: &initialVersion}
 	if !httpapi.DecodeJSON(c, &input, 16*1024) {
 		return
 	}
 	if input == nil {
 		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Ожидается JSON-объект.")
+		return
+	}
+	if input.TermsVersion == nil || *input.TermsVersion < 1 {
+		httpapi.ValidationError(c, map[string][]string{"termsVersion": {"Укажите положительную редакцию условий."}})
 		return
 	}
 	comment := ""
@@ -74,8 +81,9 @@ func (h *Handler) apply(c *gin.Context) {
 		return
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var status string
-	err = tx.QueryRow(ctx, "SELECT status FROM gigs WHERE id = $1 FOR UPDATE", id).Scan(&status)
+	var owner, title, status string
+	var version int
+	err = tx.QueryRow(ctx, "SELECT customer_id::text, title, status, terms_version FROM gigs WHERE id = $1 FOR UPDATE", id).Scan(&owner, &title, &status, &version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
 		return
@@ -98,8 +106,12 @@ func (h *Handler) apply(c *gin.Context) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
 		return
 	}
-	application, err := scanApplication(tx.QueryRow(ctx, `INSERT INTO applications (gig_id, worker_id, comment)
-        VALUES ($1, $2, $3) RETURNING `+applicationColumns, id, worker.ID, comment), worker)
+	if *input.TermsVersion != version {
+		termsConflict(c)
+		return
+	}
+	application, err := scanApplication(tx.QueryRow(ctx, `INSERT INTO applications (gig_id, worker_id, comment, terms_version)
+        VALUES ($1, $2, $3, $4) RETURNING `+applicationColumns, id, worker.ID, comment, version), worker)
 	var pgerr *pgconn.PgError
 	if errors.As(err, &pgerr) && pgerr.Code == "23505" {
 		httpapi.Fail(c, http.StatusConflict, "ALREADY_APPLIED", "Вы уже откликались на это задание.")
@@ -107,6 +119,11 @@ func (h *Handler) apply(c *gin.Context) {
 	}
 	if err != nil {
 		httpapi.InternalError(c)
+		return
+	}
+	if !notify(c, tx, notifications.Event{
+		Type: "application_created", Key: application.ID, GigID: id, GigTitle: title,
+	}, owner) {
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -173,7 +190,8 @@ func (h *Handler) selectWorker(c *gin.Context) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var owner, gigStatus string
-	err = tx.QueryRow(ctx, "SELECT customer_id::text, status FROM gigs WHERE id = $1 FOR UPDATE", gigID).Scan(&owner, &gigStatus)
+	var version int
+	err = tx.QueryRow(ctx, "SELECT customer_id::text, status, terms_version FROM gigs WHERE id = $1 FOR UPDATE", gigID).Scan(&owner, &gigStatus, &version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
 		return
@@ -191,7 +209,8 @@ func (h *Handler) selectWorker(c *gin.Context) {
 		return
 	}
 	var workerID, applicationStatus string
-	err = tx.QueryRow(ctx, "SELECT worker_id::text, status FROM applications WHERE id = $1 AND gig_id = $2 FOR UPDATE", id, gigID).Scan(&workerID, &applicationStatus)
+	var agreedVersion int
+	err = tx.QueryRow(ctx, "SELECT worker_id::text, status, terms_version FROM applications WHERE id = $1 AND gig_id = $2 FOR UPDATE", id, gigID).Scan(&workerID, &applicationStatus, &agreedVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Отклик не найден.")
 		return
@@ -204,9 +223,15 @@ func (h *Handler) selectWorker(c *gin.Context) {
 		httpapi.Fail(c, http.StatusConflict, "STATE_CONFLICT", "Выбрать можно только ожидающий отклик на открытое задание.")
 		return
 	}
-	if _, err := tx.Exec(ctx, `UPDATE applications SET status = CASE WHEN id = $1 THEN 'selected' ELSE 'rejected' END,
-        updated_at = now() WHERE gig_id = $2 AND status = 'pending'`, id, gigID); err != nil {
-		httpapi.InternalError(c)
+	if agreedVersion != version {
+		termsConflict(c)
+		return
+	}
+	rejected, ok := notificationRecipients(c, tx, `WITH updated AS (
+		UPDATE applications SET status = CASE WHEN id = $1 THEN 'selected' ELSE 'rejected' END,
+		updated_at = now() WHERE gig_id = $2 AND status = 'pending' RETURNING id, worker_id
+	) SELECT worker_id::text FROM updated WHERE id <> $1`, id, gigID)
+	if !ok {
 		return
 	}
 	if _, err := tx.Exec(ctx, "UPDATE gigs SET selected_worker_id = $1, status = 'in_progress', updated_at = now() WHERE id = $2", workerID, gigID); err != nil {
@@ -216,6 +241,14 @@ func (h *Handler) selectWorker(c *gin.Context) {
 	var gig Gig
 	if err := tx.QueryRow(ctx, detailSQL+" WHERE g.id = $1", gigID, owner).Scan(&gig); err != nil {
 		httpapi.InternalError(c)
+		return
+	}
+	event := notifications.Event{Type: "application_selected", Key: id, GigID: gigID, GigTitle: gig.Title}
+	if !notify(c, tx, event, workerID) {
+		return
+	}
+	event.Type = "application_rejected"
+	if !notify(c, tx, event, rejected...) {
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {

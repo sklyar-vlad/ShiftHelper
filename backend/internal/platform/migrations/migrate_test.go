@@ -89,6 +89,8 @@ func TestMVPMigration(t *testing.T) {
 		{"excessive amount", "UPDATE gigs SET amount_kopecks = 10000000001", "23514"},
 		{"reversed dates", "UPDATE gigs SET ends_at = starts_at", "23514"},
 		{"invalid gig status", "UPDATE gigs SET status = 'draft'", "23514"},
+		{"invalid work stage", "UPDATE gigs SET work_stage = 'done'", "23514"},
+		{"hide active gig", "UPDATE gigs SET hidden_from_customer = true", "23514"},
 		{"missing customer", "UPDATE gigs SET customer_id = gen_random_uuid()", "23503"},
 		{"missing applicant", "UPDATE applications SET worker_id = gen_random_uuid()", "23503"},
 		{"missing gig", "UPDATE applications SET gig_id = gen_random_uuid()", "23503"},
@@ -123,6 +125,69 @@ func TestMVPMigration(t *testing.T) {
 	`)
 	if err != nil {
 		t.Fatalf("valid lifecycle: %v", err)
+	}
+	run("down")
+	var stage string
+	if err := pool.QueryRow(ctx, "SELECT work_stage FROM gigs LIMIT 1").Scan(&stage); err == nil {
+		t.Fatal("work stage column was not removed")
+	}
+	run("down")
+	var hidden bool
+	if err := pool.QueryRow(ctx, "SELECT hidden_from_customer FROM gigs LIMIT 1").Scan(&hidden); err == nil {
+		t.Fatal("personal visibility column was not removed")
+	}
+	run("down")
+	run("down")
+	run("down")
+	var notificationsRemoved bool
+	if err := pool.QueryRow(ctx, "SELECT to_regclass(current_schema() || '.notifications') IS NULL").Scan(&notificationsRemoved); err != nil || !notificationsRemoved {
+		t.Fatalf("notifications table was not removed: %v", err)
+	}
+	run("down")
+	if _, err := pool.Exec(ctx, `INSERT INTO gigs (customer_id, title, description, city, address, starts_at,
+		ends_at, amount_kopecks, status, cancelled_at)
+		VALUES ('00000000-0000-0000-0000-000000000001', 'Legacy cancellation', 'Old gig', 'Moscow', 'Example 1',
+		now(), now() + interval '1 day', 10000, 'cancelled', now())`); err != nil {
+		t.Fatal(err)
+	}
+	run("up")
+	var legacyCancellation bool
+	if err := pool.QueryRow(ctx, `SELECT cancellation_reason IS NULL AND cancellation_comment = '' AND point IS NULL AND NOT hidden_from_customer AND work_stage = 'assigned'
+		FROM gigs WHERE title = 'Legacy cancellation'`).Scan(&legacyCancellation); err != nil || !legacyCancellation {
+		t.Fatalf("legacy cancellation was not preserved: %v", err)
+	}
+	run("down")
+	run("down")
+	run("down")
+	run("down")
+	run("down")
+	run("down")
+	var cancellationColumnsRemoved bool
+	if err := pool.QueryRow(ctx, `SELECT NOT EXISTS (
+		SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'gigs'
+		AND column_name IN ('cancellation_reason', 'cancellation_comment')
+	)`).Scan(&cancellationColumnsRemoved); err != nil || !cancellationColumnsRemoved {
+		t.Fatalf("cancellation columns were not removed: %v", err)
+	}
+	run("down")
+	var specialties []string
+	if err := pool.QueryRow(ctx, "SELECT specialties FROM users LIMIT 1").Scan(&specialties); err == nil {
+		t.Fatal("specialties column was not removed")
+	}
+	run("down")
+	var category string
+	if err := pool.QueryRow(ctx, "SELECT category FROM gigs LIMIT 1").Scan(&category); err == nil {
+		t.Fatal("category column was not removed")
+	}
+	run("down")
+	var version int
+	if err := pool.QueryRow(ctx, "SELECT terms_version FROM gigs LIMIT 1").Scan(&version); err == nil {
+		t.Fatal("terms version column was not removed")
+	}
+	run("down")
+	var contact string
+	if err := pool.QueryRow(ctx, "SELECT contact FROM users LIMIT 1").Scan(&contact); err == nil {
+		t.Fatal("contact column was not removed")
 	}
 	run("down")
 	var removed bool

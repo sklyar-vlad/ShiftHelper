@@ -1,0 +1,41 @@
+.specialty-badges,
+.specialty-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.specialty-badges {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+
+.specialty-badges > li {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.specialty-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out;
+  overflow-wrap: anywhere;
+}
+
+.specialty-option:has(input:checked) {
+  background: var(--mint);
+  border-color: var(--green);
+}
+
+.specialty-fields {
+  min-inline-size: 0;
+}

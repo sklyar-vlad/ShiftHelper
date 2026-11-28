@@ -9,6 +9,7 @@ import {
 import { ApiError } from "@/shared/api/http";
 import { useSession } from "@/shared/model/session";
 import { StatusPanel } from "@/shared/ui/StatusPanel";
+import { WorkPreview } from "@/shared/ui/WorkPreview";
 import "./auth.css";
 
 type Fields = { name: string; email: string; password: string; role: Role };
@@ -100,13 +101,14 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
   if (session.user && !session.isError) return <Navigate to={target} replace />;
 
   return (
-    <div className="auth-layout">
+    <div
+      className="auth-layout"
+      data-register={creating || undefined}
+      key={mode}
+    >
       <aside className="auth-intro">
         <p className="eyebrow">Каждому делу — свой человек</p>
         <div>
-          <span className="auth-star" aria-hidden="true">
-            ✳
-          </span>
           <h2>
             {creating ? (
               <>
@@ -127,6 +129,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             понятных условиях.
           </p>
         </div>
+        <WorkPreview />
         <span className="auth-intro-footer">
           Ваш график. Ваш выбор. Ваш ShiftHelper.
         </span>
@@ -289,6 +292,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             <button
               className="button auth-submit"
               type="submit"
+              aria-busy={isSubmitting || working}
               disabled={isSubmitting || working}
             >
               {isSubmitting || working
@@ -298,7 +302,9 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
                 : creating
                   ? "Создать аккаунт"
                   : "Войти"}
-              <span aria-hidden="true">↗</span>
+              <span className="auth-submit-icon" aria-hidden="true">
+                ↗
+              </span>
             </button>
           </fieldset>
         </form>

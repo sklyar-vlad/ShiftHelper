@@ -1,0 +1,163 @@
+.date-time-control {
+  position: relative;
+}
+.form-field .date-time-control input {
+  min-width: 0;
+  padding-right: 46px;
+  font-variant-numeric: tabular-nums;
+}
+.date-time-control > button {
+  position: absolute;
+  inset: 0 6px 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-block: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+}
+.date-time-control > button:hover,
+.date-time-control > button[aria-expanded="true"] {
+  background: var(--mint);
+}
+.date-time-clock-icon {
+  position: relative;
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+}
+.date-time-clock-icon::after {
+  position: absolute;
+  inset: 3px auto auto 6px;
+  width: 4px;
+  height: 5px;
+  border-block-end: 1.5px solid currentColor;
+  border-inline-start: 1.5px solid currentColor;
+  content: "";
+}
+.date-time-clock-dialog {
+  width: min(350px, calc(100% - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  color: inherit;
+  box-shadow: 0 12px 36px #00000024;
+}
+.date-time-clock-dialog::backdrop {
+  background: #0006;
+}
+.date-time-clock-content {
+  padding: 20px clamp(14px, 5vw, 24px);
+}
+.date-time-clock-dialog h2 {
+  margin: 0 0 16px;
+  font-size: 24px;
+}
+.date-time-clock-values {
+  display: grid;
+  width: min(100%, 200px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 auto 14px;
+}
+.date-time-clock-values button {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.date-time-clock-values button:hover,
+.date-time-clock-values button[aria-pressed="true"] {
+  background: var(--mint);
+}
+.date-time-clock-values button[aria-pressed="true"] {
+  border-color: var(--green);
+  color: var(--green-dark);
+}
+.date-time-clock-values span {
+  color: #000;
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1;
+}
+.date-time-dial {
+  position: relative;
+  width: min(100%, 260px);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #f2f4f5;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.date-time-dial::before,
+.date-time-hand,
+.date-time-hand::before {
+  position: absolute;
+  background: var(--green);
+  pointer-events: none;
+}
+.date-time-dial::before {
+  content: "";
+  inset: 50% auto auto 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.date-time-hand {
+  bottom: 50%;
+  left: calc(50% - 1px);
+  width: 2px;
+  transform-origin: bottom;
+}
+.date-time-hand::before {
+  content: "";
+  left: 50%;
+  width: clamp(20px, 8vw, 28px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translate(-50%, -50%);
+}
+.date-time-hand[data-between-ticks]::before {
+  width: 10px;
+}
+.date-time-tick {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 11%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transform: translate(-50%, -50%);
+}
+.date-time-tick[data-selected] {
+  font-weight: 700;
+}
+.date-time-tick:not([data-selected]):hover {
+  background: var(--mint);
+}
+.date-time-clock-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}

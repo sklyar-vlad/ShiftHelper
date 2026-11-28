@@ -6,10 +6,15 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { SessionProvider } from "@/shared/model/session";
-import { getGetCurrentUserQueryKey } from "@/shared/api/generated/api";
+import {
+  type CurrentUser,
+  getGetCurrentUserQueryKey,
+} from "@/shared/api/generated/api";
 import { UserCard } from "@/entities/user/UserCard";
 import { AccountPage } from "./AccountPage";
 
@@ -34,11 +39,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function mount(send: (init: RequestInit) => Promise<Response>) {
+const categories = [
+  { code: "moving", name: "Переезды" },
+  { code: "repair", name: "Ремонт" },
+  { code: "cleaning", name: "Уборка" },
+  { code: "electrical", name: "Электрика" },
+  { code: "delivery", name: "Доставка" },
+  { code: "other", name: "Другое" },
+];
+
+async function mount(
+  send: (init: RequestInit) => Promise<Response>,
+  profile: CurrentUser = user,
+) {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (_url: string, init: RequestInit) =>
-      init.method === "PATCH" ? send(init) : json(user),
+    vi.fn(async (url: string, init: RequestInit) =>
+      url === "/api/v1/gig-categories"
+        ? json(categories)
+        : init.method === "PATCH"
+          ? send(init)
+          : json(profile),
     ),
   );
   const client = new QueryClient({
@@ -47,7 +68,9 @@ async function mount(send: (init: RequestInit) => Promise<Response>) {
   render(
     <QueryClientProvider client={client}>
       <SessionProvider>
-        <AccountPage />
+        <RouterProvider
+          router={createMemoryRouter([{ path: "/", element: <AccountPage /> }])}
+        />
       </SessionProvider>
     </QueryClientProvider>,
   );
@@ -60,6 +83,42 @@ const submit = () =>
   fireEvent.submit(
     screen.getByRole("form", { name: "Редактирование профиля" }),
   );
+
+it("compares edits against the opening snapshot and discards a draft on account switch", async () => {
+  const client = await mount(async () => json(user), {
+    ...user,
+    specialties: ["moving"],
+  });
+  const name = screen.getByLabelText<HTMLInputElement>("Имя");
+  fireEvent.change(name, { target: { value: "Черновик" } });
+  const key = getGetCurrentUserQueryKey();
+  await act(async () => {
+    client.setQueryData(key, {
+      ...user,
+      name: "Обновление",
+      specialties: ["repair"],
+    });
+  });
+  expect(name.value).toBe("Черновик");
+  expect(
+    (screen.getByRole("checkbox", { name: "Переезды" }) as HTMLInputElement)
+      .checked,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Отмена" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Остаться" }));
+  expect(name.value).toBe("Черновик");
+
+  await act(async () => {
+    client.setQueryData(key, { ...user, id: "other", name: "Другой профиль" });
+  });
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Редактировать профиль" }),
+  );
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(screen.getByLabelText<HTMLInputElement>("Имя").value).toBe(
+    "Другой профиль",
+  );
+});
 
 it("saves trimmed name and empty bio, updating the session immediately", async () => {
   const send = vi.fn(async (init: RequestInit) =>
@@ -77,6 +136,7 @@ it("saves trimmed name and empty bio, updating the session immediately", async (
   expect(JSON.parse(send.mock.calls[0][0].body as string)).toEqual({
     name: "Новое имя",
     bio: "",
+    contact: "",
   });
   expect(screen.getByRole("heading", { name: "Новое имя" })).toBeTruthy();
   expect(screen.getByText("Описание пока не добавлено")).toBeTruthy();
@@ -126,7 +186,13 @@ it("validates name and preserves input on API field errors, while blocking dupli
     "Новое имя",
   );
   fireEvent.click(screen.getByRole("button", { name: "Отмена" }));
-  expect(screen.getByRole("heading", { name: "Алексей" })).toBeTruthy();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Уйти без сохранения" }),
+  );
+  await screen.findByRole("button", { name: "Редактировать профиль" });
+  expect(
+    screen.queryByRole("form", { name: "Редактирование профиля" }),
+  ).toBeNull();
 });
 
 it("does not restore a logged-out session when a late save response arrives", async () => {
@@ -155,4 +221,87 @@ it("renders only public profile fields, including zero completed gigs", () => {
   expect(screen.getByText(/Завершено заданий: 0/)).toBeTruthy();
   expect(screen.getByText("Описание пока не добавлено")).toBeTruthy();
   expect(screen.queryByText(user.email)).toBeNull();
+});
+
+it("saves and clears the optional private contact", async () => {
+  const send = vi.fn(async (init: RequestInit) =>
+    json({ ...user, ...JSON.parse(init.body as string) }),
+  );
+  await mount(send);
+  fireEvent.change(screen.getByLabelText("Как со мной связаться"), {
+    target: { value: "  @contact  " },
+  });
+  submit();
+  await screen.findByText("Профиль сохранён.");
+  expect(JSON.parse(send.mock.calls[0][0].body as string).contact).toBe(
+    "@contact",
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Редактировать профиль" }),
+  );
+  fireEvent.change(screen.getByLabelText("Как со мной связаться"), {
+    target: { value: "" },
+  });
+  submit();
+  await screen.findByText("Профиль сохранён.");
+  expect(JSON.parse(send.mock.calls[1][0].body as string).contact).toBe("");
+});
+
+it("limits selection to five and preserves the draft when saving fails", async () => {
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
+    json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Ошибка",
+          fields: { specialties: ["Проверьте направления"] },
+        },
+      },
+      400,
+    ),
+  );
+  await mount(send);
+  const group = within(
+    await screen.findByRole("group", { name: "Специализации" }),
+  );
+  await group.findByRole("checkbox", { name: "Переезды" });
+  const controls = group.getAllByRole<HTMLInputElement>("checkbox");
+  controls.slice(0, 5).forEach((control) => fireEvent.click(control));
+  expect(controls[5].disabled).toBe(true);
+  fireEvent.click(controls[0]);
+  expect(controls[5].disabled).toBe(false);
+  fireEvent.click(controls[5]);
+  submit();
+  await screen.findByText("Проверьте направления");
+  expect(controls[5].checked).toBe(true);
+  expect(JSON.parse(send.mock.calls[0][0].body as string).specialties).toEqual([
+    "repair",
+    "cleaning",
+    "electrical",
+    "delivery",
+    "other",
+  ]);
+});
+
+it("shows saved specialties and sends an empty list when clearing", async () => {
+  const send = vi.fn<(init: RequestInit) => Promise<Response>>(async () =>
+    json({ ...user, specialties: [] }),
+  );
+  await mount(send, { ...user, specialties: ["moving"] });
+  const list = await screen.findByRole("list", { name: "Специализации" });
+  expect(await within(list).findByText("Переезды")).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Очистить специализации" }),
+  );
+  submit();
+  await screen.findByText("Профиль сохранён.");
+  expect(JSON.parse(send.mock.calls[0][0].body as string).specialties).toEqual(
+    [],
+  );
+  expect(screen.queryByRole("list", { name: "Специализации" })).toBeNull();
+});
+
+it("does not offer a specialty editor for customers", async () => {
+  await mount(async () => json(user), { ...user, role: "customer" });
+  expect(screen.queryByRole("group", { name: "Специализации" })).toBeNull();
 });

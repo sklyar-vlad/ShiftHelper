@@ -1,20 +1,30 @@
+import { SpecialtyBadges } from "@/entities/user/SpecialtyBadges";
+import { SpecialtyFields } from "./SpecialtyFields";
+import { RatingSummary } from "@/entities/user/RatingSummary";
 import { roleNames, useSession } from "@/shared/model/session";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router";
 import {
   getGetCurrentUserQueryKey,
   updateProfile,
   type CurrentUser,
+  type CategoryCode,
   type UpdateProfileRequest,
 } from "@/shared/api/generated/api";
 import { ApiError } from "@/shared/api/http";
+import { useUnsavedChanges } from "@/shared/ui/useUnsavedChanges";
 
 export function AccountPage() {
   const { user } = useSession();
+  const { key } = useLocation();
+  return user ? <Account key={`${user.id}:${key}`} user={user} /> : null;
+}
+
+function Account({ user }: { user: CurrentUser }) {
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
-  if (!user) return null;
   return (
     <div className="account-page">
       <div className="page-heading">
@@ -34,6 +44,12 @@ export function AccountPage() {
         </div>
         <dl className="profile-details">
           <div>
+            <dt>Оценки</dt>
+            <dd>
+              <RatingSummary user={user} />
+            </dd>
+          </div>
+          <div>
             <dt>Email</dt>
             <dd>{user.email}</dd>
           </div>
@@ -42,9 +58,25 @@ export function AccountPage() {
             <dd>{user.completedGigsCount}</dd>
           </div>
           <div>
+            <dt>Как со мной связаться</dt>
+            <dd>{user.contact || "Контакт пока не добавлен"}</dd>
+          </div>
+          <div>
             <dt>О себе</dt>
             <dd>{user.bio || "Описание пока не добавлено"}</dd>
           </div>
+          {user.role === "worker" && (
+            <div>
+              <dt>Специализации</dt>
+              <dd>
+                {user.specialties?.length ? (
+                  <SpecialtyBadges codes={user.specialties} />
+                ) : (
+                  "Направления пока не выбраны"
+                )}
+              </dd>
+            </div>
+          )}
         </dl>
         {editing ? (
           <ProfileForm
@@ -86,23 +118,42 @@ function ProfileForm({
   const busy = useRef(false);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
+  const [initialSpecialties] = useState(() => user.specialties ?? []);
+  const [specialties, setSpecialties] = useState<CategoryCode[]>();
+  const specialtiesChanged =
+    specialties !== undefined &&
+    (specialties.length !== initialSpecialties.length ||
+      specialties.some((code) => !initialSpecialties.includes(code)));
+  const [specialtyError, setSpecialtyError] = useState("");
   const {
     register,
     handleSubmit,
     setError,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<UpdateProfileRequest>({
-    defaultValues: { name: user.name, bio: user.bio },
+    defaultValues: {
+      name: user.name,
+      bio: user.bio,
+      contact: user.contact ?? "",
+    },
   });
+  const guard = useUnsavedChanges(isDirty || specialtiesChanged, () =>
+    onClose(false),
+  );
   const submit = handleSubmit(async (values) => {
     if (busy.current) return;
     busy.current = true;
     setWorking(true);
     setMessage("");
+    setSpecialtyError("");
     try {
       const updated = await updateProfile({
         name: values.name.trim(),
         bio: values.bio.trim(),
+        contact: values.contact?.trim() ?? "",
+        ...(user.role === "worker" && specialtiesChanged
+          ? { specialties }
+          : {}),
       });
       const key = getGetCurrentUserQueryKey();
       await client.cancelQueries({ queryKey: key });
@@ -111,10 +162,15 @@ function ProfileForm({
       void client.invalidateQueries({
         predicate: (query) => query.queryKey[0] !== key[0],
       });
-      onClose(true);
+      if (guard.allowSavedExit()) onClose(true);
     } catch (error) {
-      let matched = false;
-      for (const name of ["name", "bio"] as const) {
+      const specialtyMessage =
+        error instanceof ApiError
+          ? error.details?.fields?.specialties?.[0]
+          : undefined;
+      if (specialtyMessage) setSpecialtyError(specialtyMessage);
+      let matched = !!specialtyMessage;
+      for (const name of ["name", "bio", "contact"] as const) {
         const text =
           error instanceof ApiError
             ? error.details?.fields?.[name]?.[0]
@@ -184,6 +240,38 @@ function ProfileForm({
             </p>
           )}
         </div>
+        <div className="form-field">
+          <label htmlFor="profile-contact">Как со мной связаться</label>
+          <input
+            id="profile-contact"
+            maxLength={200}
+            aria-invalid={!!errors.contact}
+            aria-describedby="profile-contact-hint profile-contact-error"
+            {...register("contact", {
+              validate: (value) =>
+                Array.from(value?.trim() ?? "").length <= 200 ||
+                "Не больше 200 символов.",
+            })}
+          />
+          <p className="small muted" id="profile-contact-hint">
+            Необязательно: телефон или имя в мессенджере. Видно второй стороне
+            задания после выбора исполнителя. Чтобы удалить контакт, очистите
+            поле.
+          </p>
+          <p className="field-error" id="profile-contact-error">
+            {errors.contact?.message}
+          </p>
+        </div>
+        {user.role === "worker" && (
+          <SpecialtyFields
+            value={specialties ?? initialSpecialties}
+            onChange={(codes) => {
+              setSpecialties(codes);
+              setSpecialtyError("");
+            }}
+            error={specialtyError}
+          />
+        )}
         {message && (
           <p className="notice notice-error" role="alert">
             {message}
@@ -196,12 +284,13 @@ function ProfileForm({
           <button
             className="button button-secondary"
             type="button"
-            onClick={() => onClose(false)}
+            onClick={guard.requestClose}
           >
             Отмена
           </button>
         </div>
       </fieldset>
+      {guard.dialog}
     </form>
   );
 }

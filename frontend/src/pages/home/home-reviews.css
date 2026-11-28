@@ -1,0 +1,128 @@
+.home-reviews {
+  padding: clamp(52px, 7vw, 96px) 4px 0;
+  text-align: center;
+}
+
+.home-reviews h2 {
+  margin-bottom: 8px;
+  font-size: clamp(34px, 5vw, 50px);
+}
+
+.home-reviews-label,
+.home-reviews-slide figcaption span,
+.home-reviews-controls > span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.home-reviews-label {
+  margin-bottom: clamp(34px, 5.5vw, 76px);
+}
+
+.home-reviews-slides {
+  display: grid;
+  grid-template-rows: auto auto;
+  row-gap: clamp(28px, 3vw, 40px);
+  max-width: 970px;
+  margin-inline: auto;
+  overflow: clip;
+  isolation: isolate;
+}
+
+.home-reviews-slide {
+  display: grid;
+  grid-area: 1 / 1 / span 2;
+  grid-template-rows: subgrid;
+  min-width: 0;
+  margin: 0;
+  opacity: 1;
+  transition: opacity 380ms var(--motion-ease);
+}
+
+.home-reviews-slide[aria-hidden="true"] {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.home-reviews-slide[data-leaving="true"] {
+  transition:
+    opacity 260ms ease-out,
+    visibility 0s linear 260ms;
+}
+
+.home-reviews-slides[data-direction] .home-reviews-slide[aria-hidden="false"] {
+  z-index: 1;
+  animation: home-review-arrive 380ms var(--motion-ease);
+}
+
+.home-reviews-slides[data-direction="previous"] {
+  --review-offset: -8px;
+}
+
+@keyframes home-review-arrive {
+  from {
+    transform: translateX(var(--review-offset, 8px));
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+.home-reviews-slide blockquote,
+.home-reviews-slide p {
+  margin: 0;
+  font-size: clamp(16px, 1.6vw, 20px);
+  line-height: 1.55;
+}
+
+.home-reviews-slide figcaption {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 5px;
+}
+
+.home-reviews-slide img {
+  width: clamp(92px, 10vw, 116px);
+  height: auto;
+  margin-bottom: 9px;
+  border-radius: 50%;
+  background: var(--mint);
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.home-reviews-slide strong {
+  color: var(--green);
+  font-size: 19px;
+}
+
+.home-reviews-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.home-reviews-controls button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  font-size: 22px;
+  transition:
+    background-color 230ms var(--motion-ease),
+    border-color 230ms var(--motion-ease);
+}
+
+.home-reviews-controls button:hover {
+  background: var(--mint);
+  border-color: var(--green);
+}
