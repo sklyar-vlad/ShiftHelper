@@ -2,8 +2,6 @@
 
 [English](README.md) · **Русский**
 
-[![CI для dev](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml)
-
 Сервис краткосрочных подработок. Заказчик публикует задание и выбирает исполнителя. Исполнитель находит работу, отмечает этапы и сдаёт результат.
 
 [![Стек: React, TypeScript, Vite, Go, PostgreSQL, Redis, Docker, nginx и GitHub Actions](https://skillicons.dev/icons?i=react,ts,vite,go,postgres,redis,docker,nginx,githubactions)](https://skillicons.dev/)
@@ -11,7 +9,7 @@
 <p>
   <img src="docs/readme/home.png" width="240" alt="Главная ShiftHelper на телефоне">
   <img src="docs/readme/catalog.png" width="240" alt="Каталог подработок на телефоне">
-  <img src="docs/readme/progress.png" width="240" alt="Этапы выполнения задания глазами исполнителя">
+  <img src="docs/readme/gig-map.png" width="240" alt="Открытое задание с адресом и точкой на карте">
 </p>
 
 <!-- Место для GIF: публикация задания с точкой на карте и смена этапов в карточках обеих сторон. -->
@@ -36,3 +34,5 @@ React, TypeScript и Vite на фронтенде. Go, Gin, PostgreSQL и Redis 
 - [Swagger на локальном стенде](http://shifthelper.localhost/docs/swagger.html) и [контракт API](docs/openapi.yaml)
 - [Настройка окружения, карты и проверки](docs/agents/development.md)
 - [Команды проекта](Taskfile.yml) и [правила работы](AGENTS.md)
+
+[![CI для dev](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml)
