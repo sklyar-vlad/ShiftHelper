@@ -138,7 +138,7 @@ it("switches worker lists and restores URL filters after opening a gig", async (
 });
 
 it("submits assigned work once and then shows the confirmation waiting state", async () => {
-  let current = gig;
+  let current: Gig = { ...gig, workStage: "started" };
   let finish: (response: Response) => void = () => {};
   const post = vi.fn((url: string) => {
     expect(url).toBe("/api/v1/gigs/gig-1/submit");
@@ -167,7 +167,7 @@ it("submits assigned work once and then shows the confirmation waiting state", a
 });
 
 it("refreshes a stale submission after a conflict", async () => {
-  let current = gig;
+  let current: Gig = { ...gig, workStage: "started" };
   mount("/gigs/gig-1", async (_url, init) => {
     if (init.method === "POST") {
       current = { ...gig, status: "awaiting_confirmation" };
