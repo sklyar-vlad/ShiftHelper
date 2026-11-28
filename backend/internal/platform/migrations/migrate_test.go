@@ -89,6 +89,7 @@ func TestMVPMigration(t *testing.T) {
 		{"excessive amount", "UPDATE gigs SET amount_kopecks = 10000000001", "23514"},
 		{"reversed dates", "UPDATE gigs SET ends_at = starts_at", "23514"},
 		{"invalid gig status", "UPDATE gigs SET status = 'draft'", "23514"},
+		{"invalid work stage", "UPDATE gigs SET work_stage = 'done'", "23514"},
 		{"hide active gig", "UPDATE gigs SET hidden_from_customer = true", "23514"},
 		{"missing customer", "UPDATE gigs SET customer_id = gen_random_uuid()", "23503"},
 		{"missing applicant", "UPDATE applications SET worker_id = gen_random_uuid()", "23503"},
@@ -126,6 +127,11 @@ func TestMVPMigration(t *testing.T) {
 		t.Fatalf("valid lifecycle: %v", err)
 	}
 	run("down")
+	var stage string
+	if err := pool.QueryRow(ctx, "SELECT work_stage FROM gigs LIMIT 1").Scan(&stage); err == nil {
+		t.Fatal("work stage column was not removed")
+	}
+	run("down")
 	var hidden bool
 	if err := pool.QueryRow(ctx, "SELECT hidden_from_customer FROM gigs LIMIT 1").Scan(&hidden); err == nil {
 		t.Fatal("personal visibility column was not removed")
@@ -146,10 +152,11 @@ func TestMVPMigration(t *testing.T) {
 	}
 	run("up")
 	var legacyCancellation bool
-	if err := pool.QueryRow(ctx, `SELECT cancellation_reason IS NULL AND cancellation_comment = '' AND point IS NULL AND NOT hidden_from_customer
+	if err := pool.QueryRow(ctx, `SELECT cancellation_reason IS NULL AND cancellation_comment = '' AND point IS NULL AND NOT hidden_from_customer AND work_stage = 'assigned'
 		FROM gigs WHERE title = 'Legacy cancellation'`).Scan(&legacyCancellation); err != nil || !legacyCancellation {
 		t.Fatalf("legacy cancellation was not preserved: %v", err)
 	}
+	run("down")
 	run("down")
 	run("down")
 	run("down")

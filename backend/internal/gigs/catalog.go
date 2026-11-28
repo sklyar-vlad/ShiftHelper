@@ -46,6 +46,8 @@ const profileJoins = `JOIN profiles customer ON customer.id = g.customer_id
 const cancellationJSON = `jsonb_build_object('reason', g.cancellation_reason, 'comment', g.cancellation_comment)`
 
 const detailSQL = profilesSQL + ` SELECT ` + summaryJSON + ` || jsonb_build_object(
+    'workStage', CASE WHEN g.selected_worker_id IS NOT NULL
+        AND (g.customer_id = $2::uuid OR g.selected_worker_id = $2::uuid) THEN g.work_stage END,
     'hiddenFromMyGigs', CASE WHEN g.customer_id = $2::uuid THEN g.hidden_from_customer ELSE false END,
     'cancellation', CASE WHEN g.status = 'cancelled' AND (g.customer_id = $2::uuid OR EXISTS (
         SELECT 1 FROM applications a WHERE a.gig_id = g.id AND a.worker_id = $2::uuid AND a.status = 'rejected'

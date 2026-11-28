@@ -1313,6 +1313,12 @@ export const createGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CreateGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -1885,6 +1891,12 @@ export const getGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const GetGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -2463,6 +2475,12 @@ export const cancelGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const CancelGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -2884,6 +2902,20 @@ export const CancelGigResponse = zod.object({
 });
 
 /**
+ * Только выбранный исполнитель в in_progress. Сначала arrived, затем started. Повтор текущей отметки безопасен.
+ * @summary Отметить этап работы
+ */
+export const AdvanceGigProgressParams = zod.object({
+  gigId: zod.uuid(),
+});
+
+export const AdvanceGigProgressBody = zod.object({
+  stage: zod.enum(["arrived", "started"]),
+});
+
+export const AdvanceGigProgressResponse = zod.void();
+
+/**
  * Только выбранный worker, in_progress → awaiting_confirmation; submittedAt устанавливается сервером.
  * @summary Сдать работу
  */
@@ -3035,6 +3067,12 @@ export const submitGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const SubmitGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -3607,6 +3645,12 @@ export const confirmGigResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const ConfirmGigResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -4462,6 +4506,12 @@ export const selectApplicationResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const SelectApplicationResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -6113,6 +6163,12 @@ export const editGigTermsResponseMyApplicationOneUpdatedAtRegExp = new RegExp(
 );
 
 export const EditGigTermsResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -6698,6 +6754,12 @@ export const confirmApplicationTermsResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const ConfirmApplicationTermsResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -7325,6 +7387,12 @@ export const acceptGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const AcceptGigChangeResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -7915,6 +7983,12 @@ export const rejectGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const RejectGigChangeResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()
@@ -8508,6 +8582,12 @@ export const withdrawGigChangeResponseMyApplicationOneUpdatedAtRegExp =
   );
 
 export const WithdrawGigChangeResponse = zod.object({
+  workStage: zod
+    .enum(["assigned", "arrived", "started"])
+    .optional()
+    .describe(
+      "Отметка исполнителя, доступна только исполнителю и заказчику назначенного задания.",
+    ),
   hiddenFromMyGigs: zod
     .boolean()
     .optional()

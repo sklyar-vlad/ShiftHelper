@@ -11,6 +11,64 @@ import (
 	"github.com/sklyar-vlad/ShiftHelper/backend/internal/platform/httpapi"
 )
 
+func (h *Handler) progress(c *gin.Context) {
+	id := c.Param("gigId")
+	if !httpapi.ValidUUID(id) {
+		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Некорректный идентификатор задания.")
+		return
+	}
+	var input struct {
+		Stage string `json:"stage"`
+	}
+	if !httpapi.DecodeJSON(c, &input, 4096) {
+		return
+	}
+	previous := "assigned"
+	switch input.Stage {
+	case "arrived":
+	case "started":
+		previous = "arrived"
+	default:
+		httpapi.Fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "Выберите допустимый этап работы.")
+		return
+	}
+
+	ctx := c.Request.Context()
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var status, stage string
+	err = tx.QueryRow(ctx, `SELECT status, work_stage FROM gigs
+		WHERE id = $1 AND selected_worker_id = $2 FOR UPDATE`, id, auth.UserFromContext(c).ID).Scan(&status, &stage)
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpapi.Fail(c, http.StatusNotFound, "NOT_FOUND", "Задание не найдено.")
+		return
+	}
+	if err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	if status != "in_progress" || (stage != previous && stage != input.Stage) {
+		httpapi.Fail(c, http.StatusConflict, "STATE_CONFLICT", "Этот этап сейчас недоступен.")
+		return
+	}
+	if stage != input.Stage {
+		if _, err := tx.Exec(ctx, "UPDATE gigs SET work_stage = $2, updated_at = clock_timestamp() WHERE id = $1", id, input.Stage); err != nil {
+			httpapi.InternalError(c)
+			return
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		httpapi.InternalError(c)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func (h *Handler) finish(c *gin.Context, confirming bool) {
 	id := c.Param("gigId")
 	if !httpapi.ValidUUID(id) {
