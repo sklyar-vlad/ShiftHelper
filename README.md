@@ -1,100 +1,36 @@
-<h1 align="center">ShiftHelper</h1>
+# ShiftHelper
 
-<p align="center">
-  Сервис краткосрочных подработок для заказчиков и исполнителей.
+**English** · [Русский](README.ru.md)
+
+[![CI for dev](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml)
+
+A platform for short-term gigs. Customers post jobs and choose a worker. Workers find gigs, mark their progress, and submit the finished work.
+
+<p>
+  <img src="docs/readme/home.png" width="240" alt="ShiftHelper home page on mobile">
+  <img src="docs/readme/catalog.png" width="240" alt="Gig catalog on mobile">
+  <img src="docs/readme/progress.png" width="240" alt="Work progress in the worker's view">
 </p>
 
-<p align="center">
-  <a href="#возможности">Возможности</a> ·
-  <a href="#демо">Демо</a> ·
-  <a href="#быстрый-запуск">Быстрый запуск</a> ·
-  <a href="#разработка">Разработка</a>
-</p>
+<!-- Room for GIFs showing a job posted with a map pin and progress updates on both sides. -->
 
-<p align="center">
-  <a href="https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml">
-    <img src="https://github.com/sklyar-vlad/ShiftHelper/actions/workflows/ci.yml/badge.svg?branch=dev" alt="Проверки ветки dev">
-  </a>
-</p>
+## Getting started
 
-## Возможности
-
-| Заказчик | Исполнитель |
-| --- | --- |
-| Публикует задание, указывает время, оплату, адрес и точку на карте. | Ищет подработку по городу, категории, оплате и времени. |
-| Сравнивает отклики и выбирает исполнителя. | Откликается на подходящее задание и следит за ответом. |
-| Видит, на каком этапе работа, и подтверждает результат. | Отмечает прибытие и начало работы, затем сдаёт результат. |
-
-Свои задания и отклики доступны в личном кабинете. Об изменениях приходят уведомления, а после подтверждения работы стороны могут оставить друг другу отзывы. Оплата происходит напрямую между участниками.
-
-## Демо
-
-> **Скриншот главной.** Здесь будет первый экран ShiftHelper с переходом в каталог.
-
-| Формат | Что показать |
-| --- | --- |
-| GIF · Заказчик | Создаёт задание, проверяет точку на карте и публикует объявление. |
-| GIF · Ход работы | Исполнитель отмечает этапы, а открытая карточка заказчика обновляется. |
-| Скриншот · Мобильный экран | Каталог с фильтрами по городу и категории. |
-
-## Быстрый запуск
-
-Нужны Git, Docker с поддержкой `docker compose up --wait` и [Task v3](https://taskfile.dev/docs/installation). На Windows используйте WSL с включённой интеграцией Docker Desktop.
+You'll need Git, Docker Compose, and [Task v3](https://taskfile.dev/docs/installation). On Windows, run the commands in WSL with Docker Desktop integration enabled.
 
 ```sh
-git clone https://github.com/sklyar-vlad/ShiftHelper.git
+git clone --branch dev https://github.com/sklyar-vlad/ShiftHelper.git
 cd ShiftHelper
-git switch dev
 task up
 ```
 
-[Открыть ShiftHelper](http://shifthelper.localhost/) · [Swagger](http://shifthelper.localhost/docs/swagger.html) · [Готовность API](http://shifthelper.localhost/readyz)
+Open [ShiftHelper](http://shifthelper.localhost/) and sign up as a customer or worker.
 
-Для начала зарегистрируйте аккаунт заказчика или исполнителя. Чтобы пройти сценарий с обеих сторон, откройте второй аккаунт в приватном окне.
+## Development
 
-<details>
-<summary>Локальное окружение, порты и логи</summary>
+React, TypeScript, and Vite on the frontend. Go, Gin, PostgreSQL, and Redis on the backend.
 
-`task up` сам запускает `task env`. Эта команда создаёт локальный `infra/.env`, генерирует пароль БД и токен метрик, а при повторном запуске сохраняет заданные значения. Файл исключён из Git. Для подготовки окружения нужен POSIX shell с `od`, `tr`, `grep`, `sed` и `chmod`. Go и Node.js на хосте для запуска через Docker не нужны.
-
-По умолчанию сайт использует порт 80, PostgreSQL — 5432, Prometheus — 9090. Если порт занят, задайте `TRAEFIK_HTTP_PORT`, `POSTGRES_PORT` или `PROMETHEUS_PORT` в `infra/.env`. При смене порта сайта обновите `APP_ORIGIN`, например на `http://shifthelper.localhost:8088`. `HTTP_PORT` задаёт внутренний порт API.
-
-Миграции применяются перед запуском API. Их состояние показывает `task migrate:status`.
-
-```sh
-docker compose --env-file infra/.env -f infra/compose.yaml ps
-docker compose --env-file infra/.env -f infra/compose.yaml logs --tail 100 backend frontend traefik
-docker compose --env-file infra/.env -f infra/compose.yaml stop
-```
-
-`task up` снова запускает сервисы. `task down` удаляет контейнеры и сеть, сохраняя тома. Для отдельного экземпляра задайте свободные порты и используйте одно значение `COMPOSE_PROJECT_NAME` для всех его команд.
-
-</details>
-
-<details>
-<summary>Заполнить стенд демоданными</summary>
-
-Задайте свои пароли по правилам регистрации. Команды рассчитаны на Bash.
-
-```bash
-read -r -s -p 'Пароль демозаказчика: ' DEMO_CUSTOMER_PASSWORD; echo
-read -r -s -p 'Пароль демоисполнителей: ' DEMO_WORKER_PASSWORD; echo
-export DEMO_CUSTOMER_PASSWORD DEMO_WORKER_PASSWORD
-task demo
-unset DEMO_CUSTOMER_PASSWORD DEMO_WORKER_PASSWORD
-```
-
-`task demo` выводит имена и email демоаккаунтов. Для входа используйте пароли, которые ввели выше.
-
-</details>
-
-## Разработка
-
-| Где | Что находится |
-| --- | --- |
-| [`frontend/`](frontend/) | Интерфейс на React, TypeScript и Vite. |
-| [`backend/`](backend/) | API на Go и Gin, PostgreSQL через pgx, Redis и миграции Goose. |
-| [`infra/`](infra/) | Docker Compose, nginx, Traefik и Prometheus. |
-| [`docs/openapi.yaml`](docs/openapi.yaml) | Контракт API для Swagger и генерации TypeScript-клиента. |
-
-[Запуск frontend](frontend/README.md) · [Проверки и настройка карты](docs/agents/development.md) · [Правила работы с проектом](AGENTS.md)
+- [Frontend setup](frontend/README.md)
+- [Local Swagger UI](http://shifthelper.localhost/docs/swagger.html) and [API contract](docs/openapi.yaml)
+- [Environment, maps, and checks](docs/agents/development.md)
+- [Project commands](Taskfile.yml) and [team guidelines](AGENTS.md)
